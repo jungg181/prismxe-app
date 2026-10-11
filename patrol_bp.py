@@ -311,13 +311,31 @@ def qr_png():
 @login_required
 def settings():
     cfg = DB.get('config', {})
+    # Effective app version/URL: app_version.json (auto-updated by builds) wins.
+    eff_version = int(cfg.get('app_version', 1))
+    eff_url = cfg.get('apk_url', '')
+    auto_managed = False
+    try:
+        import os as _os, json as _json
+        _p = _os.path.join(_os.path.dirname(__file__), 'app_version.json')
+        if _os.path.exists(_p):
+            with open(_p) as _f:
+                _j = _json.load(_f)
+            if _j.get('version'):
+                eff_version = max(eff_version, int(_j['version']))
+            if _j.get('apk_url'):
+                eff_url = _j['apk_url']
+            auto_managed = True
+    except Exception:
+        pass
     return render_template('patrol/settings.html', slots=DB['slots'],
                            equipment=DB['equipment'], shifts=DB['shifts'],
                            workers=DB['workers'],
                            zipcode=cfg.get('zipcode', ''),
-                           app_version=cfg.get('app_version', 1),
-                           apk_url=cfg.get('apk_url', ''),
-                           apk_cert_sha256=cfg.get('apk_cert_sha256', ''))
+                           app_version=eff_version,
+                           apk_url=eff_url,
+                           apk_cert_sha256=cfg.get('apk_cert_sha256', ''),
+                           auto_managed=auto_managed)
 
 
 @bp.route('/settings/display/save', methods=['POST'])
