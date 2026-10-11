@@ -36,6 +36,24 @@ def portal():
     return render_template("portal.html")
 
 
+@app.get("/.well-known/assetlinks.json")
+def assetlinks():
+    # Android App Links verification: lets the Prism Patrol app open
+    # https://app.prismxe.com/patrol/patrol-clock directly on QR scan.
+    # The sha256 fingerprint is set from Patrol Settings once the APK is built.
+    from patrol_bp import DB
+    cfg = DB.get('config', {})
+    fingerprints = [f for f in [cfg.get('apk_cert_sha256', '')] if f]
+    return {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.prismxe.patrol",
+            "sha256_cert_fingerprints": fingerprints,
+        },
+    }, 200, {"Content-Type": "application/json"}
+
+
 @app.errorhandler(404)
 def not_found(e):
     return (
