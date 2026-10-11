@@ -1,0 +1,257 @@
+{% extends "patrol/base.html" %}
+{% set nav='settings' %}
+{% block title %}Settings · Equipment Patrol Timetable{% endblock %}
+{% block body %}
+<h1 style="margin-top:0">Settings</h1>
+
+<div class="card">
+  <h2><span class="muted">01</span> Equipment <button class="btn small primary" onclick="addEquipment()" style="float:right">+ Add Equipment</button></h2>
+  <div id="eq-list">
+    {% for e in equipment %}
+    <div class="rowline eq-row" data-id="{{ e.id }}">
+      <span class="num">{{ '%02d'|format(loop.index) }}</span>
+      <div class="grow">
+        <div class="small muted">EQUIPMENT NAME</div>
+        <input type="text" class="eq-name" value="{{ e.name }}" style="width:100%">
+      </div>
+      <div class="grow">
+        <div class="small muted">NOTE</div>
+        <input type="text" class="eq-note" value="{{ e.note }}" placeholder="Example: Scheduled for November" style="width:100%">
+      </div>
+      <div>
+        <div class="small muted">STATUS</div>
+        <button class="btn small eq-active" data-on="{{ 1 if e.active else 0 }}">{{ '🟢 Active' if e.active else '⚪ Planned' }}</button>
+      </div>
+      <div>
+        <div class="small muted">&nbsp;</div>
+        <button class="btn small" onclick="moveRow(this,-1)">▲</button>
+        <button class="btn small" onclick="moveRow(this,1)">▼</button>
+        <button class="btn small danger" onclick="delEquipment('{{ e.id }}')">Delete</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <button class="btn primary" onclick="saveEquipment()">Save equipment</button>
+  <span class="muted small" id="eq-msg"></span>
+</div>
+
+<div class="card" style="overflow-x:auto">
+  <h2><span class="muted">02</span> Patrol Checks <span class="muted small">click a cell: empty → <span class="dot hollow"></span> → <span class="dot solid"></span> photo report → empty</span></h2>
+  <table class="grid" id="check-grid">
+    <tr><th></th>{% for s in slots %}<th>{{ s.label }}</th>{% endfor %}</tr>
+    {% for e in equipment %}
+    <tr><td style="text-align:left;font-weight:700;white-space:nowrap">{{ e.name }}</td>
+      {% for s in slots %}
+      {% set k = e.checks.get(loop.index0|string, 0) %}
+      <td class="cell" data-eq="{{ e.id }}" data-slot="{{ loop.index0 }}" data-v="{{ k }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2><span class="muted">03</span> Time Slots &amp; Shifts</h2>
+  <div id="slot-list">
+    {% for s in slots %}
+    <div class="rowline slot-row">
+      <span class="num">{{ '%02d'|format(loop.index) }}</span>
+      <input type="text" class="slot-label" value="{{ s.label }}" style="width:80px">
+      <span class="seg-wrap" data-cur="{{ s.shift }}">
+        {% for sh in shifts %}
+        <button class="seg-btn {{ 'on' if sh.id==s.shift else '' }}" data-shift="{{ sh.id }}" style="{{ 'background:'+sh.color if sh.id==s.shift else '' }}">{{ sh.name }}</button>
+        {% endfor %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  <button class="btn primary" onclick="saveSlots()">Save slots</button>
+  <span class="muted small" id="slot-msg"></span>
+</div>
+
+<div class="card">
+  <h2><span class="muted">04</span> Shift Definitions <button class="btn small primary" onclick="addShift()" style="float:right">+ Add Shift</button></h2>
+  <div id="shift-list"></div>
+  <button class="btn primary" onclick="saveShifts()">Save shifts</button>
+  <span class="muted small" id="shift-msg"></span>
+</div>
+
+<div class="card">
+  <h2><span class="muted">05</span> Workers <button class="btn small primary" onclick="addWorker()" style="float:right">+ Add Worker</button></h2>
+  <div id="worker-list">
+    {% for w in workers %}
+    <div class="rowline wk-row" data-id="{{ w.id }}">
+      <span class="num">{{ '%02d'|format(loop.index) }}</span>
+      <div class="grow"><div class="small muted">NAME</div><input type="text" class="wk-name" value="{{ w.name }}" style="width:100%"></div>
+      <div class="grow"><div class="small muted">EMAIL</div><input type="email" class="wk-email" value="{{ w.email }}" style="width:100%"></div>
+      <div><div class="small muted">SHIFT</div>
+        <select class="wk-shift">
+          <option value="">—</option>
+          {% for sh in shifts %}<option value="{{ sh.id }}" {{ 'selected' if w.shift_id==sh.id else '' }}>{{ sh.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><div class="small muted">&nbsp;</div><button class="btn small danger" onclick="delWorker('{{ w.id }}')">Delete</button></div>
+    </div>
+    {% endfor %}
+  </div>
+  <button class="btn primary" onclick="saveWorkers()">Save workers</button>
+  <span class="muted small" id="wk-msg"></span>
+</div>
+
+<div class="card">
+  <h2><span class="muted">06</span> Data</h2>
+  <a class="btn" href="{{ url_for('.data_backup') }}">⬇ Download backup (JSON)</a>
+  <form method="post" action="{{ url_for('.settings_reset') }}" style="display:inline" onsubmit="return confirm('Reset timetable to defaults? Workers and punches are kept.')">
+    <button class="btn danger">Reset timetable to defaults</button>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const SHIFTS = {{ shifts|tojson }};
+async function post(url, data){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  return r.json();
+}
+// --- equipment ---
+function renumber(){
+  document.querySelectorAll('#eq-list .eq-row').forEach((row,i)=>{
+    row.querySelector('.num').textContent = String(i+1).padStart(2,'0');
+  });
+}
+function moveRow(btn, dir){
+  const row = btn.closest('.eq-row');
+  const sib = dir<0 ? row.previousElementSibling : row.nextElementSibling;
+  if (sib && sib.classList.contains('eq-row')) {
+    dir<0 ? row.parentNode.insertBefore(row, sib) : row.parentNode.insertBefore(sib, row);
+    renumber();
+  }
+}
+document.querySelectorAll('.eq-active').forEach(b=>{
+  b.onclick = ()=>{
+    const on = b.dataset.on === '1';
+    b.dataset.on = on ? '0' : '1';
+    b.textContent = on ? '⚪ Planned' : '🟢 Active';
+  };
+});
+async function saveEquipment(){
+  const rows = [...document.querySelectorAll('#eq-list .eq-row')].map(row=>({
+    id: row.dataset.id,
+    name: row.querySelector('.eq-name').value,
+    note: row.querySelector('.eq-note').value,
+    active: row.querySelector('.eq-active').dataset.on === '1'
+  }));
+  await post("{{ url_for('.settings_equipment_save') }}", {equipment: rows});
+  document.getElementById('eq-msg').textContent = 'Saved ✓';
+  setTimeout(()=>location.reload(), 600);
+}
+function addEquipment(){
+  const f = document.createElement('form');
+  f.method='post'; f.action="{{ url_for('.settings_equipment_add') }}";
+  const i = document.createElement('input'); i.type='hidden'; i.name='name'; i.value='New Equipment';
+  f.appendChild(i); document.body.appendChild(f); f.submit();
+}
+function delEquipment(id){
+  if(!confirm('Delete this equipment?')) return;
+  const f = document.createElement('form');
+  f.method='post'; f.action='/settings/equipment/'+id+'/delete';
+  document.body.appendChild(f); f.submit();
+}
+// --- checks ---
+document.querySelectorAll('#check-grid td.cell').forEach(td=>{
+  td.onclick = async ()=>{
+    const r = await post("{{ url_for('.settings_check') }}",
+      {equipment_id: td.dataset.eq, slot: td.dataset.slot});
+    const v = r.value;
+    td.dataset.v = v;
+    td.innerHTML = v ? '<span class="dot '+(v==2?'solid':'hollow')+'"></span>' : '';
+  };
+});
+// --- slots ---
+document.querySelectorAll('.seg-wrap').forEach(wrap=>{
+  wrap.querySelectorAll('.seg-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      wrap.dataset.cur = btn.dataset.shift;
+      wrap.querySelectorAll('.seg-btn').forEach(b=>{
+        const on = b===btn;
+        b.classList.toggle('on', on);
+        const sh = SHIFTS.find(s=>s.id===b.dataset.shift);
+        b.style.background = on && sh ? sh.color : '';
+      });
+    };
+  });
+});
+async function saveSlots(){
+  const slots = [...document.querySelectorAll('#slot-list .slot-row')].map(row=>({
+    label: row.querySelector('.slot-label').value,
+    shift: row.querySelector('.seg-wrap').dataset.cur
+  }));
+  await post("{{ url_for('.settings_slots_save') }}", {slots});
+  document.getElementById('slot-msg').textContent = 'Saved ✓';
+  setTimeout(()=>location.reload(), 600);
+}
+// --- shifts ---
+function renderShifts(){
+  const box = document.getElementById('shift-list');
+  box.innerHTML = '';
+  SHIFTS.forEach((sh, si)=>{
+    const div = document.createElement('div');
+    div.className = 'card'; div.style.background = '#f8fafc';
+    div.innerHTML =
+      '<div class="rowline"><b>Shift</b>' +
+      '<input type="text" class="sh-name" value="'+sh.name+'" style="width:80px">' +
+      '<input type="color" class="sh-color" value="'+sh.color+'">' +
+      '<button class="btn small danger" style="margin-left:auto" onclick="SHIFTS.splice('+si+',1);renderShifts()">Delete shift</button></div>' +
+      '<div class="sh-ivs">' + sh.intervals.map((iv,ii)=>
+        '<div class="rowline"><span class="muted small">From</span><input type="time" class="iv-s" value="'+iv.start+'">' +
+        '<span class="muted small">to</span><input type="time" class="iv-e" value="'+iv.end+'">' +
+        '<button class="btn small danger" onclick="SHIFTS['+si+'].intervals.splice('+ii+',1);renderShifts()">✕</button></div>'
+      ).join('') + '</div>' +
+      '<button class="btn small" onclick="SHIFTS['+si+'].intervals.push({start:\'08:00\',end:\'17:00\'});renderShifts()">+ Add interval</button>';
+    box.appendChild(div);
+  });
+}
+function addShift(){
+  SHIFTS.push({id:'', name:'D', color:'#0891b2', intervals:[{start:'08:00',end:'17:00'}]});
+  renderShifts();
+}
+async function saveShifts(){
+  const cards = [...document.querySelectorAll('#shift-list .card')];
+  const out = cards.map((card, si)=>{
+    const ivs = [...card.querySelectorAll('.sh-ivs .rowline')].map(r=>({
+      start: r.querySelector('.iv-s').value, end: r.querySelector('.iv-e').value
+    }));
+    return {id: SHIFTS[si].id, name: card.querySelector('.sh-name').value,
+            color: card.querySelector('.sh-color').value, intervals: ivs};
+  });
+  await post("{{ url_for('.settings_shifts_save') }}", {shifts: out});
+  document.getElementById('shift-msg').textContent = 'Saved ✓';
+  setTimeout(()=>location.reload(), 600);
+}
+renderShifts();
+// --- workers ---
+async function saveWorkers(){
+  const rows = [...document.querySelectorAll('#worker-list .wk-row')].map(row=>({
+    id: row.dataset.id,
+    name: row.querySelector('.wk-name').value,
+    email: row.querySelector('.wk-email').value,
+    shift_id: row.querySelector('.wk-shift').value
+  }));
+  await post("{{ url_for('.settings_workers_save') }}", {workers: rows});
+  document.getElementById('wk-msg').textContent = 'Saved ✓';
+  setTimeout(()=>location.reload(), 600);
+}
+function addWorker(){
+  const f = document.createElement('form');
+  f.method='post'; f.action="{{ url_for('.settings_worker_add') }}";
+  const i = document.createElement('input'); i.type='hidden'; i.name='name'; i.value='New Worker';
+  f.appendChild(i); document.body.appendChild(f); f.submit();
+}
+function delWorker(id){
+  if(!confirm('Delete this worker?')) return;
+  const f = document.createElement('form');
+  f.method='post'; f.action='/settings/workers/'+id+'/delete';
+  document.body.appendChild(f); f.submit();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "cm/base.html" %}
+{% block title %}{{ 'Edit Site' if site else 'Add Site' }}{% endblock %}
+{% block content %}
+<h1>{{ 'Edit Site' if site else 'Add New Site' }}</h1>
+<form class="form" method="post" enctype="multipart/form-data">
+  <label>Name <input name="name" required value="{{ site.name if site }}"></label>
+  <label>Address <input name="address" value="{{ site.address if site }}"></label>
+  <div class="grid2">
+    <label>Latitude <input name="lat" type="number" step="any" value="{{ site.lat if site and site.lat is not none }}"></label>
+    <label>Longitude <input name="lng" type="number" step="any" value="{{ site.lng if site and site.lng is not none }}"></label>
+  </div>
+  <label>Project Manager <input name="pm" value="{{ site.pm if site }}"></label>
+  <div class="grid2">
+    <label>Start date <input name="start_date" type="date" value="{{ site.start_date if site }}"></label>
+    <label>Target date <input name="target_date" type="date" value="{{ site.target_date if site }}"></label>
+  </div>
+  <label>Status
+    <select name="status">
+      {% for s in statuses %}<option value="{{ s }}" {% if site and site.status == s %}selected{% endif %}>{{ s.replace('_',' ').title() }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Photo <input name="photo" type="file" accept="image/*"></label>
+  {% if site and site.photo_url %}<img class="thumb" src="{{ site.photo_url }}">{% endif %}
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('.sites') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

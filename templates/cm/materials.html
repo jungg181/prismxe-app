@@ -1,0 +1,35 @@
+{% extends "cm/base.html" %}
+{% block title %}Materials{% endblock %}
+{% block content %}
+<h1>Material Inventory</h1>
+<p class="muted">Jobsite inventory, deliveries, and reorder alerts.</p>
+
+<div class="toolbar">
+  <a class="btn primary" href="{{ url_for('.material_new') }}">+ Add Material</a>
+</div>
+
+<form class="filters" method="get">
+  <select name="site" onchange="this.form.submit()">
+    <option value="all">All sites</option>
+    {% for s in sites %}<option value="{{ s.id }}" {% if fsite==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+</form>
+
+<div class="table-wrap"><table class="tbl">
+<tr><th>Material</th><th>Site</th><th>Qty</th><th>Status</th><th></th></tr>
+{% for r in rows %}
+<tr>
+  <td><b>{{ r.m.name }}</b>{% if r.m.photo_url %}<br><img class="thumb-sm" src="{{ r.m.photo_url }}">{% endif %}</td>
+  <td>{{ site_name(r.m.site_id) }}</td>
+  <td>{{ r.m.quantity }} {{ r.m.unit }}<div class="muted small">reorder ≤ {{ r.m.reorder_threshold }}</div></td>
+  <td>{% if r.low %}<span class="pill pill-low">LOW</span>{% else %}<span class="pill pill-ok">OK</span>{% endif %}</td>
+  <td class="nowrap">
+    <a class="btn small" href="{{ url_for('.material_edit', mid=r.m.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('.material_delete', mid=r.m.id) }}" style="display:inline" onsubmit="return confirm('Delete material?')"><button class="btn small danger">Delete</button></form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">No materials recorded.</td></tr>
+{% endfor %}
+</table></div>
+{% endblock %}

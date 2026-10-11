@@ -1,0 +1,61 @@
+{% extends "cm/base.html" %}
+{% block title %}Timecards{% endblock %}
+{% block content %}
+<h1>Timecards &amp; GPS Attendance {% if attention %}<span class="badge big">{{ attention }} need attention</span>{% endif %}</h1>
+<p class="muted">Real-time check-in records, GPS locations, and shift hours. Meal break: 1 hr deducted automatically on shifts ≥ 5h.</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ active_now }}</div><div class="lbl">Active on site</div></div>
+  <div class="stat"><div class="num">{{ total_hours }}</div><div class="lbl">Total hours</div></div>
+  <div class="stat"><div class="num">{{ total }}</div><div class="lbl">Total records</div></div>
+  <div class="stat"><div class="num">{{ gps_pct }}%</div><div class="lbl">GPS verified</div></div>
+</div>
+
+<div class="toolbar">
+  <a class="btn" href="{{ url_for('.payroll') }}">📊 Payroll report</a>
+  <a class="btn" href="{{ url_for('.timecard_bulk') }}">Bulk time entry</a>
+  <a class="btn primary" href="{{ url_for('.timecard_new') }}">+ Log timecard</a>
+</div>
+
+<form class="filters" method="get">
+  <div class="grid3">
+    <select name="site" onchange="this.form.submit()">
+      <option value="all">All sites</option>
+      {% for s in sites %}<option value="{{ s.id }}" {% if fsite==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <select name="sort" onchange="this.form.submit()">
+      <option value="newest" {% if sort=='newest' %}selected{% endif %}>Date: newest first</option>
+      <option value="oldest" {% if sort=='oldest' %}selected{% endif %}>Date: oldest first</option>
+    </select>
+  </div>
+  <div class="chip-row">
+    {% for v,label in [('all','All'),('clocked_in','Clocked In'),('clocked_out','Clocked Out'),('approved','Approved')] %}
+    <button class="chip {% if fstatus==v %}on{% endif %}" type="submit" name="status" value="{{ v }}">{{ label }}</button>
+    {% endfor %}
+  </div>
+</form>
+
+<div class="table-wrap"><table class="tbl">
+<tr><th>Worker</th><th>Site</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Notes</th><th>Action</th></tr>
+{% for t in rows %}
+<tr>
+  <td><b>{{ worker_name(t.worker_id) }}</b></td>
+  <td>{{ site_name(t.site_id) }}</td>
+  <td>{{ fmt_dt(t.clock_in) }}{% set gl=gmaps_link(t.clock_in_lat,t.clock_in_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">📍 GPS</a>{% endif %}</td>
+  <td>{% if t.clock_out %}{{ fmt_dt(t.clock_out) }}{% set gl=gmaps_link(t.clock_out_lat,t.clock_out_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">📍 GPS</a>{% endif %}{% else %}<span class="muted">Still on shift</span>{% endif %}</td>
+  <td>{{ t.hours or compute_hours(t.clock_in, t.clock_out) }}</td>
+  <td><span class="pill pill-{{ t.status }}">{{ t.status.replace('_',' ').title() }}</span>{% if t.offline %} <span class="pill pill-offline" title="Synced from an offline device">Offline</span>{% endif %}</td>
+  <td class="small muted">{{ t.notes or '' }}</td>
+  <td class="nowrap">
+    {% if t.status == 'clocked_out' %}
+    <form method="post" action="{{ url_for('.timecard_approve', tid=t.id) }}" style="display:inline"><button class="btn small primary">Approve</button></form>
+    {% endif %}
+    <a class="btn small" href="{{ url_for('.timecard_edit', tid=t.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('.timecard_delete', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete timecard?')"><button class="btn small danger">Delete</button></form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="8" class="muted">No timecards.</td></tr>
+{% endfor %}
+</table></div>
+{% endblock %}

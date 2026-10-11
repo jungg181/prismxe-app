@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Dashboard{% endblock %} · Construction Manager</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🏗️ Construction Manager</div>
+  <nav class="topnav">
+    {% for key, label, url in nav %}
+    <a href="{{ url }}" class="{% if active_tab == key %}active{% endif %}">{{ label }}{% if key == 'timecards' and attention %}<span class="badge">{{ attention }}</span>{% endif %}{% if key == 'qa' and open_defects %}<span class="badge">{{ open_defects }}</span>{% endif %}</a>
+    {% endfor %}
+  </nav>
+</header>
+
+<main class="container">
+  {% with msgs = get_flashed_messages() %}
+  {% if msgs %}<div class="flash">{% for m in msgs %}<div>{{ m }}</div>{% endfor %}</div>{% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<nav class="bottomnav">
+  {% for key, label, url in nav %}
+  <a href="{{ url }}" class="{% if active_tab == key %}active{% endif %}">
+    <span class="ico">{{ {'dashboard':'🏠','sites':'📍','blueprints':'🗺️','workers':'👷','timecards':'⏱️','incidents':'⚠️','daily_logs':'📝','labour':'💪','materials':'📦','qa':'✅','data':'💾'}[key] }}</span>
+    <span class="lbl">{{ label }}</span>
+    {% if key == 'timecards' and attention %}<span class="badge">{{ attention }}</span>{% endif %}
+    {% if key == 'qa' and open_defects %}<span class="badge">{{ open_defects }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</nav>
+
+<div id="modal-root"></div>
+<script src="{{ url_for('static', filename='cm/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

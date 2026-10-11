@@ -1,0 +1,29 @@
+{% extends "cm/base.html" %}
+{% block title %}Log Timecard{% endblock %}
+{% block content %}
+<h1>{{ 'Edit Timecard' if t else 'Log Timecard' }}</h1>
+<form class="form" method="post">
+  <div class="grid2">
+    <label>Worker
+      <select name="worker_id" required>
+        {% for w in workers %}<option value="{{ w.id }}" {% if t and t.worker_id==w.id %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Site
+      <select name="site_id" required>
+        {% for s in sites %}<option value="{{ s.id }}" {% if t and t.site_id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <div class="grid3">
+    <label>Date <input type="date" name="date" required value="{{ (t.clock_in[:10] if t and t.clock_in) or today().isoformat() }}"></label>
+    <label>Clock in <input type="time" name="clock_in" value="{{ t.clock_in[11:16] if t and t.clock_in }}"></label>
+    <label>Clock out <input type="time" name="clock_out" value="{{ t.clock_out[11:16] if t and t.clock_out }}"></label>
+  </div>
+  <label>Notes <textarea name="notes" rows="2">{{ t.notes if t }}</textarea></label>
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('.timecards') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,249 @@
+{% extends "patrol/base.html" %}
+{% set nav='dash' %}
+{% block title %}Dashboard · Equipment Patrol Timetable{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+{% block wrapclass %}wide{% endblock %}
+{% block body %}
+<div id="offlineBadge" hidden style="margin-bottom:10px;background:#fef3c7;color:#92400e;
+  border:1px solid #fcd34d;border-radius:10px;padding:8px 16px;font-weight:700">
+  📡 Offline — showing the last saved board
+</div>
+<div class="grid-half dash-top">
+  <div class="card due-now">
+    <h2>Patrols Due Now <span class="muted small">{{ slots[slot_idx].label }} · Shift {{ slots[slot_idx].shift }}</span></h2>
+    <div class="due-timer" style="display:flex;align-items:center;gap:10px;margin:2px 0 12px">
+      <div class="small" style="white-space:nowrap">Time left <b id="dueleft" style="font-variant-numeric:tabular-nums">--:--</b></div>
+      <div style="flex:1;height:10px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div id="duebar" style="height:100%;width:100%;background:#22c55e;border-radius:99px"></div></div>
+    </div>
+    {% if due %}
+      {% for p in due %}
+      <div class="patrol-card clickable {{ 'photo glow' if p.kind==2 else '' }}" data-eq="{{ p.equipment.id }}">
+        <span class="dot {{ 'solid' if p.kind==2 else 'hollow' }}"></span>
+        <span class="nm">{{ p.equipment.name }}</span>
+        {% if p.kind==2 %}<span class="badge" style="background:#e0f2fe;color:#0369a1">PHOTO REPORT</span>{% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No patrols this hour.</p>
+    {% endif %}
+    <h3 style="margin-top:auto;padding-top:16px">Next Patrol <span class="muted small">{{ slots[nxt].label if nxt is not none else '' }}</span></h3>
+    {% if nxt_list %}
+      {% for p in nxt_list %}
+      <div class="patrol-card clickable {{ 'photo' if p.kind==2 else '' }}" data-eq="{{ p.equipment.id }}">
+        <span class="dot {{ 'solid' if p.kind==2 else 'hollow' }}"></span>
+        <span style="font-weight:700">{{ p.equipment.name }}</span>
+        {% if p.kind==2 %}<span class="badge" style="background:#e0f2fe;color:#0369a1">PHOTO REPORT</span>{% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted small">—</p>
+    {% endif %}
+  </div>
+  <div class="dash-right">
+  <div class="card" id="shiftcard" data-nxth="{{ slots[nxt].label.split(':')[0] if nxt is not none else '' }}" style="background:{{ shift.color if shift else '#475569' }};border:none;color:#fff">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="font-size:clamp(1.25rem,.9rem + 1.5vw,3rem);font-weight:800"><span class="livedot blink"></span>{{ shift.name if shift else '—' }}</div>
+      <div class="small" style="color:#e2e8f0">CURRENT SHIFT</div>
+      <div style="color:#e2e8f0;margin-left:auto;font-size:clamp(.9rem,.75rem + .7vw,1.7rem)">{{ now.strftime('%A, %b %d') }}</div>
+      <div class="clock" id="clock" style="font-size:clamp(1.9rem,1.1rem + 3.2vw,5rem);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums">--:--:--</div>
+    </div>
+    {% if nxt is not none %}
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+      <div class="small" style="color:#e2e8f0;white-space:nowrap">Next patrol {{ slots[nxt].label }}</div>
+      <div style="flex:1;height:8px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden"><div id="nxbar" style="height:100%;width:0%;background:#fff;border-radius:99px"></div></div>
+      <div id="nxcount" style="font-size:clamp(1rem,.85rem + .7vw,1.9rem);font-weight:800;font-variant-numeric:tabular-nums">--:--</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="grid-half">
+  <div class="card fill-col {{ 'glow-green' if on_patrol else '' }}">
+    <h2>On Patrol Now</h2>
+    {% if on_patrol %}
+      {% for p in on_patrol %}
+      <div class="rowline">
+        <span style="font-size:1.3rem">👷</span>
+        <div class="grow"><b>{{ p.name }}</b></div>
+        <span class="muted small elapsed" data-in="{{ p.ts }}">in --:--:--</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="flex:1;display:flex;align-items:center;justify-content:center"><p class="muted">No one on patrol.</p></div>
+    {% endif %}
+  </div>
+  <div class="card qr-box">
+    <h3>Clock In / Out</h3>
+    <img src="{{ url_for('.qr_png') }}" alt="Scan to clock in/out">
+    <p class="muted small">Scan to Clock In / Out</p>
+    <a class="btn small" href="{{ url_for('.patrol_clock') }}">Open clock page</a>
+  </div>
+  </div>
+  </div>
+</div>
+
+<div class="card" id="tcard" style="overflow-x:auto">
+  <h3>Full Timetable</h3>
+  <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
+  <div id="nowline"></div>
+  <table class="grid" id="ttable">
+    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ (7+loop.index0)%24 }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
+    {% for e in equipment %}
+    <tr id="eq-{{ e.id }}" class="{{ 'dim' if not e.active else '' }}">
+      <td style="text-align:left;font-weight:700;white-space:nowrap">{{ e.name }}{% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}</td>
+      {% for s in slots %}
+      {% set k = e.checks.get(loop.index0|string) %}
+      {% set is_now = loop.index0==slot_idx %}
+      {% set bg = '#fef9c3' if is_now else '' %}
+      <td style="{{ 'background:'+bg if bg else '' }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h3>Staff Locations <span class="muted small">last reported at clock-in / out</span></h3>
+  {% if located %}
+  <div id="staffmap" style="height:360px;border-radius:12px"></div>
+  {% else %}
+  <p class="muted">No location data yet — clock in from a phone with location turned on.</p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function tick(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('clock').innerHTML =
+    p(d.getHours())+'<span class="blink">:</span>'+p(d.getMinutes())+'<span class="blink">:</span>'+p(d.getSeconds());
+}
+tick(); setInterval(tick, 1000);
+// countdown to next patrol slot + progress through the current hour
+function tickNext(){
+  var card = document.getElementById('shiftcard');
+  var el = document.getElementById('nxcount'), bar = document.getElementById('nxbar');
+  if(!card || !el) return;
+  var h = parseInt(card.dataset.nxth, 10);
+  if(isNaN(h)) return;
+  var d = new Date();
+  var target = new Date(d); target.setHours(h, 0, 0, 0);
+  if(target <= d) target.setDate(target.getDate() + 1);
+  var s = Math.max(0, Math.floor((target - d) / 1000));
+  var p = function(n){ return String(n).padStart(2, '0'); };
+  el.textContent = (s >= 3600 ? Math.floor(s/3600) + ':' + p(Math.floor(s/60)%60) : p(Math.floor(s/60))) + ':' + p(s%60);
+  if(bar){
+    var frac = (d.getMinutes()*60 + d.getSeconds()) / 3600;
+    bar.style.width = (frac*100).toFixed(1) + '%';
+  }
+}
+tickNext(); setInterval(tickNext, 1000);
+// time left in this patrol hour, with a draining urgency bar
+function tickDue(){
+  var el = document.getElementById('dueleft'), bar = document.getElementById('duebar');
+  if(!el) return;
+  var d = new Date();
+  var s = 3600 - (d.getMinutes()*60 + d.getSeconds());
+  var p = function(n){ return String(n).padStart(2, '0'); };
+  el.textContent = p(Math.floor(s/60)) + ':' + p(s%60);
+  if(bar){
+    var frac = s/3600;
+    bar.style.width = (frac*100).toFixed(1) + '%';
+    bar.style.background = frac > .5 ? '#22c55e' : (frac > .2 ? '#f59e0b' : '#ef4444');
+  }
+}
+tickDue(); setInterval(tickDue, 1000);
+// live elapsed time for everyone on patrol
+function tickElapsed(){
+  var p = function(n){ return String(n).padStart(2, '0'); };
+  document.querySelectorAll('.elapsed').forEach(function(el){
+    var t0 = new Date(el.dataset.in.replace(' ', 'T'));
+    var s = Math.max(0, Math.floor((Date.now() - t0.getTime()) / 1000));
+    el.textContent = 'in ' + p(Math.floor(s/3600)) + ':' + p(Math.floor(s/60)%60) + ':' + p(s%60);
+  });
+}
+tickElapsed(); setInterval(tickElapsed, 1000);
+// click a due-now card -> jump to that equipment row and flash it;
+// hover a due-now card -> highlight the matching timetable row
+document.querySelectorAll('.patrol-card.clickable').forEach(function(card){
+  var row = document.getElementById('eq-' + card.dataset.eq);
+  card.addEventListener('mouseenter', function(){ if(row) row.classList.add('rowhi'); });
+  card.addEventListener('mouseleave', function(){ if(row) row.classList.remove('rowhi'); });
+  card.addEventListener('click', function(){
+    if(!row) return;
+    document.getElementById('tcard').scrollIntoView({behavior:'smooth', block:'center'});
+    row.classList.remove('rowflash');
+    void row.offsetWidth;
+    row.classList.add('rowflash');
+  });
+});
+// highlight the whole column on hover
+(function(){
+  var tbl = document.getElementById('ttable');
+  if(!tbl) return;
+  function hi(cell, on){
+    if(!cell) return;
+    var idx = cell.cellIndex;
+    for(var r = 0; r < tbl.rows.length; r++){
+      var c = tbl.rows[r].cells[idx];
+      if(c) c.classList.toggle('colhi', on);
+    }
+  }
+  tbl.addEventListener('mouseover', function(ev){
+    var t = ev.target.closest('td,th');
+    if(t && tbl.contains(t)) hi(t, true);
+  });
+  tbl.addEventListener('mouseout', function(ev){
+    var t = ev.target.closest('td,th');
+    if(t && tbl.contains(t)) hi(t, false);
+  });
+})();
+setTimeout(function(){ location.reload(); }, 60000);
+// offline indicator
+(function(){
+  var b = document.getElementById('offlineBadge');
+  function upd(){ b.hidden = navigator.onLine; }
+  window.addEventListener('online', upd);
+  window.addEventListener('offline', upd);
+  upd();
+})();
+// sweeping "now" line across the timetable, like a clock hand
+function moveNowLine(){
+  var line = document.getElementById('nowline');
+  var table = document.getElementById('ttable');
+  if(!line || !table){ return; }
+  var d = new Date();
+  var th = document.querySelector('#ttable th[data-h="' + d.getHours() + '"]');
+  if(!th){ line.style.display = 'none'; return; }
+  var frac = (d.getMinutes()*60 + d.getSeconds())/3600;
+  line.style.display = 'block';
+  line.style.top = table.offsetTop + 'px';
+  line.style.left = (table.offsetLeft + th.offsetLeft + th.offsetWidth*frac) + 'px';
+}
+moveNowLine(); setInterval(moveNowLine, 30000);
+{% if located %}
+(function(){
+  var el = document.getElementById('staffmap');
+  if (!navigator.onLine) {
+    el.innerHTML = '<div style="height:100%;display:flex;align-items:center;' +
+      'justify-content:center;color:#64748b;font-weight:600">Map needs connection</div>';
+    return;
+  }
+  var pts = {{ located|tojson }};
+  var map = L.map('staffmap');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+  var bounds = [];
+  pts.forEach(function(w){
+    L.marker([w.lat, w.lng]).addTo(map)
+      .bindPopup('<b>' + w.name + '</b><br><span style="color:#64748b;font-size:.85rem">' + w.ts + '</span>');
+    bounds.push([w.lat, w.lng]);
+  });
+  if (bounds.length === 1) { map.setView(bounds[0], 17); }
+  else { map.fitBounds(bounds, {padding: [40, 40]}); if (map.getZoom() < 15) map.setZoom(15); }
+})();
+{% endif %}
+</script>
+{% endblock %}

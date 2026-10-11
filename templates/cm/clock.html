@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock {{ rec.action.replace('_',' ') if rec }} · Construction Manager</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+</head>
+<body>
+<main class="container narrow">
+{% if error %}
+  <div class="card"><div class="card-body" style="text-align:center">
+    <h2>⏱️ Attendance</h2>
+    <p class="muted">{{ error }}</p>
+  </div></div>
+{% else %}
+  <div class="card"><div class="card-body" style="text-align:center">
+    <h2>⏱️ {{ 'Clock In' if rec.action == 'clock_in' else 'Clock Out' }}</h2>
+    <p class="muted">{{ site.name if site else 'Unknown site' }}</p>
+    <form method="post" action="{{ url_for('.clock_confirm', token=rec.token) }}" id="clock-form">
+      <div class="card" style="background:#eff6ff;border:2px solid var(--blue);margin:0 0 12px"><div class="card-body" style="text-align:left">
+        <b>🔍 Find me by phone or email</b>
+        <p class="muted small" style="margin:4px 0 8px">Enter the mobile phone or email you registered with.</p>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="lookup-q" placeholder="Phone or email" style="flex:1" autocomplete="off">
+          <button type="button" class="btn primary" id="lookup-btn" onclick="lookupWorker()">Find</button>
+        </div>
+        <div id="lookup-result" style="margin-top:8px"></div>
+      </div></div>
+      <input type="hidden" name="worker_id" id="worker-id-hidden" value="">
+      <div id="name-pick">
+      <label style="text-align:left">Or select your name
+        <select name="worker_id" id="worker-select">
+          <option value="">—</option>
+          {% for w in workers %}<option value="{{ w.id }}">{{ w.name }} ({{ w.trade }})</option>{% endfor %}
+        </select>
+      </label>
+      </div>
+      <input type="hidden" name="lat" id="lat"><input type="hidden" name="lng" id="lng">
+      <p class="muted small" id="geo-status">Getting your location...</p>
+      <button class="btn primary big" type="submit" id="confirm-btn" disabled>Confirm {{ 'Clock In' if rec.action == 'clock_in' else 'Clock Out' }}</button>
+    </form>
+<script>
+const lookupQ = document.getElementById('lookup-q');
+const lookupResult = document.getElementById('lookup-result');
+const workerSelect = document.getElementById('worker-select');
+const workerHidden = document.getElementById('worker-id-hidden');
+const confirmBtn = document.getElementById('confirm-btn');
+const namePick = document.getElementById('name-pick');
+const EMAIL_KEY = 'clock_worker_email';
+function setWorker(id, label){
+  workerSelect.value = '';
+  workerHidden.value = id;
+  confirmBtn.disabled = !id;
+  namePick.style.display = id ? 'none' : '';
+  lookupResult.innerHTML = id
+    ? `<div class="msg ok" style="margin:0">👷 <b>${label}</b><br><a href="#" id="lookup-clear" style="font-size:.8rem">Not me? Use someone else</a></div>`
+    : '';
+  const clear = document.getElementById('lookup-clear');
+  if (clear) clear.onclick = e => { e.preventDefault(); localStorage.removeItem(EMAIL_KEY); workerHidden.value=''; confirmBtn.disabled = true; namePick.style.display=''; lookupResult.innerHTML=''; lookupQ.value=''; };
+}
+async function lookupWorker(){
+  const q = lookupQ.value.trim();
+  if (!q) { lookupResult.innerHTML = '<div class="msg err" style="margin:0">Enter your phone number or email first.</div>'; return; }
+  document.getElementById('lookup-btn').disabled = true;
+  lookupResult.innerHTML = '<div class="muted small">Searching...</div>';
+  try {
+    const r = await fetch('/cm/api/worker-lookup?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      const w = d.worker;
+      if (q.includes('@')) localStorage.setItem(EMAIL_KEY, q);
+      setWorker(w.id, w.name + (w.trade ? ' · ' + w.trade : ''));
+    } else {
+      localStorage.removeItem(EMAIL_KEY);
+      workerHidden.value = ''; confirmBtn.disabled = true; namePick.style.display = '';
+      lookupResult.innerHTML = `<div class="msg err" style="margin:0">${d.error || 'Worker not found.'}</div>`;
+    }
+  } catch(e) {
+    lookupResult.innerHTML = '<div class="msg err" style="margin:0">Network error — try again, or select your name below.</div>';
+  }
+  document.getElementById('lookup-btn').disabled = false;
+}
+lookupQ.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lookupWorker(); } });
+workerSelect.addEventListener('change', () => {
+  workerHidden.value = workerSelect.value;
+  confirmBtn.disabled = !workerSelect.value;
+  if (workerSelect.value) lookupResult.innerHTML = '';
+});
+// Auto-link: if this browser remembered a registered email from a
+// previous clock-in/out, resolve it automatically.
+(function autoLink(){
+  const saved = localStorage.getItem(EMAIL_KEY);
+  if (saved) { lookupQ.value = saved; lookupWorker(); }
+})();
+</script>
+  </div></div>
+<script>
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    p => { document.getElementById('lat').value = p.coords.latitude;
+           document.getElementById('lng').value = p.coords.longitude;
+           document.getElementById('geo-status').textContent = '✓ Location captured'; },
+    () => { document.getElementById('geo-status').textContent = 'Location unavailable — you can still clock in/out.'; },
+    {timeout: 8000});
+} else { document.getElementById('geo-status').textContent = 'Geolocation not supported.'; }
+</script>
+{% endif %}
+</main>
+</body>
+</html>

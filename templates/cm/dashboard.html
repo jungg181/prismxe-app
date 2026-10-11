@@ -1,0 +1,50 @@
+{% extends "cm/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Site Operations</h1>
+<p class="muted">Overview of all active construction sites.</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ open_incidents }}</div><div class="lbl">Open incidents</div></div>
+  <div class="stat"><div class="num">{{ open_defects }}</div><div class="lbl">Open defects</div></div>
+  <div class="stat"><div class="num">{{ low_stock }}</div><div class="lbl">Low stock items</div></div>
+  <div class="stat"><div class="num">{{ on_site }}</div><div class="lbl">Workers on site today</div></div>
+</div>
+
+<div class="section-head"><h2>Sites</h2><a href="{{ url_for('.sites') }}">Manage Sites →</a></div>
+<div class="cards">
+{% for r in sites %}
+  <div class="card">
+    {% if r.site.photo_url %}<img class="card-photo" src="{{ r.site.photo_url }}">{% endif %}
+    <div class="card-body">
+      <div class="card-title">{{ r.site.name }}</div>
+      <div class="muted small">{{ r.site.address or 'No address' }}</div>
+      <div class="muted small">PM: {{ r.site.pm or 'Unassigned' }}{% if r.days is not none %} · {{ r.days }} days remaining{% endif %}</div>
+      <div class="tiles">
+        <span class="tile">⚠️ {{ r.incidents }}</span>
+        <span class="tile">🔧 {{ r.defects }}</span>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <p class="muted">No sites yet.</p>
+{% endfor %}
+</div>
+
+<div class="section-head"><h2>Recent incidents</h2><a href="{{ url_for('.incidents') }}">View all →</a></div>
+{% for i in recent_incidents %}
+<div class="card list-row">
+  <span class="sev sev-{{ i.severity }}">{{ i.severity }}</span>
+  <div><b>{{ site_name(i.site_id) }}</b><div class="muted small">{{ i.description[:90] }}</div></div>
+  <span class="muted small">{{ fmt_dt(i.created_at) }}</span>
+</div>
+{% else %}<p class="muted">No incidents reported.</p>{% endfor %}
+
+<div class="section-head"><h2>Overdue defects</h2><a href="{{ url_for('.qa') }}">View all →</a></div>
+{% for d in overdue %}
+<div class="card list-row">
+  <span class="sev sev-{{ d.severity }}">{{ d.severity }}</span>
+  <div><b>{{ d.category }}</b> — {{ site_name(d.site_id) }}<div class="muted small">Due {{ d.due_date }} · {{ d.location }}</div></div>
+</div>
+{% else %}<p class="muted">No overdue defects.</p>{% endfor %}
+{% endblock %}

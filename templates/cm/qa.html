@@ -1,0 +1,65 @@
+{% extends "cm/base.html" %}
+{% block title %}QA / QC{% endblock %}
+{% block content %}
+<h1>Quality Assurance {% if open_count %}<span class="badge big">{{ open_count }} open</span>{% endif %}</h1>
+<p class="muted">Defects, inspections, and sign-off.</p>
+
+<div class="chip-row" style="margin-bottom:12px">
+  <a class="chip {% if tab=='defects' %}on{% endif %}" href="{{ url_for('.qa', tab='defects', site=fsite) }}">Defects</a>
+  <a class="chip {% if tab=='checks' %}on{% endif %}" href="{{ url_for('.qa', tab='checks', site=fsite) }}">QA / QC Checks</a>
+</div>
+
+<form class="filters" method="get">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <select name="site" onchange="this.form.submit()">
+    <option value="all">All sites</option>
+    {% for s in sites %}<option value="{{ s.id }}" {% if fsite==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+</form>
+
+{% if tab == 'defects' %}
+<div class="toolbar"><a class="btn primary" href="{{ url_for('.defect_new') }}">+ Log defect</a></div>
+<div class="cards">
+{% for d in defects %}
+<div class="card"><div class="card-body">
+  <div class="card-title">{{ d.category }} <span class="sev sev-{{ d.severity }}">{{ d.severity }}</span> <span class="pill pill-{{ d.status }}">{{ d.status }}</span></div>
+  <div class="muted small">{{ site_name(d.site_id) }}{% if d.location %} · {{ d.location }}{% endif %}</div>
+  <p>{{ d.description }}</p>
+  {% if d.photo_url %}<img class="thumb" src="{{ d.photo_url }}">{% endif %}
+  <div class="muted small">Identified {{ d.created_at[:10] if d.created_at }}{% if d.assigned_to %} · Assigned to {{ d.assigned_to }}{% endif %}{% if d.due_date %} · Due {{ d.due_date }}{% endif %}</div>
+  <div class="row-actions">
+    <form method="post" action="{{ url_for('.defect_status', did=d.id) }}" class="row-form">
+      <select name="status"><option value="open" {% if d.status=='open' %}selected{% endif %}>Open</option><option value="resolved" {% if d.status=='resolved' %}selected{% endif %}>Resolved</option></select>
+      <button class="btn small" type="submit">Update</button>
+    </form>
+    <a class="btn small" href="{{ url_for('.defect_edit', did=d.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('.defect_delete', did=d.id) }}" onsubmit="return confirm('Delete defect?')"><button class="btn small danger">Delete</button></form>
+  </div>
+</div></div>
+{% else %}
+<p class="muted">No defects.</p>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="toolbar"><a class="btn primary" href="{{ url_for('.check_new') }}">+ New check</a></div>
+<div class="cards">
+{% for c in checks %}
+<div class="card"><div class="card-body">
+  <div class="card-title">{{ c.name }} <span class="pill {% if c.result=='pass' %}pill-ok{% else %}pill-low{% endif %}">{{ c.result }}</span> <span class="pill pill-{{ c.status }}">{{ c.status.replace('_',' ') }}</span></div>
+  <div class="muted small">{{ site_name(c.site_id) }}{% if c.location %} · {{ c.location }}{% endif %} · {{ c.check_date }}</div>
+  {% if c.inspector %}<div class="small">Inspector: {{ c.inspector }}</div>{% endif %}
+  {% if c.notes %}<p>{{ c.notes }}</p>{% endif %}
+  <div class="row-actions">
+    {% if c.status == 'awaiting_signoff' %}
+    <form method="post" action="{{ url_for('.check_signoff', cid=c.id) }}"><button class="btn small primary">Sign off</button></form>
+    {% endif %}
+    <form method="post" action="{{ url_for('.check_delete', cid=c.id) }}" onsubmit="return confirm('Delete check?')"><button class="btn small danger">Delete</button></form>
+  </div>
+</div></div>
+{% else %}
+<p class="muted">No QA/QC checks.</p>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

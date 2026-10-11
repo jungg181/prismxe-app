@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Equipment Patrol Timetable{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='patrol/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">🛠️ Patrol Board</div>
+  <img class="top-logo" src="{{ url_for('static', filename='patrol/logo.png') }}" alt="Prism Multiple Entertainment LLC">
+  <nav>
+    <a href="{{ url_for('.dashboard') }}" class="{{ 'on' if nav=='dash' else '' }}">Dashboard</a>
+    <a href="{{ url_for('.timecard') }}" class="{{ 'on' if nav=='time' else '' }}">Timecard</a>
+    <a href="{{ url_for('.settings') }}" class="{{ 'on' if nav=='settings' else '' }}">Settings</a>
+    {% if session.get('admin') %}<a href="{{ url_for('.logout') }}">Lock</a>{% endif %}
+  </nav>
+</div>
+<div class="wrap {% block wrapclass %}{% endblock %}">
+{% with msgs = get_flashed_messages() %}
+{% if msgs %}<div class="flash ok">{{ msgs[0] }}</div>{% endif %}
+{% endwith %}
+{% block body %}{% endblock %}
+</div>
+{% block scripts %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/patrol/sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>

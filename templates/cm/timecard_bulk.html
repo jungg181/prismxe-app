@@ -1,0 +1,25 @@
+{% extends "cm/base.html" %}
+{% block title %}Bulk Time Entry{% endblock %}
+{% block content %}
+<h1>Bulk Time Entry</h1>
+<p class="muted">Add up to 8 rows at once. Rows without a worker are skipped.</p>
+<form class="form" method="post">
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>Worker</th><th>Site</th><th>Date</th><th>In</th><th>Out</th><th>Notes</th></tr>
+    {% for i in range(8) %}
+    <tr>
+      <td><select name="rows[{{i}}][worker_id]"><option value="">—</option>{% for w in workers %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}</select></td>
+      <td><select name="rows[{{i}}][site_id]">{% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></td>
+      <td><input type="date" name="rows[{{i}}][date]" value="{{ today }}"></td>
+      <td><input type="time" name="rows[{{i}}][clock_in]" value="08:00"></td>
+      <td><input type="time" name="rows[{{i}}][clock_out]" value="17:00"></td>
+      <td><input name="rows[{{i}}][notes]" placeholder="optional"></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Add timecards</button>
+    <a class="btn" href="{{ url_for('.timecards') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

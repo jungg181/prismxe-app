@@ -1,0 +1,22 @@
+{% extends "cm/base.html" %}
+{% block title %}New QA Check{% endblock %}
+{% block content %}
+<h1>New QA / QC Check</h1>
+<form class="form" method="post">
+  <label>Check name <input name="name" required placeholder="Site Grading"></label>
+  <div class="grid2">
+    <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+    <label>Location <input name="location" placeholder="North side"></label>
+  </div>
+  <div class="grid3">
+    <label>Result <select name="result"><option value="pass">Pass</option><option value="fail">Fail</option></select></label>
+    <label>Inspector <input name="inspector"></label>
+    <label>Check date <input type="date" name="check_date" value="{{ today().isoformat() }}"></label>
+  </div>
+  <label>Notes <textarea name="notes" rows="3"></textarea></label>
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('.qa', tab='checks') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

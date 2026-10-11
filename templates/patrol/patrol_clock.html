@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patrol Clock</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='patrol/style.css') }}">
+<style>
+.pc-head{background:#1e40af;color:#fff;padding:14px 16px;border-radius:0 0 16px 16px;text-align:center}
+.pc-head h1{margin:0;font-size:1.25rem}
+.pc-head p{margin:4px 0 0;color:#bfdbfe;font-size:.8rem}
+.big-btn{width:100%;padding:20px;font-size:1.2rem;font-weight:800;border-radius:14px;margin:8px 0}
+.status-big{font-size:1.05rem;font-weight:700}
+.msg{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:.88rem}
+.msg.ok{background:#dcfce7;color:#166534}
+.msg.err{background:#fee2e2;color:#991b1b}
+.hidden{display:none!important}
+.punch-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}
+label{display:block;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="pc-head">
+  <h1>🕒 Patrol Clock</h1>
+  <p>Scan the dashboard QR &mdash; clock in / out for patrol</p>
+  <p id="head-who" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-name"></b> · <a href="#" id="switch-link" style="color:#bfdbfe">Switch</a></p>
+</div>
+
+<main style="max-width:560px;margin:0 auto;padding:0 14px">
+  <div id="flash"></div>
+
+  <div class="card hidden" id="register-card" style="margin-top:12px"><div style="padding:4px">
+    <h3 style="margin-top:0">First-time registration</h3>
+    <p class="muted small">Enter once — this phone will remember you.</p>
+    <label><b>Full name</b>
+      <input type="text" id="reg-name" placeholder="e.g. Alex Rivera" style="width:100%" autocomplete="name">
+    </label>
+    <label><b>Email</b> <span class="muted small">(required — links your clock-ins for payroll)</span>
+      <input type="email" id="reg-email" placeholder="you@example.com" style="width:100%" autocomplete="email">
+    </label>
+    <button class="btn primary big-btn" onclick="doRegister()">Register</button>
+    <div id="reg-msg"></div>
+  </div></div>
+
+  <div id="main-app" class="hidden">
+    <div class="card" style="margin-top:12px"><div id="status-card" style="padding:4px">
+      <div class="muted">Loading your status...</div>
+    </div></div>
+    <button class="btn primary big-btn" id="btn-in" onclick="punch('in')">🟢 CLOCK IN</button>
+    <button class="btn big-btn" id="btn-out" onclick="punch('out')" style="background:#fee2e2;color:#991b1b">🔴 CLOCK OUT</button>
+    <p class="muted small" style="text-align:center;margin-top:8px">📍 Your location is captured on clock-in/out<br>to show on the staff map. Allow location access when asked.</p>
+    <div class="card" style="margin-top:12px"><div class="rowline" style="border:none;padding:4px">
+      <input type="checkbox" id="live-toggle" checked onchange="toggleLive()" style="width:20px;height:20px">
+      <div class="grow"><b>Live location</b><div class="muted small">Share every minute while clocked in <span id="live-state" class="muted small"></span></div></div>
+    </div></div>
+    <div class="card" style="margin-top:12px"><div style="padding:4px">
+      <h3 style="margin-top:0">Today's punches</h3>
+      <div id="today-list"><div class="muted small">—</div></div>
+    </div></div>
+  </div>
+</main>
+
+<script>
+const LS_KEY = 'patrol_clock_identity';
+function ident(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch(e){ return null; } }
+function setIdent(o){ localStorage.setItem(LS_KEY, JSON.stringify(o)); }
+function flash(html, kind){ document.getElementById('flash').innerHTML = '<div class="msg '+(kind||'info')+'">'+html+'</div>'; }
+function fmtT(iso){ if(!iso) return '—'; const d = new Date(iso); return d.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}); }
+
+async function refreshStatus(){
+  const id = ident(); if(!id) return;
+  const r = await fetch('/patrol/api/patrol-status?email=' + encodeURIComponent(id.email));
+  const s = await r.json();
+  const card = document.getElementById('status-card');
+  if (s.clocked_in) {
+    card.innerHTML = '<div class="status-big" style="color:#166534">🟢 Clocked IN</div><div class="muted small">Since ' + fmtT(s.since) + '</div>';
+    document.getElementById('btn-in').disabled = true;
+    document.getElementById('btn-in').style.opacity = .45;
+    document.getElementById('btn-out').disabled = false;
+    document.getElementById('btn-out').style.opacity = 1;
+  } else {
+    card.innerHTML = '<div class="status-big" style="color:#991b1b">🔴 Clocked OUT</div><div class="muted small">Tap CLOCK IN when you start patrol.</div>';
+    document.getElementById('btn-out').disabled = true;
+    document.getElementById('btn-out').style.opacity = .45;
+    document.getElementById('btn-in').disabled = false;
+    document.getElementById('btn-in').style.opacity = 1;
+  }
+  updateLiveShare(s.clocked_in);
+  const pr = await fetch('/patrol/api/patrol-mine?email=' + encodeURIComponent(id.email));
+  const mine = await pr.json();
+  const tdy = new Date().toISOString().slice(0, 10);
+  const rows = (mine.punches || []).filter(p => (p.ts || '').slice(0, 10) === tdy).slice(-6).reverse();
+  document.getElementById('today-list').innerHTML = rows.length
+    ? rows.map(p => '<div class="punch-row"><span>' + (p.action === 'in' ? '🟢 In' : '🔴 Out') + '</span><span>' + fmtT(p.ts) + '</span></div>').join('')
+    : '<div class="muted small">No punches yet today.</div>';
+}
+
+function getPos(){
+  if (!navigator.geolocation) return Promise.resolve(null);
+  return new Promise(function(res){
+    var done = false;
+    var t = setTimeout(function(){ if(!done){done=true;res(null);} }, 8000);
+    navigator.geolocation.getCurrentPosition(
+      function(p){ if(!done){done=true;clearTimeout(t);res({lat:p.coords.latitude, lng:p.coords.longitude});} },
+      function(){ if(!done){done=true;clearTimeout(t);res(null);} },
+      {enableHighAccuracy:true, timeout:7000, maximumAge:60000});
+  });
+}
+
+// live location sharing: sends GPS every 60s while clocked in and the page is open
+var liveTimer = null;
+function liveWanted(){
+  try { return localStorage.getItem('patrol_live_share') !== 'off'; } catch(e){ return true; }
+}
+async function sendLive(){
+  const id = ident(); if(!id) return;
+  const pos = await getPos();
+  if (pos) {
+    try {
+      await fetch('/patrol/api/location', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email:id.email, lat:pos.lat, lng:pos.lng})});
+    } catch(e){}
+  }
+}
+function updateLiveShare(clockedIn){
+  const want = liveWanted();
+  const tgl = document.getElementById('live-toggle');
+  if (tgl) tgl.checked = want;
+  if (clockedIn && want) {
+    if (!liveTimer) { sendLive(); liveTimer = setInterval(sendLive, 60000); }
+  } else {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  }
+  const st = document.getElementById('live-state');
+  if (st) st.textContent = (clockedIn && want && liveTimer) ? '● sharing' : '○ off';
+}
+function toggleLive(){
+  try { localStorage.setItem('patrol_live_share', document.getElementById('live-toggle').checked ? 'on' : 'off'); } catch(e){}
+  refreshStatus();
+}
+
+async function punch(action){
+  const id = ident(); if(!id) return;
+  const btn = action === 'in' ? document.getElementById('btn-in') : document.getElementById('btn-out');
+  btn.disabled = true;
+  try {
+    const pos = await getPos();
+    const body = {email:id.email, name:id.name, action:action};
+    if (pos) { body.lat = pos.lat; body.lng = pos.lng; }
+    const r = await fetch('/patrol/api/patrol-punch', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)});
+    const j = await r.json();
+    if (j.ok) { flash(action === 'in' ? '✅ Clocked in at ' + fmtT(j.since) : '✅ Clocked out.', 'ok'); }
+    else { flash('⚠️ ' + (j.error || 'Failed.'), 'err'); }
+  } catch(e){ flash('⚠️ Network error. Try again.', 'err'); }
+  await refreshStatus();
+}
+
+function doRegister(){
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const msg = document.getElementById('reg-msg');
+  if (!name) { msg.innerHTML = '<div class="msg err">Enter your name.</div>'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.innerHTML = '<div class="msg err">Enter a valid email.</div>'; return; }
+  setIdent({name:name, email:email});
+  boot();
+  flash('✅ Registered as ' + name + '.', 'ok');
+}
+
+function boot(){
+  const id = ident();
+  const reg = document.getElementById('register-card');
+  const main = document.getElementById('main-app');
+  const head = document.getElementById('head-who');
+  if (id && id.email) {
+    reg.classList.add('hidden'); main.classList.remove('hidden'); head.classList.remove('hidden');
+    document.getElementById('head-name').textContent = id.name;
+    refreshStatus();
+  } else {
+    reg.classList.remove('hidden'); main.classList.add('hidden'); head.classList.add('hidden');
+  }
+}
+document.getElementById('switch-link').addEventListener('click', function(e){
+  e.preventDefault();
+  if (confirm('Switch to a different worker on this phone?')) { localStorage.removeItem(LS_KEY); boot(); }
+});
+boot();
+</script>
+</body>
+</html>

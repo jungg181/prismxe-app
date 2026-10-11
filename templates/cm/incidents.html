@@ -1,0 +1,53 @@
+{% extends "cm/base.html" %}
+{% block title %}Incidents{% endblock %}
+{% block content %}
+<h1>Incident Reports</h1>
+<p class="muted">OSHA-aligned safety incident tracking.</p>
+
+<div class="card"><div class="card-body">
+<h3>Report incident</h3>
+<form class="form" method="post" enctype="multipart/form-data">
+  <div class="grid2">
+    <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+    <label>Severity <select name="severity"><option value="minor">Minor</option><option value="major">Major</option><option value="critical">Critical</option></select></label>
+  </div>
+  <label>Description <textarea name="description" rows="3" required></textarea></label>
+  <div class="grid2">
+    <label>Photo <input type="file" name="photo" accept="image/*"></label>
+    <div class="grid2">
+      <label>Lat <input name="lat" type="number" step="any"></label>
+      <label>Lng <input name="lng" type="number" step="any"></label>
+    </div>
+  </div>
+  <button class="btn primary" type="submit">Report incident</button>
+</form>
+</div></div>
+
+<form class="filters" method="get">
+  <select name="site" onchange="this.form.submit()">
+    <option value="all">All sites</option>
+    {% for s in sites %}<option value="{{ s.id }}" {% if fsite==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+</form>
+
+<div class="cards">
+{% for i in rows %}
+<div class="card"><div class="card-body">
+  <div class="card-title"><span class="sev sev-{{ i.severity }}">{{ i.severity }}</span> {{ site_name(i.site_id) }}
+    <span class="pill pill-{{ i.status }}">{{ i.status }}</span></div>
+  <p>{{ i.description }}</p>
+  {% if i.photo_url %}<img class="thumb" src="{{ i.photo_url }}">{% endif %}
+  <div class="muted small">{{ fmt_dt(i.created_at) }}
+    {% set gl=gmaps_link(i.lat,i.lng) %}{% if gl %} · <a target="_blank" href="{{ gl }}">📍 Location</a>{% endif %}</div>
+  <div class="row-actions">
+    {% if i.status == 'open' %}
+    <form method="post" action="{{ url_for('.incident_resolve', iid=i.id) }}"><button class="btn small primary">Resolve</button></form>
+    {% endif %}
+    <form method="post" action="{{ url_for('.incident_delete', iid=i.id) }}" onsubmit="return confirm('Delete incident?')"><button class="btn small danger">Delete</button></form>
+  </div>
+</div></div>
+{% else %}
+<p class="muted">No incidents reported.</p>
+{% endfor %}
+</div>
+{% endblock %}

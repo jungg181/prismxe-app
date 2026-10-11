@@ -1,0 +1,51 @@
+{% extends "patrol/base.html" %}
+{% set nav='time' %}
+{% block title %}Timecard · Equipment Patrol Timetable{% endblock %}
+{% block body %}
+<h1 style="margin-top:0">Timecard</h1>
+<div class="card">
+  <h2>Clock In / Out</h2>
+  <div id="tc-grid">
+    {% for s in status %}
+    <div class="rowline" data-wid="{{ s.worker.id }}">
+      <span style="font-size:1.3rem">👷</span>
+      <div class="grow"><b>{{ s.worker.name }}</b>
+        {% if s.clocked_in %}<div class="muted small">in since {{ s.since[11:16] if s.since and s.since|length>16 else s.since }}</div>{% endif %}
+      </div>
+      <button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}">🟢 IN</button>
+      <button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:#fee2e2;color:#991b1b' if s.clocked_in else '' }}">🔴 OUT</button>
+    </div>
+    {% else %}
+    <p class="muted">No workers yet — add them in Settings.</p>
+    {% endfor %}
+  </div>
+  <p class="muted small">Workers can also clock in from their own phones by scanning the QR code on the dashboard.</p>
+</div>
+<div class="card">
+  <h2>Records <a class="btn small" href="{{ url_for('.timecard_export') }}" style="float:right">⬇ Export CSV</a></h2>
+  <table>
+    <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th></tr>
+    {% for r in records %}
+    <tr>
+      <td>{{ (r.clock_in or '')[:10] }}</td><td>{{ r.name }}</td>
+      <td>{{ (r.clock_in or '')[11:16] }}</td><td>{{ (r.clock_out or '')[11:16] if r.clock_out else '<span class="muted">—</span>'|safe }}</td>
+      <td>{{ r.hours if r.hours is not none else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">No records yet.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function clockIt(wid, action){
+  const r = await fetch("{{ url_for('.timecard_clock') }}", {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({worker_id: wid, action: action})});
+  const j = await r.json();
+  if(!j.ok) alert(j.error || 'Failed');
+  location.reload();
+}
+</script>
+{% endblock %}

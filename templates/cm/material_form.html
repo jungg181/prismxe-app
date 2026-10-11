@@ -1,0 +1,20 @@
+{% extends "cm/base.html" %}
+{% block title %}Add Material{% endblock %}
+{% block content %}
+<h1>{{ 'Edit Material' if m else 'Add Material' }}</h1>
+<form class="form" method="post" enctype="multipart/form-data">
+  <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}" {% if m and m.site_id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>
+  <label>Material name <input name="name" required value="{{ m.name if m }}"></label>
+  <div class="grid3">
+    <label>Quantity <input name="quantity" type="number" step="any" value="{{ m.quantity if m else 0 }}"></label>
+    <label>Unit <input name="unit" value="{{ m.unit if m else 'pcs' }}"></label>
+    <label>Reorder threshold <input name="reorder_threshold" type="number" step="any" value="{{ m.reorder_threshold if m else 0 }}"></label>
+  </div>
+  <label>Photo <input name="photo" type="file" accept="image/*"></label>
+  {% if m and m.photo_url %}<img class="thumb" src="{{ m.photo_url }}">{% endif %}
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('.materials') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "cm/base.html" %}
+{% block title %}Sites{% endblock %}
+{% block content %}
+<h1>Sites Management</h1>
+<p class="muted">Register, update, and oversee all jobsites.</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ total }}</div><div class="lbl">Total sites</div></div>
+  <div class="stat"><div class="num">{{ counts.active }}</div><div class="lbl">Active</div></div>
+  <div class="stat"><div class="num">{{ counts.on_hold }}</div><div class="lbl">On hold</div></div>
+  <div class="stat"><div class="num">{{ counts.completed }}</div><div class="lbl">Completed</div></div>
+</div>
+
+<div class="toolbar">
+  <a class="btn primary" href="{{ url_for('.site_new') }}">+ Add New Site</a>
+</div>
+<form class="filters" method="get">
+  <input type="search" name="q" placeholder="Search by name, address, or PM..." value="{{ q }}">
+  <div class="chip-row">
+    {% for v, label in [('all','All'),('active','Active'),('on_hold','On Hold'),('completed','Completed')] %}
+    <button class="chip {% if status == v %}on{% endif %}" name="status" value="{{ v }}" type="submit">{{ label }}{% if v != 'all' %} ({{ counts[v] }}){% endif %}</button>
+    {% endfor %}
+  </div>
+</form>
+
+<div class="cards">
+{% for r in rows %}
+  <div class="card">
+    {% if r.site.photo_url %}<img class="card-photo" src="{{ r.site.photo_url }}">{% endif %}
+    <div class="card-body">
+      <div class="card-title">{{ r.site.name }} <span class="pill pill-{{ r.site.status }}">{{ r.site.status.replace('_',' ') }}</span></div>
+      <div class="muted small">{{ r.site.address or 'No address' }}</div>
+      <div class="muted small">PM: {{ r.site.pm or 'Unassigned' }}{% if r.days is not none %} · {{ r.days }} days remaining{% endif %}</div>
+      {% if r.site.start_date %}<div class="muted small">Start {{ r.site.start_date }} · Target {{ r.site.target_date }}</div>{% endif %}
+      <div class="tiles">
+        <span class="tile">⚠️ {{ r.incidents }}</span>
+        <span class="tile">🔧 {{ r.defects }}</span>
+        <span class="tile">📦 {{ r.low_stock }}</span>
+        <span class="tile">👷 {{ r.workers }}</span>
+      </div>
+      <div class="row-actions">
+        <a class="btn small" href="{{ url_for('.blueprints', site_id=r.site.id) }}">Site Map &amp; Plans</a>
+        <a class="btn small" href="{{ url_for('.site_edit', sid=r.site.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('.site_delete', sid=r.site.id) }}" onsubmit="return confirm('Delete this site?')">
+          <button class="btn small danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <p class="muted">No sites found.</p>
+{% endfor %}
+</div>
+{% endblock %}

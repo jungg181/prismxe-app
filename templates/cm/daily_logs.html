@@ -1,0 +1,47 @@
+{% extends "cm/base.html" %}
+{% block title %}Daily Logs{% endblock %}
+{% block content %}
+<h1>Daily Site Logs</h1>
+<p class="muted">Superintendent end-of-day summaries.</p>
+
+<div class="card"><div class="card-body">
+<h3>New log</h3>
+<form class="form" method="post">
+  <div class="grid3">
+    <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+    <label>Date <input type="date" name="log_date" value="{{ today }}"></label>
+    <label>Weather <input name="weather" placeholder="Sunny, 95°F..."></label>
+  </div>
+  <label>Progress notes <textarea name="notes" rows="3"></textarea></label>
+  <div class="grid2">
+    <label>Delays <textarea name="delays" rows="2"></textarea></label>
+    <label>Visitors <textarea name="visitors" rows="2"></textarea></label>
+  </div>
+  <button class="btn primary" type="submit">Save log</button>
+</form>
+</div></div>
+
+<form class="filters" method="get">
+  <select name="site" onchange="this.form.submit()">
+    <option value="all">All sites</option>
+    {% for s in sites %}<option value="{{ s.id }}" {% if fsite==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+</form>
+
+<div class="cards">
+{% for l in rows %}
+<div class="card"><div class="card-body">
+  <div class="card-title">{{ site_name(l.site_id) }} <span class="muted small">{{ l.log_date }}</span></div>
+  {% if l.weather %}<div class="small">🌤️ {{ l.weather }}</div>{% endif %}
+  {% if l.notes %}<p>{{ l.notes }}</p>{% endif %}
+  {% if l.delays %}<div class="small"><b>Delays:</b> {{ l.delays }}</div>{% endif %}
+  {% if l.visitors %}<div class="small"><b>Visitors:</b> {{ l.visitors }}</div>{% endif %}
+  <div class="row-actions">
+    <form method="post" action="{{ url_for('.daily_log_delete', lid=l.id) }}" onsubmit="return confirm('Delete log?')"><button class="btn small danger">Delete</button></form>
+  </div>
+</div></div>
+{% else %}
+<p class="muted">No daily logs yet.</p>
+{% endfor %}
+</div>
+{% endblock %}

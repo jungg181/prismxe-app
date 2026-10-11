@@ -1,0 +1,28 @@
+{% extends "cm/base.html" %}
+{% block title %}Log Defect{% endblock %}
+{% block content %}
+<h1>{{ 'Edit Defect' if d else 'Log Defect' }}</h1>
+<form class="form" method="post" enctype="multipart/form-data">
+  <div class="grid2">
+    <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}" {% if d and d.site_id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>
+    <label>Category <input name="category" value="{{ d.category if d else '' }}" placeholder="Structural, Site..."></label>
+  </div>
+  <div class="grid2">
+    <label>Severity <select name="severity"><option value="minor" {% if d and d.severity=='minor' %}selected{% endif %}>Minor</option><option value="major" {% if d and d.severity=='major' %}selected{% endif %}>Major</option></select></label>
+    <label>Location <input name="location" value="{{ d.location if d else '' }}" placeholder="Building A, north side"></label>
+  </div>
+  <label>Description <textarea name="description" rows="3" required>{{ d.description if d }}</textarea></label>
+  <div class="grid2">
+    <label>Assigned to
+      <select name="assigned_to"><option value="">—</option>{% for w in workers %}<option {% if d and d.assigned_to==w.name %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select>
+    </label>
+    <label>Due date <input type="date" name="due_date" value="{{ d.due_date if d }}"></label>
+  </div>
+  <label>Photo <input type="file" name="photo" accept="image/*"></label>
+  {% if d and d.photo_url %}<img class="thumb" src="{{ d.photo_url }}">{% endif %}
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('.qa') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

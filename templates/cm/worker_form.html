@@ -1,0 +1,42 @@
+{% extends "cm/base.html" %}
+{% block title %}Register Worker{% endblock %}
+{% block content %}
+<h1>{{ 'Edit Worker Profile' if worker else 'Register Worker' }}</h1>
+<form class="form" method="post" enctype="multipart/form-data">
+  <label>Worker Full Name <input name="name" required value="{{ worker.name if worker }}"></label>
+  <div class="grid2">
+    <label>Trade
+      <select name="trade">{% for t in trades %}<option {% if worker and worker.trade==t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    </label>
+    <label>Employment Type
+      <select name="employment_type">{% for e in emp_types %}<option {% if worker and worker.employment_type==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+    </label>
+  </div>
+  <div class="grid2">
+    <label>Mobile Phone Number <input name="phone" value="{{ worker.phone if worker }}"></label>
+    <label>Email Address <input name="email" type="email" value="{{ worker.email if worker }}"></label>
+  </div>
+  <div class="grid2">
+    <label>Hourly Rate ($) <input name="hourly_rate" type="number" step="0.01" value="{{ worker.hourly_rate if worker }}"></label>
+    <label>Emergency Contact Name <input name="emergency_contact" value="{{ worker.emergency_contact if worker }}"></label>
+  </div>
+  <div class="grid2">
+    <label>Jobsite Assignment
+      <select name="site_id"><option value="">—</option>
+        {% for s in sites %}<option value="{{ s.id }}" {% if worker and worker.site_id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </label>
+    {% if worker %}
+    <label>Status
+      <select name="status">{% for st in statuses %}<option value="{{ st }}" {% if worker.status==st %}selected{% endif %}>{{ st.replace('_',' ').title() }}</option>{% endfor %}</select>
+    </label>
+    {% endif %}
+  </div>
+  <label>Photo <input name="photo" type="file" accept="image/*"></label>
+  {% if worker and worker.photo_url %}<img class="thumb" src="{{ worker.photo_url }}">{% endif %}
+  <div class="row-actions">
+    <button class="btn primary" type="submit">{{ 'Save' if worker else 'Register Worker' }}</button>
+    <a class="btn" href="{{ url_for('.workers') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

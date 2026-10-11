@@ -1,0 +1,137 @@
+{% extends "cm/base.html" %}
+{% block title %}Workers{% endblock %}
+{% block content %}
+<h1>Field Personnel &amp; Worker Management</h1>
+<p class="muted">Registered field workers, trades, and live attendance.</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ total }}</div><div class="lbl">Total workers</div></div>
+  <div class="stat"><div class="num">{{ active_now }}</div><div class="lbl">Active on site</div></div>
+  <div class="stat"><div class="num">{{ total_hours }}</div><div class="lbl">Total hours logged</div></div>
+</div>
+
+<div class="toolbar">
+  <button class="btn primary" onclick="openQr()">📷 Attendance QR</button>
+  <button class="btn" onclick="openDispatch()">📣 Dispatch</button>
+  <a class="btn" href="{{ url_for('.worker_new') }}">+ Register Worker</a>
+  <a class="btn small" href="{{ url_for('.workers_export') }}">Export CSV</a>
+</div>
+
+<form class="filters" method="get">
+  <input type="search" name="q" placeholder="Search name, phone, trade..." value="{{ q }}">
+  <div class="grid3">
+    <select name="site" onchange="this.form.submit()">
+      <option value="all">All sites</option>
+      {% for s in sites %}<option value="{{ s.id }}" {% if fsite == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <select name="trade" onchange="this.form.submit()">
+      <option value="all">All Trades</option>
+      {% for t in trades %}<option {% if ftrade == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+    <select name="status" onchange="this.form.submit()">
+      <option value="all">All Status</option>
+      <option value="active" {% if fstatus=='active' %}selected{% endif %}>Active</option>
+      <option value="on_leave" {% if fstatus=='on_leave' %}selected{% endif %}>On Leave</option>
+      <option value="inactive" {% if fstatus=='inactive' %}selected{% endif %}>Inactive</option>
+    </select>
+  </div>
+</form>
+
+<div class="cards">
+{% for w in rows %}
+<div class="card worker-row">
+  <div class="avatar">{{ w.name[:1] }}</div>
+  <div class="grow">
+    <div><b>{{ w.name }}</b>
+      {% if w.self_registered %}<span class="pill pill-self">Self</span>{% endif %}
+      <span class="pill {% if w.clocked_in %}pill-active{% elif w.status=='active' %}pill-idle{% else %}pill-{{ w.status }}{% endif %}">
+        {% if w.clocked_in %}Clocked In{% else %}{{ w.status.replace('_',' ').title() }}{% endif %}
+      </span>
+      {% if w.clocked_in %}<span class="live-slot" data-wid="{{ w.id }}"></span>{% endif %}
+      <span class="pill trade">{{ w.trade }}</span>
+    </div>
+    <div class="muted small">
+      {% if w.phone %}<a href="tel:{{ w.phone }}">{{ w.phone }}</a>{% endif %}
+      {% if w.email %} · <a href="mailto:{{ w.email }}">{{ w.email }}</a>{% endif %}
+      · {{ site_name(w.site_id) }}
+      {% if w.phone %} · <a target="_blank" href="https://wa.me/{{ w.phone|replace('+','')|replace(' ','')|replace('-','') }}">WhatsApp</a>{% endif %}
+    </div>
+    <div class="row-actions">
+      <button class="btn small" onclick='openDispatch({{ w.id|tojson }})'>Dispatch</button>
+      <button class="btn small" onclick='openDetails({{ w.id|tojson }})'>Details</button>
+      <a class="btn small" href="{{ url_for('.worker_edit', wid=w.id) }}">Edit</a>
+      <form method="post" action="{{ url_for('.worker_delete', wid=w.id) }}" onsubmit="return confirm('Delete worker?')">
+        <button class="btn small danger">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% else %}
+<p class="muted">No workers found.</p>
+{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function openQr(){
+  const sites = {{ sites|map(attribute='name')|list|tojson }};
+  const siteIds = {{ sites|map(attribute='id')|list|tojson }};
+  let opts = siteIds.map((id,i)=>`<option value="${id}">${sites[i]}</option>`).join('');
+  openModal(`<h3>Temporary Attendance QR</h3>
+    <p class="muted small">Choose the jobsite, then show this code to the worker. The code decides which site gets the timecard. Valid for <b>10 minutes</b>.</p>
+    <label>Jobsite <select id="qr-site">${opts}</select></label>
+    <label>Action <select id="qr-action"><option value="clock_in">Clock in</option><option value="clock_out">Clock out</option></select></label>
+    <div id="qr-out" style="text-align:center;margin:12px 0"></div>
+    <button class="btn primary" onclick="makeQr()">Create temporary QR</button>`);
+}
+async function makeQr(){
+  const r = await fetch('/cm/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({site_id: document.getElementById('qr-site').value, action: document.getElementById('qr-action').value})});
+  const d = await r.json();
+  document.getElementById('qr-out').innerHTML = `<img src="/cm/qr/${d.token}.png" style="width:220px;height:220px"><p class="muted small">Expires ${d.expires_at}</p>`;
+}
+async function openDispatch(presetWorker){
+  const workers = {{ rows|map(attribute='name')|list|tojson }};
+  const ids = {{ rows|map(attribute='id')|list|tojson }};
+  let opts = ids.map((id,i)=>`<option value="${id}" ${id===presetWorker?'selected':''}>${workers[i]}</option>`).join('');
+  openModal(`<h3>Dispatch Location &amp; Task</h3>
+    <label>Worker <select id="d-worker">${opts}</select></label>
+    <label>Message <textarea id="d-msg" rows="3" placeholder="Go to Zone A, help with..."></textarea></label>
+    <button class="btn primary" onclick="sendDispatch()">Send dispatch</button>
+    <h4 style="margin-top:12px">Recent dispatches</h4><div id="d-log" class="muted small">Loading...</div>`);
+  try {
+    const log = await (await fetch('/cm/api/dispatches')).json();
+    document.getElementById('d-log').innerHTML = log.length
+      ? log.map(l=>`<div style="margin:6px 0"><b>${l.worker}</b> · ${l.at}<br>${l.message}</div>`).join('')
+      : 'No dispatches yet.';
+  } catch(e){ document.getElementById('d-log').innerHTML = 'Could not load.'; }
+}
+async function sendDispatch(){
+  await fetch('/cm/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({worker_id: document.getElementById('d-worker').value, message: document.getElementById('d-msg').value})});
+  closeModal(); alert('Dispatch logged.');
+}
+async function openDetails(wid){
+  const d = await (await fetch('/cm/api/workers/'+wid)).json();
+  const rows = d.timecards.map(t=>`<tr><td>${t.date}</td><td>${t.in}–${t.out}</td><td>${t.status}</td><td>${t.hours}h</td></tr>`).join('');
+  openModal(`<h3>${d.worker.name}</h3>
+    <p class="muted small">${d.worker.trade} · ${d.worker.employment_type} · ${siteName(d.worker.site_id)}<br>
+    ${d.worker.email||''} ${d.worker.phone||''}<br>Emergency: ${d.worker.emergency_contact||'Not registered'}</p>
+    <div class="stats"><div class="stat"><div class="num">${d.counts.timecards}</div><div class="lbl">Timecards</div></div>
+    <div class="stat"><div class="num">${d.counts.hours}</div><div class="lbl">Hours</div></div></div>
+    <table class="tbl"><tr><th>Date</th><th>In–Out</th><th>Status</th><th>Hours</th></tr>${rows||'<tr><td colspan=4 class=muted>No timecards</td></tr>'}</table>`);
+}
+function siteName(id){ const m = {{ sites|map(attribute='id')|list|tojson }}; const n = {{ sites|map(attribute='name')|list|tojson }}; const i = m.indexOf(id); return i>=0?n[i]:'—'; }
+(async function(){
+  try {
+    const live = await (await fetch('/cm/api/live-locations')).json();
+    const ids = new Set(live.map(l => l.worker_id));
+    document.querySelectorAll('.live-slot').forEach(s => {
+      if (ids.has(s.dataset.wid)) {
+        s.innerHTML = '<span class="pill pill-live"><span class="live-dot"></span>Live</span>';
+      }
+    });
+  } catch(e){}
+})();
+</script>
+{% endblock %}

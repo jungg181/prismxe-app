@@ -1,0 +1,50 @@
+{% extends "cm/base.html" %}
+{% block title %}Data & Restore{% endblock %}
+{% block content %}
+<h1>Data Preservation &amp; Recycle Bin</h1>
+<p class="muted">Save point-in-time snapshots before exiting. Recover accidentally deleted records with 1 click.</p>
+
+<div class="toolbar">
+  <a class="btn primary" href="{{ url_for('.data_backup') }}">⬇️ Download JSON Backup</a>
+  <form method="post" action="{{ url_for('.data_snapshot') }}" class="row-form grow">
+    <input name="name" placeholder="Snapshot name (optional)" class="grow">
+    <button class="btn" type="submit">💾 Save Data Snapshot</button>
+  </form>
+</div>
+
+<h2>Saved Snapshots ({{ snapshots|length }})</h2>
+<div class="cards">
+{% for s in snapshots %}
+<div class="card list-row">
+  <div class="grow"><b>{{ s.name }}</b><div class="muted small">{{ fmt_dt(s.created_at) }}</div></div>
+  <form method="post" action="{{ url_for('.snapshot_restore', sid=s.id) }}" onsubmit="return confirm('Restore this snapshot? Current data will be replaced.')"><button class="btn small primary">Restore</button></form>
+  <form method="post" action="{{ url_for('.snapshot_delete', sid=s.id) }}" onsubmit="return confirm('Delete snapshot?')"><button class="btn small danger">Delete</button></form>
+</div>
+{% else %}
+<p class="muted">No snapshots yet.</p>
+{% endfor %}
+</div>
+
+<div class="section-head"><h2>Recycle Bin / Deleted Items ({{ trash|length }})</h2>
+{% if trash %}
+<form method="post" action="{{ url_for('.trash_empty') }}" onsubmit="return confirm('Permanently delete ALL items in the recycle bin?')"><button class="btn small danger">Empty Trash</button></form>
+{% endif %}
+</div>
+<div class="table-wrap"><table class="tbl">
+<tr><th>Item Type</th><th>Deleted Record Summary</th><th>Deleted At</th><th>Deleted By</th><th>Actions</th></tr>
+{% for idx, t in trash %}
+<tr>
+  <td><span class="pill">{{ t.type }}</span></td>
+  <td class="small"><code>{{ (t.record.name or t.record.description or t.record.notes or t.record.id or '')|truncate(80) }}</code></td>
+  <td class="small">{{ fmt_dt(t.deleted_at) }}</td>
+  <td class="small">{{ t.deleted_by }}</td>
+  <td class="nowrap">
+    <form method="post" action="{{ url_for('.trash_restore', idx=idx) }}" style="display:inline"><button class="btn small primary">Restore</button></form>
+    <form method="post" action="{{ url_for('.trash_delete', idx=idx) }}" style="display:inline" onsubmit="return confirm('Permanently delete?')"><button class="btn small danger">Delete</button></form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">Recycle bin is empty.</td></tr>
+{% endfor %}
+</table></div>
+{% endblock %}

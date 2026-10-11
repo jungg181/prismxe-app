@@ -1,0 +1,37 @@
+{% extends "cm/base.html" %}
+{% block title %}Labour{% endblock %}
+{% block content %}
+<h1>Labour Tracking</h1>
+<p class="muted">Daily headcount and hours by trade.</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ stats.workers }}</div><div class="lbl">Workers today</div></div>
+  <div class="stat"><div class="num">{{ stats.hours }}</div><div class="lbl">Hours today</div></div>
+  <div class="stat"><div class="num">{{ stats.trades }}</div><div class="lbl">Trades today</div></div>
+</div>
+
+<div class="card"><div class="card-body">
+<h3>Log labour</h3>
+<form class="form row-form" method="post">
+  <label>Site <select name="site_id" required>{% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+  <label>Date <input type="date" name="date" value="{{ today }}"></label>
+  <label>Trade <select name="trade">{% for t in trades %}<option>{{ t }}</option>{% endfor %}</select></label>
+  <label>Workers <input type="number" name="workers_count" min="0" value="1"></label>
+  <label>Hours <input type="number" step="0.5" name="hours" min="0" value="8"></label>
+  <button class="btn primary" type="submit">Log</button>
+</form>
+</div></div>
+
+{% for d, items in by_date.items() %}
+<h3>{{ d }}</h3>
+<div class="table-wrap"><table class="tbl">
+<tr><th>Site</th><th>Trade</th><th>Workers</th><th>Hours</th><th></th></tr>
+{% for l in items %}
+<tr><td>{{ site_name(l.site_id) }}</td><td>{{ l.trade }}</td><td>{{ l.workers_count }}</td><td>{{ l.hours }}</td>
+<td><form method="post" action="{{ url_for('.labour_delete', lid=l.id) }}" onsubmit="return confirm('Delete?')"><button class="btn small danger">Delete</button></form></td></tr>
+{% endfor %}
+</table></div>
+{% else %}
+<p class="muted">No labour entries.</p>
+{% endfor %}
+{% endblock %}

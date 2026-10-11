@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On Site · Construction Manager</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+<style>
+.onsite-head{background:#0f172a;color:#fff;padding:14px 16px;border-radius:0 0 16px 16px;text-align:center}
+.onsite-head h1{margin:0;font-size:1.25rem}
+.onsite-head p{margin:4px 0 0;color:#cbd5e1;font-size:.8rem}
+.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:14px;margin:10px 0}
+#qr-reader{border-radius:12px;overflow:hidden}
+#qr-reader video{border-radius:12px}
+.confirm-card{border:2px solid var(--blue);border-radius:14px;padding:14px;margin:10px 0;background:#eff6ff}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}
+.switch{position:relative;width:52px;height:30px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#cbd5e1;border-radius:30px;transition:.2s;cursor:pointer}
+.slider:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:#16a34a}
+.switch input:checked + .slider:before{transform:translateX(22px)}
+.switch input:disabled + .slider{background:#e2e8f0;cursor:not-allowed}
+.status-big{font-size:1.05rem;font-weight:700}
+.tc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}
+.msg{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:.88rem}
+.msg.ok{background:#dcfce7;color:#166534}
+.msg.err{background:#fee2e2;color:#991b1b}
+.msg.info{background:#dbeafe;color:#1e40af}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="onsite-head">
+  <h1>📍 On Site</h1>
+  <p>Construction Manager · Worker App</p>
+  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-worker-name"></b> · <a href="#" id="switch-link" style="color:#93c5fd">Switch worker</a></p>
+</div>
+
+<main class="container narrow">
+  <div id="flash"></div>
+  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — clock actions and locations will sync when reconnected.</div>
+
+  <div class="card" id="register-card" style="margin-top:12px"><div class="card-body">
+    <h3 style="margin-top:0">Register your phone</h3>
+    <p class="muted small">Enter your details once — this phone will remember you.</p>
+    <label><b>Full name</b>
+      <input type="text" id="reg-name" placeholder="e.g. Alex Rivera" style="width:100%" autocomplete="name">
+    </label>
+    <label><b>Mobile phone</b>
+      <input type="tel" id="reg-phone" placeholder="e.g. +1 480 555 0101" style="width:100%" autocomplete="tel">
+    </label>
+    <label><b>Email</b> <span class="muted small">(required — links your clock-ins)</span>
+      <input type="email" id="reg-email" placeholder="you@example.com" style="width:100%" autocomplete="email">
+    </label>
+    <label><b>Trade</b>
+      <input type="text" id="reg-trade" list="trade-list" placeholder="e.g. Electrician" style="width:100%">
+      <datalist id="trade-list">
+        {% for t in trades %}<option value="{{ t }}">{% endfor %}
+      </datalist>
+    </label>
+    <label><b>Employment type</b>
+      <select id="reg-emp"><option>Contract</option><option>Direct Team</option></select>
+    </label>
+    <button class="btn primary scan-btn" onclick="registerWorker()">Register</button>
+    <div id="reg-msg"></div>
+  </div></div>
+
+  <div id="main-app" class="hidden">
+  <div class="card" style="margin-top:12px"><div class="card-body" id="status-card">
+    <div class="muted">Loading your status...</div>
+  </div></div>
+
+  <button class="btn primary scan-btn" id="scan-btn" onclick="startScan()">📷 Scan QR</button>
+
+  <div id="scanner-box" class="hidden">
+    <div class="card"><div class="card-body">
+      <div id="qr-reader"></div>
+      <p class="muted small" id="scan-hint">Point your camera at the supervisor's QR code.</p>
+      <button class="btn small" onclick="stopScan()">Cancel</button>
+      <div style="margin-top:10px">
+        <label class="small"><b>Or enter the code manually</b>
+          <input type="text" id="manual-token" placeholder="Paste QR code text or token" style="width:100%">
+        </label>
+        <button class="btn small" style="margin-top:6px" onclick="useManualToken()">Use code</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div id="confirm-box" class="confirm-card hidden">
+    <h3 id="cf-title" style="margin-top:0"></h3>
+    <p><b>Site:</b> <span id="cf-site"></span><br>
+       <b>Worker:</b> <span id="cf-worker"></span></p>
+    <p class="muted small" id="cf-geo">Getting your location...</p>
+    <div class="row-actions" id="cf-online-actions">
+      <button class="btn primary big" id="cf-confirm" onclick="confirmClock()">Confirm</button>
+      <button class="btn big" onclick="cancelConfirm()">Cancel</button>
+    </div>
+    <div class="row-actions hidden" id="cf-offline-actions">
+      <button class="btn primary big" onclick="confirmClockOffline('clock_in')">Clock In</button>
+      <button class="btn big" onclick="confirmClockOffline('clock_out')">Clock Out</button>
+      <button class="btn" onclick="cancelConfirm()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:10px"><div class="card-body switch-row">
+    <div><b>Share my live location</b><br>
+      <span class="muted small" id="loc-hint">Sends your position every minute while clocked in.</span></div>
+    <label class="switch"><input type="checkbox" id="loc-toggle" disabled><span class="slider"></span></label>
+  </div></div>
+
+  <div class="card" style="margin-top:10px"><div class="card-body">
+    <h3 style="margin-top:0">My timecards <span class="muted small">(last 7 days)</span></h3>
+    <div id="tc-list"><div class="muted">Loading...</div></div>
+  </div></div>
+  </div><!-- /main-app -->
+</main>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+const $ = id => document.getElementById(id);
+const LS_KEY = 'onsite_worker_id';
+const NAME_KEY = 'onsite_worker_name';
+let pendingToken = null, scanner = null, locTimer = null, curWorker = null;
+
+/* ---------- offline support ---------- */
+const QUEUE_KEY = 'pendingClockActions';
+const LOCQ_KEY = 'pendingLocations';
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/cm/sw.js').catch(() => {});
+}
+function isOnline(){ return navigator.onLine; }
+function loadQueue(key){
+  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+}
+function saveQueue(key, arr){ localStorage.setItem(key, JSON.stringify(arr)); }
+function updateOfflineBar(){
+  $('offline-bar').classList.toggle('hidden', isOnline());
+}
+window.addEventListener('online', () => {
+  updateOfflineBar();
+  flushQueue();
+  flushLocations();
+});
+window.addEventListener('offline', updateOfflineBar);
+setInterval(() => { flushQueue(); flushLocations(); }, 30000);
+
+async function flushQueue(){
+  if (!isOnline()) return;
+  const q = loadQueue(QUEUE_KEY);
+  if (!q.length) return;
+  const remaining = [];
+  let synced = 0;
+  const errors = [];
+  for (const item of q) {
+    try {
+      const r = await fetch('/cm/api/sync-clock', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify(item)});
+      const d = await r.json();
+      if (d.ok) { synced++; }
+      else { errors.push(d.error || 'Sync failed.'); }
+      // Any server response (ok or rejected) drops the item — only a
+      // network failure keeps it queued for the next attempt.
+    } catch(e) {
+      remaining.push(item);
+    }
+  }
+  saveQueue(QUEUE_KEY, remaining);
+  if (synced) msg(`✓ Synced ${synced} offline clock action${synced > 1 ? 's' : ''}.`, 'ok');
+  if (errors.length) msg('⚠ ' + errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} more)` : ''), 'err');
+  if (synced || errors.length) refreshAll();
+}
+
+async function flushLocations(){
+  if (!isOnline() || !curWorker) return;
+  const q = loadQueue(LOCQ_KEY);
+  if (!q.length) return;
+  try {
+    const r = await fetch('/cm/api/location-batch', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({worker_id: curWorker, points: q})});
+    const d = await r.json();
+    if (d.ok) saveQueue(LOCQ_KEY, []);
+  } catch(e) { /* keep for next attempt */ }
+}
+
+function msg(html, kind){
+  $('flash').innerHTML = `<div class="msg ${kind}">${html}</div>`;
+  setTimeout(()=>{ $('flash').innerHTML=''; }, 6000);
+}
+function workerName(){
+  return localStorage.getItem(NAME_KEY) || '';
+}
+
+function showRegister(){
+  stopLocSharing(); stopScan(); cancelConfirm();
+  curWorker = null;
+  $('register-card').classList.remove('hidden');
+  $('main-app').classList.add('hidden');
+  $('head-worker').classList.add('hidden');
+}
+
+function enterMain(id, name){
+  curWorker = id;
+  localStorage.setItem(LS_KEY, id);
+  localStorage.setItem(NAME_KEY, name);
+  $('head-worker-name').textContent = name;
+  $('head-worker').classList.remove('hidden');
+  $('register-card').classList.add('hidden');
+  $('main-app').classList.remove('hidden');
+  refreshAll();
+}
+
+async function initWorker(){
+  updateOfflineBar();
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    try {
+      const r = await fetch('/cm/api/worker-status/' + saved);
+      if (r.ok) {
+        const d = await r.json();
+        enterMain(saved, d.worker_name);
+        return;
+      }
+      // worker deleted by admin — drop the stored identity
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(NAME_KEY);
+    } catch(e) {
+      // offline: trust the stored identity so clocking still works
+      enterMain(saved, localStorage.getItem(NAME_KEY) || 'Worker');
+      return;
+    }
+  }
+  showRegister();
+  if (!isOnline()) regMsg('You are offline — connect to the internet once to register this phone.', 'info');
+}
+
+function regMsg(html, kind){
+  $('reg-msg').innerHTML = html ? `<div class="msg ${kind}">${html}</div>` : '';
+}
+
+async function registerWorker(){
+  const name = $('reg-name').value.trim();
+  const phone = $('reg-phone').value.trim();
+  const email = $('reg-email').value.trim();
+  if (!name || !phone) { regMsg('Name and mobile phone are required.', 'err'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { regMsg('Enter a valid email address.', 'err'); return; }
+  if (!isOnline()) { regMsg('You are offline — registration needs the internet once.', 'err'); return; }
+  regMsg('Registering...', 'info');
+  try {
+    const r = await fetch('/cm/api/register-worker', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name: name, phone: phone,
+        email: $('reg-email').value.trim(),
+        trade: $('reg-trade').value.trim(),
+        employment_type: $('reg-emp').value})});
+    const d = await r.json();
+    if (!r.ok || !d.ok) { regMsg(d.error || 'Registration failed.', 'err'); return; }
+    regMsg('', '');
+    enterMain(d.worker_id, d.worker_name);
+    msg(d.existing ? 'Welcome back, ' + d.worker_name + '!' : 'Registered! You can now scan QR codes.', 'ok');
+  } catch(e) {
+    regMsg('Network error — try again.', 'err');
+  }
+}
+
+$('switch-link').onclick = e => {
+  e.preventDefault();
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(NAME_KEY);
+  showRegister();
+};
+
+async function refreshAll(){
+  if (!curWorker) return;
+  await refreshStatus();
+  await refreshTimecards();
+}
+
+async function refreshStatus(){
+  let d;
+  try {
+    const r = await fetch('/cm/api/worker-status/' + curWorker);
+    if (!r.ok) {
+      // worker may have been deleted by the admin — back to registration
+      curWorker = null;
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(NAME_KEY);
+      showRegister();
+      return;
+    }
+    d = await r.json();
+  } catch(e) { return; } // offline — keep the last rendered status
+  const c = $('status-card');
+  if (d.clocked_in) {
+    c.innerHTML = `<div class="status-big">🟢 Clocked in</div>
+      <div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>
+      <div class="muted small">Today: ${d.today_hours}h</div>`;
+    $('loc-toggle').disabled = false;
+  } else {
+    c.innerHTML = `<div class="status-big">⚪ Not clocked in</div>
+      <div class="muted small">Today: ${d.today_hours}h</div>`;
+    $('loc-toggle').disabled = true;
+    stopLocSharing();
+  }
+}
+
+async function refreshTimecards(){
+  let rows;
+  try {
+    const r = await fetch('/cm/api/my-timecards/' + curWorker + '?days=7');
+    if (!r.ok) return;
+    rows = await r.json();
+  } catch(e) { return; } // offline — keep the last rendered list
+  $('tc-list').innerHTML = rows.length ? rows.map(t =>
+    `<div class="tc-row"><span><b>${t.date}</b> · ${t.site_name}<br>
+     <span class="muted small">${t.clock_in}${t.clock_out ? ' – ' + t.clock_out : ' – on shift'} · ${t.status.replace('_',' ')}</span></span>
+     <b>${t.hours}h</b></div>`).join('')
+    : '<div class="muted">No timecards in the last 7 days.</div>';
+}
+
+/* ---------- QR scanning ---------- */
+function extractToken(text){
+  text = (text || '').trim();
+  if (!text) return '';
+  const m = text.match(/\/clock\/([A-Za-z0-9]+)/);
+  if (m) return m[1];
+  return text.split('/').pop().split('?')[0];
+}
+
+async function startScan(){
+  if (!curWorker) { msg('Select your name first.', 'info'); return; }
+  $('scanner-box').classList.remove('hidden');
+  $('scan-btn').classList.add('hidden');
+  try {
+    scanner = new Html5Qrcode('qr-reader');
+    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:240,height:240}},
+      onScan, ()=>{});
+  } catch(e) {
+    $('scan-hint').textContent = 'Camera unavailable (' + (e && e.message ? e.message : 'denied') + '). You can enter the code manually below.';
+  }
+}
+async function stopScan(){
+  try { if (scanner) { await scanner.stop(); await scanner.clear(); } } catch(e){}
+  scanner = null;
+  $('scanner-box').classList.add('hidden');
+  $('scan-btn').classList.remove('hidden');
+}
+function onScan(text){
+  const token = extractToken(text);
+  if (!token) { msg('Could not read a code from that QR.', 'err'); return; }
+  stopScan();
+  prepareConfirm(token);
+}
+function useManualToken(){
+  const token = extractToken($('manual-token').value);
+  if (!token) { msg('Paste the QR code text first.', 'err'); return; }
+  stopScan();
+  prepareConfirm(token);
+}
+
+let pendingGeo = null;
+function captureGeo(){
+  pendingGeo = null;
+  $('cf-geo').textContent = 'Getting your location...';
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => { pendingGeo = {lat: p.coords.latitude, lng: p.coords.longitude};
+             $('cf-geo').textContent = '✓ Location captured'; },
+      () => { $('cf-geo').textContent = 'Location unavailable — you can still continue.'; },
+      {enableHighAccuracy: true, timeout: 10000});
+  } else { $('cf-geo').textContent = 'Geolocation not supported.'; }
+}
+async function prepareConfirm(token){
+  pendingToken = token;
+  $('confirm-box').classList.remove('hidden');
+  $('cf-worker').textContent = workerName();
+  if (!isOnline()) {
+    // Offline: the token can't be validated, so the worker picks the
+    // action manually. It's queued and validated on sync.
+    $('cf-title').textContent = '⏱️ Offline clock';
+    $('cf-site').textContent = 'Will sync when reconnected';
+    $('cf-online-actions').classList.add('hidden');
+    $('cf-offline-actions').classList.remove('hidden');
+    captureGeo();
+    window.scrollTo(0, 0);
+    return;
+  }
+  const r = await fetch('/cm/api/qr-info/' + encodeURIComponent(token));
+  const d = await r.json();
+  if (!r.ok || !d.ok) { msg(d.error || 'Invalid or expired QR code.', 'err'); cancelConfirm(); return; }
+  $('cf-title').textContent = d.action === 'clock_in' ? '⏱️ Clock In' : '⏱️ Clock Out';
+  $('cf-site').textContent = d.site_name;
+  $('cf-online-actions').classList.remove('hidden');
+  $('cf-offline-actions').classList.add('hidden');
+  captureGeo();
+  window.scrollTo(0, 0);
+}
+function cancelConfirm(){
+  pendingToken = null; pendingGeo = null;
+  $('confirm-box').classList.add('hidden');
+  $('cf-online-actions').classList.remove('hidden');
+  $('cf-offline-actions').classList.add('hidden');
+}
+
+function confirmClockOffline(action){
+  if (!pendingToken || !curWorker) return;
+  const q = loadQueue(QUEUE_KEY);
+  q.push({token: pendingToken, worker_id: curWorker, action: action,
+          client_at: new Date().toISOString(),
+          lat: pendingGeo ? pendingGeo.lat : null,
+          lng: pendingGeo ? pendingGeo.lng : null});
+  saveQueue(QUEUE_KEY, q);
+  cancelConfirm();
+  msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
+}
+
+async function confirmClock(){
+  if (!pendingToken || !curWorker) return;
+  $('cf-confirm').disabled = true;
+  const body = {token: pendingToken, worker_id: curWorker,
+                lat: pendingGeo ? pendingGeo.lat : null,
+                lng: pendingGeo ? pendingGeo.lng : null};
+  const r = await fetch('/cm/api/scan-clock', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const d = await r.json();
+  $('cf-confirm').disabled = false;
+  cancelConfirm();
+  if (d.ok) {
+    msg(`✓ ${d.action === 'clock_in' ? 'Clocked in' : 'Clocked out'} at ${d.site_name}` +
+        (d.hours ? ` — ${d.hours}h` : ''), 'ok');
+  } else {
+    msg(d.error || 'Clock action failed.', 'err');
+  }
+  refreshAll();
+}
+
+/* ---------- live location sharing ---------- */
+$('loc-toggle').onchange = () => {
+  if ($('loc-toggle').checked) startLocSharing();
+  else stopLocSharing();
+};
+function bufferLocation(pos){
+  const q = loadQueue(LOCQ_KEY);
+  q.push({lat: pos.lat, lng: pos.lng, at: new Date().toISOString(), accuracy: pos.accuracy});
+  while (q.length > 500) q.shift(); // cap: drop oldest
+  saveQueue(LOCQ_KEY, q);
+}
+async function sendLocation(){
+  if (!curWorker) return;
+  const pos = await new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => res({lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy}),
+      () => res(null), {enableHighAccuracy: true, timeout: 10000});
+  });
+  if (!pos) { $('loc-hint').textContent = 'Location unavailable — retrying in a minute.'; return; }
+  if (!isOnline()) {
+    bufferLocation(pos);
+    const n = loadQueue(LOCQ_KEY).length;
+    $('loc-hint').textContent = `Offline — ${n} location${n > 1 ? 's' : ''} stored, will sync later.`;
+    return;
+  }
+  const r = await fetch('/cm/api/location', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({worker_id: curWorker, lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy})});
+  const d = await r.json();
+  if (d.ok) {
+    $('loc-hint').textContent = 'Sharing live location (updates every minute).';
+  } else {
+    $('loc-hint').textContent = d.error || 'Sharing stopped.';
+    $('loc-toggle').checked = false;
+    stopLocSharing();
+  }
+}
+function startLocSharing(){
+  if (!curWorker) { $('loc-toggle').checked = false; return; }
+  sendLocation();
+  locTimer = setInterval(sendLocation, 60000);
+}
+function stopLocSharing(){
+  $('loc-toggle').checked = false;
+  if (locTimer) { clearInterval(locTimer); locTimer = null; }
+  $('loc-hint').textContent = 'Sends your position every minute while clocked in.';
+}
+
+initWorker();
+</script>
+</body>
+</html>
