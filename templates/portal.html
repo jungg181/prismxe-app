@@ -11,37 +11,80 @@
          display: flex; flex-direction: column; align-items: center;
          padding: 48px 16px; }
   h1 { font-size: 2rem; letter-spacing: 2px; margin-bottom: 8px; }
-  p.sub { color: #94a3b8; margin-bottom: 40px; }
-  .cards { display: grid; gap: 20px; width: 100%; max-width: 560px; }
-  a.card { display: flex; align-items: center; gap: 18px;
-           background: #1e293b; border: 1px solid #334155;
-           border-radius: 16px; padding: 24px; text-decoration: none;
-           color: inherit; transition: transform .12s, border-color .12s; }
-  a.card:hover { transform: translateY(-2px); border-color: #3b82f6; }
-  .icon { font-size: 2.4rem; }
-  .card b { font-size: 1.2rem; display: block; margin-bottom: 4px; }
-  .card span { color: #94a3b8; font-size: .95rem; }
+  p.sub { color: #94a3b8; margin-bottom: 32px; }
+  .folders { display: grid; gap: 16px; width: 100%; max-width: 560px; }
+  .folder { background: #1e293b; border: 1px solid #334155;
+            border-radius: 16px; overflow: hidden; }
+  .folder-header { display: flex; align-items: center; gap: 14px;
+                   padding: 20px 24px; cursor: pointer; user-select: none;
+                   width: 100%; background: none; border: none;
+                   color: inherit; font: inherit; text-align: left; }
+  .folder-header:hover { background: #243049; }
+  .folder-icon { font-size: 1.8rem; }
+  .folder-header b { font-size: 1.15rem; flex: 1; }
+  .folder-header .count { color: #94a3b8; font-size: .85rem;
+                         background: #0f172a; padding: 4px 10px;
+                         border-radius: 20px; }
+  .folder-header .arrow { color: #94a3b8; font-size: 1.2rem;
+                         transition: transform .2s; }
+  .folder.open .folder-header .arrow { transform: rotate(90deg); }
+  .folder-apps { display: none; padding: 0 12px 12px; }
+  .folder.open .folder-apps { display: grid; gap: 10px; }
+  a.card { display: flex; align-items: center; gap: 16px;
+           background: #0f172a; border: 1px solid #334155;
+           border-radius: 12px; padding: 18px 20px; text-decoration: none;
+           color: inherit; transition: border-color .12s; }
+  a.card:hover { border-color: #3b82f6; }
+  .icon { font-size: 2rem; }
+  .card b { font-size: 1.05rem; display: block; margin-bottom: 2px; }
+  .card span { color: #94a3b8; font-size: .88rem; }
 </style>
 </head>
 <body>
   <h1>PrismXE</h1>
   <p class="sub">Field operations portal</p>
-  <div class="cards">
-    <a class="card" href="/gauge/">
-      <div class="icon">🔧</div>
-      <div><b>Boiler Gauge Check</b>
-      <span>Photograph gauges, auto-read needles, log measurements</span></div>
-    </a>
-    <a class="card" href="/cm/">
-      <div class="icon">🏗️</div>
-      <div><b>Construction Manager</b>
-      <span>Sites, workers, timecards, incidents, QA/QC</span></div>
-    </a>
-    <a class="card" href="/patrol/">
-      <div class="icon">📋</div>
-      <div><b>Patrol Board</b>
-      <span>Equipment patrol timetable &amp; shift monitoring</span></div>
-    </a>
-  </div>
+  <div class="folders" id="folders"></div>
+
+<script>
+const COMPANIES = [
+  {
+    name: "Hanseong",
+    icon: "🏢",
+    apps: [
+      { icon: "📋", name: "Patrol Board", desc: "Equipment patrol timetable & shift monitoring", url: "/patrol/" },
+      { icon: "🔧", name: "Boiler Gauge Check", desc: "Photograph gauges, auto-read needles, log measurements", url: "/gauge/" },
+    ]
+  },
+  {
+    name: "Construction",
+    icon: "🏗️",
+    apps: [
+      { icon: "🏗️", name: "Construction Manager", desc: "Sites, workers, timecards, incidents, QA/QC", url: "/cm/" },
+    ]
+  },
+];
+
+const container = document.getElementById('folders');
+COMPANIES.forEach((co, i) => {
+  const div = document.createElement('div');
+  div.className = 'folder' + (i === 0 ? ' open' : '');
+  div.innerHTML = `
+    <button class="folder-header">
+      <span class="folder-icon">${co.icon}</span>
+      <b>${co.name}</b>
+      <span class="count">${co.apps.length} app${co.apps.length > 1 ? 's' : ''}</span>
+      <span class="arrow">▶</span>
+    </button>
+    <div class="folder-apps">
+      ${co.apps.map(a => `
+        <a class="card" href="${a.url}">
+          <div class="icon">${a.icon}</div>
+          <div><b>${a.name}</b><span>${a.desc}</span></div>
+        </a>`).join('')}
+    </div>`;
+  div.querySelector('.folder-header').onclick = () => div.classList.toggle('open');
+  container.appendChild(div);
+});
+</script>
 </body>
 </html>
