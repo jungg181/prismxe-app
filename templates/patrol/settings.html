@@ -18,13 +18,25 @@
       <span class="muted small" id="display-msg"></span>
     </div>
   </div>
+  <div class="rowline" style="margin-top:10px">
+    <div class="grow">
+      <div class="small muted">ANDROID APP VERSION (integer — bump to trigger in-app update)</div>
+      <input type="number" id="app_version" value="{{ app_version }}" style="width:100px" min="1" step="1">
+    </div>
+    <div class="grow">
+      <div class="small muted">APK DOWNLOAD URL</div>
+      <input type="text" id="apk_url" value="{{ apk_url }}" placeholder="https://…" style="width:100%">
+    </div>
+  </div>
 </div>
 <script>
 function saveDisplay(){
   var z = document.getElementById('zipcode').value;
+  var v = parseInt(document.getElementById('app_version').value, 10) || 1;
+  var u = document.getElementById('apk_url').value;
   fetch('{{ url_for('.settings_display_save') }}', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({zipcode: z})
+    body: JSON.stringify({zipcode: z, app_version: v, apk_url: u})
   }).then(function(r){ return r.json(); }).then(function(j){
     document.getElementById('display-msg').textContent = j.ok ? 'Saved ✓' : 'Error';
   }).catch(function(){ document.getElementById('display-msg').textContent = 'Error'; });

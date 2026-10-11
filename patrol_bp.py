@@ -310,10 +310,13 @@ def qr_png():
 @bp.route('/settings')
 @login_required
 def settings():
+    cfg = DB.get('config', {})
     return render_template('patrol/settings.html', slots=DB['slots'],
                            equipment=DB['equipment'], shifts=DB['shifts'],
                            workers=DB['workers'],
-                           zipcode=DB.get('config', {}).get('zipcode', ''))
+                           zipcode=cfg.get('zipcode', ''),
+                           app_version=cfg.get('app_version', 1),
+                           apk_url=cfg.get('apk_url', ''))
 
 
 @bp.route('/settings/display/save', methods=['POST'])
@@ -322,8 +325,22 @@ def settings_display_save():
     data = request.get_json(force=True)
     zipcode = (data.get('zipcode') or '').strip()
     DB.setdefault('config', {})['zipcode'] = zipcode
+    try:
+        DB['config']['app_version'] = max(1, int(data.get('app_version', 1)))
+    except (TypeError, ValueError):
+        pass
+    DB['config']['apk_url'] = (data.get('apk_url') or '').strip()
     save_db()
     return jsonify({'ok': True})
+
+
+@bp.route('/api/app-version')
+def api_app_version():
+    cfg = DB.get('config', {})
+    return jsonify({
+        'version': int(cfg.get('app_version', 1)),
+        'apk_url': cfg.get('apk_url', ''),
+    })
 
 
 @bp.route('/settings/equipment/save', methods=['POST'])
