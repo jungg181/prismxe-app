@@ -347,6 +347,19 @@ def api_app_version():
     })
 
 
+@bp.route('/api/worker-status')
+def api_worker_status():
+    email = (request.args.get('email') or '').strip().lower()
+    if not email or '@' not in email:
+        return jsonify({'ok': False, 'error': 'Valid email required.'}), 400
+    clocked_in, last = punch_status(email)
+    return jsonify({
+        'ok': True,
+        'clocked_in': clocked_in,
+        'since': last.get('ts') if last else None,
+    })
+
+
 @bp.route('/settings/equipment/save', methods=['POST'])
 @login_required
 def settings_equipment_save():
