@@ -46,9 +46,9 @@
     <div style="display:flex;align-items:center;gap:14px">
       <div style="font-size:clamp(1.25rem,.9rem + 1.5vw,3rem);font-weight:800"><span class="livedot blink"></span>{{ shift.name if shift else '—' }}</div>
       <div class="small" style="color:#e2e8f0">CURRENT SHIFT</div>
-      <div style="color:#e2e8f0;margin-left:auto;font-size:clamp(.9rem,.75rem + .7vw,1.7rem)">{{ now.strftime('%A, %b %d') }}</div>
+      <div id="temp" title="Current temperature" style="margin-left:auto;font-size:clamp(1.4rem,1rem + 2vw,2.8rem);font-weight:800;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums">--°F</div>
+      <div style="color:#e2e8f0;font-size:clamp(.9rem,.75rem + .7vw,1.7rem)">{{ now.strftime('%A, %b %d') }}</div>
       <div class="clock" id="clock" style="font-size:clamp(1.9rem,1.1rem + 3.2vw,5rem);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums">--:--:--</div>
-      <div id="temp" title="Current temperature (Phoenix, AZ)" style="font-size:clamp(1.2rem,.9rem + 1.8vw,2.6rem);font-weight:800;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums">--°F</div>
     </div>
     {% if nxt is not none %}
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
@@ -127,11 +127,11 @@ tick(); setInterval(tick, 1000);
 var WX_ZIP = "{{ zipcode }}";
 var WX_POS = null; // resolved {lat, lon}
 function wxFetch(lat, lon){
-  fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2&temperature_unit=fahrenheit&timezone=auto')
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m&temperature_unit=fahrenheit&timezone=auto')
     .then(function(r){ return r.json(); })
     .then(function(j){
-      if(j && j.current && typeof j.current.temperature_2 === 'number'){
-        document.getElementById('temp').textContent = Math.round(j.current.temperature_2) + '°F';
+      if(j && j.current && typeof j.current.temperature_2m === 'number'){
+        document.getElementById('temp').textContent = Math.round(j.current.temperature_2m) + '°F';
       }
     })
     .catch(function(){});
