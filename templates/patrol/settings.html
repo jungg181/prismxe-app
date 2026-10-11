@@ -27,6 +27,10 @@
       <div class="small muted">APK DOWNLOAD URL</div>
       <input type="text" id="apk_url" value="{{ apk_url }}" placeholder="https://…" style="width:100%">
     </div>
+    <div class="grow">
+      <div class="small muted">APK CERT SHA256 (for QR → app deep link)</div>
+      <input type="text" id="apk_cert_sha256" value="{{ apk_cert_sha256 }}" placeholder="AA:BB:CC:…" style="width:100%">
+    </div>
   </div>
 </div>
 <script>
@@ -34,9 +38,10 @@ function saveDisplay(){
   var z = document.getElementById('zipcode').value;
   var v = parseInt(document.getElementById('app_version').value, 10) || 1;
   var u = document.getElementById('apk_url').value;
+  var s = document.getElementById('apk_cert_sha256').value;
   fetch('{{ url_for('.settings_display_save') }}', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({zipcode: z, app_version: v, apk_url: u})
+    body: JSON.stringify({zipcode: z, app_version: v, apk_url: u, apk_cert_sha256: s})
   }).then(function(r){ return r.json(); }).then(function(j){
     document.getElementById('display-msg').textContent = j.ok ? 'Saved ✓' : 'Error';
   }).catch(function(){ document.getElementById('display-msg').textContent = 'Error'; });
