@@ -123,7 +123,7 @@ function tick(){
 }
 tick(); setInterval(tick, 1000);
 // current temperature next to the clock — Open-Meteo, no key needed
-// location comes from the Zipcode saved in Settings (defaults to Phoenix, AZ)
+// location comes from the Zipcode saved in Settings (defaults to Queen Creek, AZ)
 var WX_ZIP = "{{ zipcode }}";
 var WX_POS = null; // resolved {lat, lon}
 function wxFetch(lat, lon){
@@ -146,11 +146,11 @@ function tickTemp(){
         if(p && p.latitude && p.longitude){
           WX_POS = {lat: p.latitude, lon: p.longitude};
           wxFetch(WX_POS.lat, WX_POS.lon);
-        } else { wxFetch(33.4484, -112.0740); }
+        } else { wxFetch(33.2487, -111.6343); }
       })
-      .catch(function(){ wxFetch(33.4484, -112.0740); });
+      .catch(function(){ wxFetch(33.2487, -111.6343); });
   } else {
-    wxFetch(33.4484, -112.0740);
+    wxFetch(33.2487, -111.6343);
   }
 }
 tickTemp(); setInterval(tickTemp, 600000);
