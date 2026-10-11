@@ -48,6 +48,7 @@
       <div class="small" style="color:#e2e8f0">CURRENT SHIFT</div>
       <div style="color:#e2e8f0;margin-left:auto;font-size:clamp(.9rem,.75rem + .7vw,1.7rem)">{{ now.strftime('%A, %b %d') }}</div>
       <div class="clock" id="clock" style="font-size:clamp(1.9rem,1.1rem + 3.2vw,5rem);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums">--:--:--</div>
+      <div id="temp" title="Current temperature (Phoenix, AZ)" style="font-size:clamp(1.2rem,.9rem + 1.8vw,2.6rem);font-weight:800;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums">--°F</div>
     </div>
     {% if nxt is not none %}
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
@@ -121,6 +122,18 @@ function tick(){
     p(d.getHours())+'<span class="blink">:</span>'+p(d.getMinutes())+'<span class="blink">:</span>'+p(d.getSeconds());
 }
 tick(); setInterval(tick, 1000);
+// current temperature (Phoenix, AZ) next to the clock — Open-Meteo, no key needed
+function tickTemp(){
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=33.4484&longitude=-112.0740&current=temperature_2&temperature_unit=fahrenheit&timezone=America%2FPhoenix')
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(j && j.current && typeof j.current.temperature_2 === 'number'){
+        document.getElementById('temp').textContent = Math.round(j.current.temperature_2) + '°F';
+      }
+    })
+    .catch(function(){});
+}
+tickTemp(); setInterval(tickTemp, 600000);
 // countdown to next patrol slot + progress through the current hour
 function tickNext(){
   var card = document.getElementById('shiftcard');
