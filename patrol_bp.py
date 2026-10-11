@@ -107,6 +107,7 @@ def load_db():
         db = json.load(f)
     for c in COLLECTIONS:
         db.setdefault(c, [])
+    db.setdefault('config', {'zipcode': ''})
     return db
 
 
@@ -290,7 +291,8 @@ def dashboard():
                            slots=DB['slots'], equipment=DB['equipment'],
                            shifts=DB['shifts'], counts=slot_counts,
                            on_patrol=on_patrol_now(), located=located,
-                           shift_tints=shift_tints)
+                           shift_tints=shift_tints,
+                           zipcode=DB.get('config', {}).get('zipcode', ''))
 
 
 # ================= QR CODE =================
@@ -316,7 +318,18 @@ def qr_png():
 def settings():
     return render_template('patrol/settings.html', slots=DB['slots'],
                            equipment=DB['equipment'], shifts=DB['shifts'],
-                           workers=DB['workers'])
+                           workers=DB['workers'],
+                           zipcode=DB.get('config', {}).get('zipcode', ''))
+
+
+@bp.route('/settings/display/save', methods=['POST'])
+@login_required
+def settings_display_save():
+    data = request.get_json(force=True)
+    zipcode = (data.get('zipcode') or '').strip()
+    DB.setdefault('config', {})['zipcode'] = zipcode
+    save_db()
+    return jsonify({'ok': True})
 
 
 @bp.route('/settings/equipment/save', methods=['POST'])

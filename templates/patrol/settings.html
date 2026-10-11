@@ -5,6 +5,33 @@
 <h1 style="margin-top:0">Settings</h1>
 
 <div class="card">
+  <h2><span class="muted">00</span> Display</h2>
+  <div class="rowline">
+    <div class="grow">
+      <div class="small muted">ZIPCODE (for dashboard temperature)</div>
+      <input type="text" id="zipcode" value="{{ zipcode }}" placeholder="e.g. 85205" style="width:160px" inputmode="numeric">
+      <span class="muted small">Leave empty for Phoenix, AZ default.</span>
+    </div>
+    <div>
+      <div class="small muted">&nbsp;</div>
+      <button class="btn primary" onclick="saveDisplay()">Save</button>
+      <span class="muted small" id="display-msg"></span>
+    </div>
+  </div>
+</div>
+<script>
+function saveDisplay(){
+  var z = document.getElementById('zipcode').value;
+  fetch('{{ url_for('.settings_display_save') }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({zipcode: z})
+  }).then(function(r){ return r.json(); }).then(function(j){
+    document.getElementById('display-msg').textContent = j.ok ? 'Saved ✓' : 'Error';
+  }).catch(function(){ document.getElementById('display-msg').textContent = 'Error'; });
+}
+</script>
+
+<div class="card">
   <h2><span class="muted">01</span> Equipment <button class="btn small primary" onclick="addEquipment()" style="float:right">+ Add Equipment</button></h2>
   <div id="eq-list">
     {% for e in equipment %}

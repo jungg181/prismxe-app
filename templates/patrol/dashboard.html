@@ -122,9 +122,12 @@ function tick(){
     p(d.getHours())+'<span class="blink">:</span>'+p(d.getMinutes())+'<span class="blink">:</span>'+p(d.getSeconds());
 }
 tick(); setInterval(tick, 1000);
-// current temperature (Phoenix, AZ) next to the clock — Open-Meteo, no key needed
-function tickTemp(){
-  fetch('https://api.open-meteo.com/v1/forecast?latitude=33.4484&longitude=-112.0740&current=temperature_2&temperature_unit=fahrenheit&timezone=America%2FPhoenix')
+// current temperature next to the clock — Open-Meteo, no key needed
+// location comes from the Zipcode saved in Settings (defaults to Phoenix, AZ)
+var WX_ZIP = "{{ zipcode }}";
+var WX_POS = null; // resolved {lat, lon}
+function wxFetch(lat, lon){
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2&temperature_unit=fahrenheit&timezone=auto')
     .then(function(r){ return r.json(); })
     .then(function(j){
       if(j && j.current && typeof j.current.temperature_2 === 'number'){
@@ -132,6 +135,23 @@ function tickTemp(){
       }
     })
     .catch(function(){});
+}
+function tickTemp(){
+  if(WX_POS){ wxFetch(WX_POS.lat, WX_POS.lon); return; }
+  if(WX_ZIP){
+    fetch('https://api.zippopotam.us/us/'+encodeURIComponent(WX_ZIP))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var p = j && j.places && j.places[0];
+        if(p && p.latitude && p.longitude){
+          WX_POS = {lat: p.latitude, lon: p.longitude};
+          wxFetch(WX_POS.lat, WX_POS.lon);
+        } else { wxFetch(33.4484, -112.0740); }
+      })
+      .catch(function(){ wxFetch(33.4484, -112.0740); });
+  } else {
+    wxFetch(33.4484, -112.0740);
+  }
 }
 tickTemp(); setInterval(tickTemp, 600000);
 // countdown to next patrol slot + progress through the current hour
