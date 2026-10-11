@@ -275,7 +275,7 @@ moveNowLine(); setInterval(moveNowLine, 30000);
     bounds.push([w.lat, w.lng]);
   });
   if (bounds.length === 1) { map.setView(bounds[0], 17); }
-  else { map.fitBounds(bounds, {padding: [40, 40]}); if (map.getZoom() < 15) map.setZoom(15); }
+  else { map.fitBounds(bounds, {padding: [40, 40], maxZoom: 17}); }
 })();
 {% endif %}
 </script>
