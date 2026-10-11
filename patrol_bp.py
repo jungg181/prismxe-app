@@ -341,9 +341,23 @@ def settings_display_save():
 @bp.route('/api/app-version')
 def api_app_version():
     cfg = DB.get('config', {})
+    version = int(cfg.get('app_version', 1))
+    apk_url = cfg.get('apk_url', '')
+    # Auto-updated by build pipeline: app_version.json in repo root overrides DB.
+    try:
+        import os as _os, json as _json
+        _p = _os.path.join(_os.path.dirname(__file__), 'app_version.json')
+        if _os.path.exists(_p):
+            with open(_p) as _f:
+                _j = _json.load(_f)
+            version = max(version, int(_j.get('version', 0)))
+            if _j.get('apk_url'):
+                apk_url = _j['apk_url']
+    except Exception:
+        pass
     return jsonify({
-        'version': int(cfg.get('app_version', 1)),
-        'apk_url': cfg.get('apk_url', ''),
+        'version': version,
+        'apk_url': apk_url,
     })
 
 
