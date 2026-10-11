@@ -97,7 +97,7 @@ function saveDisplay(){
 </div>
 
 <div class="card">
-  <h2><span class="muted">04</span> Shift Definitions <button class="btn small primary" onclick="addShift()" style="float:right">+ Add Shift</button></h2>
+  <h2><span class="muted">04</span> Shifts <span class="muted small">names & colors (hours come from Time Slots)</span> <button class="btn small primary" onclick="addShift()" style="float:right">+ Add Shift</button></h2>
   <div id="shift-list"></div>
   <button class="btn primary" onclick="saveShifts()">Save shifts</button>
   <span class="muted small" id="shift-msg"></span>
@@ -217,7 +217,7 @@ async function saveSlots(){
   document.getElementById('slot-msg').textContent = 'Saved ✓';
   setTimeout(()=>location.reload(), 600);
 }
-// --- shifts ---
+// --- shifts (name + color only; hours come from Time Slots) ---
 function renderShifts(){
   const box = document.getElementById('shift-list');
   box.innerHTML = '';
@@ -228,29 +228,20 @@ function renderShifts(){
       '<div class="rowline"><b>Shift</b>' +
       '<input type="text" class="sh-name" value="'+sh.name+'" style="width:80px">' +
       '<input type="color" class="sh-color" value="'+sh.color+'">' +
-      '<button class="btn small danger" style="margin-left:auto" onclick="SHIFTS.splice('+si+',1);renderShifts()">Delete shift</button></div>' +
-      '<div class="sh-ivs">' + sh.intervals.map((iv,ii)=>
-        '<div class="rowline"><span class="muted small">From</span><input type="time" class="iv-s" value="'+iv.start+'">' +
-        '<span class="muted small">to</span><input type="time" class="iv-e" value="'+iv.end+'">' +
-        '<button class="btn small danger" onclick="SHIFTS['+si+'].intervals.splice('+ii+',1);renderShifts()">✕</button></div>'
-      ).join('') + '</div>' +
-      '<button class="btn small" onclick="SHIFTS['+si+'].intervals.push({start:\'08:00\',end:\'17:00\'});renderShifts()">+ Add interval</button>';
+      '<button class="btn small danger" style="margin-left:auto" onclick="SHIFTS.splice('+si+',1);renderShifts()">Delete shift</button></div>';
     box.appendChild(div);
   });
 }
 function addShift(){
-  SHIFTS.push({id:'', name:'D', color:'#0891b2', intervals:[{start:'08:00',end:'17:00'}]});
+  SHIFTS.push({id:'', name:'D', color:'#0891b2', intervals:[]});
   renderShifts();
 }
 async function saveShifts(){
   const cards = [...document.querySelectorAll('#shift-list .card')];
-  const out = cards.map((card, si)=>{
-    const ivs = [...card.querySelectorAll('.sh-ivs .rowline')].map(r=>({
-      start: r.querySelector('.iv-s').value, end: r.querySelector('.iv-e').value
-    }));
-    return {id: SHIFTS[si].id, name: card.querySelector('.sh-name').value,
-            color: card.querySelector('.sh-color').value, intervals: ivs};
-  });
+  const out = cards.map((card, si)=>({
+    id: SHIFTS[si].id, name: card.querySelector('.sh-name').value,
+    color: card.querySelector('.sh-color').value, intervals: SHIFTS[si].intervals || []
+  }));
   await post("{{ url_for('.settings_shifts_save') }}", {shifts: out});
   document.getElementById('shift-msg').textContent = 'Saved ✓';
   setTimeout(()=>location.reload(), 600);

@@ -152,19 +152,13 @@ def lighten(hexcolor, amt=0.82):
 
 
 def shift_for_hour(h):
-    def to_min(t):
-        hh, mm = t.split(':')
-        return int(hh) * 60 + int(mm)
-    m = h * 60
-    for sh in DB['shifts']:
-        for iv in sh.get('intervals', []):
-            s, e = to_min(iv['start']), to_min(iv['end'])
-            if s <= e:
-                if s <= m <= e:
-                    return sh
-            else:  # overnight
-                if m >= s or m <= e:
-                    return sh
+    # Derived from Time Slots (single source of truth): slots[0] = 7:00
+    idx = (h - 7) % 24
+    if 0 <= idx < len(DB['slots']):
+        key = DB['slots'][idx].get('shift')
+        for sh in DB['shifts']:
+            if sh.get('id') == key or sh.get('name') == key:
+                return sh
     return None
 
 
