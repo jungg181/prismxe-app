@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manage Folders — PrismXE</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px 16px; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  p.sub { color: #94a3b8; margin-bottom: 24px; font-size: .9rem; }
+  .company { background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+             padding: 16px; margin-bottom: 16px; }
+  .company-head { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .company-head input[type=text] { flex: 1; }
+  input[type=text] { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+                     border-radius: 8px; padding: 10px 12px; font-size: .95rem; width: 100%; }
+  input[type=text]:focus { outline: none; border-color: #3b82f6; }
+  .icon-input { width: 52px !important; flex: none !important; text-align: center; font-size: 1.2rem; }
+  .app-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
+             background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 8px; }
+  .app-row .fields { flex: 1; display: grid; gap: 6px; }
+  .app-row input[type=text] { padding: 8px 10px; font-size: .88rem; }
+  .btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px;
+         padding: 8px 14px; font-size: .88rem; cursor: pointer; }
+  .btn:hover { background: #475569; }
+  .btn-danger { background: #7f1d1d; }
+  .btn-danger:hover { background: #991b1b; }
+  .btn-primary { background: #1d4ed8; padding: 12px 24px; font-size: 1rem; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-small { padding: 6px 10px; font-size: .8rem; }
+  .row-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .move-select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+                 border-radius: 8px; padding: 6px 8px; font-size: .8rem; }
+  .bottom-bar { display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-wrap: wrap; }
+  .pw-input { max-width: 200px; }
+  .back { color: #64748b; text-decoration: none; font-size: .9rem; }
+  .back:hover { color: #94a3b8; }
+  .msg { margin-top: 12px; font-size: .9rem; min-height: 1.2em; }
+  .msg.ok { color: #4ade80; } .msg.err { color: #f87171; }
+  h3.apps-label { font-size: .85rem; color: #94a3b8; margin: 8px 0; font-weight: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← Back to portal</a>
+  <h1 style="margin-top:12px">Manage Folders</h1>
+  <p class="sub">Rename companies, move apps between folders, add or remove. Like computer folders.</p>
+  <div id="companies"></div>
+  <div class="row-actions">
+    <button class="btn" onclick="addCompany()">+ Add company folder</button>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn btn-primary" onclick="save()">Save changes</button>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+let data = {{ companies|tojson }};
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function render(){
+  const el = document.getElementById('companies');
+  el.innerHTML = '';
+  data.forEach((co, ci) => {
+    const d = document.createElement('div');
+    d.className = 'company';
+    d.innerHTML = `
+      <div class="company-head">
+        <input type="text" class="icon-input" value="${esc(co.icon)}" data-ci="${ci}" data-f="icon" title="Folder icon (emoji)">
+        <input type="text" value="${esc(co.name)}" data-ci="${ci}" data-f="name" placeholder="Company name">
+        <button class="btn btn-danger btn-small" onclick="delCompany(${ci})">Delete</button>
+      </div>
+      <h3 class="apps-label">Apps in this folder:</h3>
+      <div data-apps="${ci}"></div>
+      <div class="row-actions">
+        <button class="btn btn-small" onclick="addApp(${ci})">+ Add app</button>
+      </div>`;
+    el.appendChild(d);
+    const appsEl = d.querySelector(`[data-apps="${ci}"]`);
+    co.apps.forEach((a, ai) => {
+      const r = document.createElement('div');
+      r.className = 'app-row';
+      const moveOpts = data.map((c2, cj) =>
+        `<option value="${cj}"${cj===ci?' disabled':''}>→ ${esc(c2.name)}</option>`).join('');
+      r.innerHTML = `
+        <input type="text" class="icon-input" value="${esc(a.icon)}" data-ci="${ci}" data-ai="${ai}" data-f="icon" title="App icon (emoji)">
+        <div class="fields">
+          <input type="text" value="${esc(a.name)}" data-ci="${ci}" data-ai="${ai}" data-f="name" placeholder="App name">
+          <input type="text" value="${esc(a.desc)}" data-ci="${ci}" data-ai="${ai}" data-f="desc" placeholder="Description">
+          <input type="text" value="${esc(a.url)}" data-ci="${ci}" data-ai="${ai}" data-f="url" placeholder="URL, e.g. /patrol/">
+        </div>
+        <div style="display:grid;gap:6px">
+          <select class="move-select" onchange="moveApp(${ci},${ai},this.value);this.value=''">
+            <option value="">Move to…</option>${moveOpts}
+          </select>
+          <button class="btn btn-danger btn-small" onclick="delApp(${ci},${ai})">✕</button>
+        </div>`;
+      appsEl.appendChild(r);
+    });
+  });
+  // wire text inputs
+  el.querySelectorAll('input[type=text]').forEach(inp => {
+    inp.oninput = () => {
+      const ci = +inp.dataset.ci, f = inp.dataset.f;
+      if (inp.dataset.ai === undefined) data[ci][f] = inp.value;
+      else data[ci].apps[+inp.dataset.ai][f] = inp.value;
+    };
+  });
+}
+
+function addCompany(){ data.push({name:'New Company', icon:'📁', apps:[]}); render(); }
+function delCompany(ci){ if(confirm('Delete "'+data[ci].name+'" and all its apps?')){ data.splice(ci,1); render(); } }
+function addApp(ci){ data[ci].apps.push({name:'New App', icon:'📱', desc:'', url:'/'}); render(); }
+function delApp(ci,ai){ data[ci].apps.splice(ai,1); render(); }
+function moveApp(fromCi, ai, toCi){
+  if(toCi===''||+toCi===fromCi) return;
+  const [a] = data[fromCi].apps.splice(ai,1);
+  data[+toCi].apps.push(a); render();
+}
+
+async function save(){
+  const msg = document.getElementById('msg');
+  msg.className='msg'; msg.textContent='Saving…';
+  try{
+    const r = await fetch('/api/portal/save',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({companies: data})});
+    const j = await r.json();
+    if(j.ok){ msg.className='msg ok'; msg.textContent='Saved!'; }
+    else { msg.className='msg err'; msg.textContent='Error: '+(j.error||'failed'); }
+  }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
+}
+render();
+</script>
+</body>
+</html>

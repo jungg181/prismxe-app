@@ -14,12 +14,26 @@ Env vars:
   PORT        listen port (default 5000)
 """
 import os
+import json
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+
+PORTAL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "portal_config.json")
+
+def load_portal_config():
+    try:
+        with open(PORTAL_CONFIG_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {"companies": []}
+
+def save_portal_config(cfg):
+    with open(PORTAL_CONFIG_PATH, "w") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
@@ -33,7 +47,46 @@ register_cm_jinja(app)
 
 @app.get("/")
 def portal():
-    return render_template("portal.html")
+    cfg = load_portal_config()
+    return render_template("portal.html", companies=cfg.get("companies", []))
+
+
+@app.get("/manage")
+def portal_manage():
+    from patrol_bp import login_required as patrol_login_required
+    @patrol_login_required
+    def _inner():
+        cfg = load_portal_config()
+        return render_template("portal_manage.html", companies=cfg.get("companies", []))
+    return _inner()
+
+
+@app.post("/api/portal/save")
+def api_portal_save():
+    from patrol_bp import login_required as patrol_login_required
+    @patrol_login_required
+    def _inner():
+        data = request.get_json(force=True, silent=True) or {}
+        companies = data.get("companies", [])
+        # Basic sanitization
+        clean = []
+        for co in companies[:20]:
+            apps = []
+            for a in (co.get("apps") or [])[:20]:
+                apps.append({
+                    "name": str(a.get("name", ""))[:60],
+                    "icon": str(a.get("icon", "📱"))[:8],
+                    "desc": str(a.get("desc", ""))[:120],
+                    "url": str(a.get("url", ""))[:200],
+                })
+            clean.append({
+                "name": str(co.get("name", "Untitled"))[:60],
+                "icon": str(co.get("icon", "📁"))[:8],
+                "apps": apps,
+            })
+        save_portal_config({"companies": clean})
+        return jsonify({"ok": True})
+    return _inner()
 
 
 @app.get("/.well-known/assetlinks.json")
