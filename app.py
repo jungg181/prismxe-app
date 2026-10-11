@@ -43,13 +43,14 @@ def assetlinks():
     # The sha256 fingerprint is set from Patrol Settings once the APK is built.
     from patrol_bp import DB
     cfg = DB.get('config', {})
-    fingerprints = [f for f in [cfg.get('apk_cert_sha256', '')] if f]
+    sha = cfg.get('apk_cert_sha256', '') or \
+        '21:95:AF:59:5B:49:9F:9A:73:78:5C:E9:32:2B:F4:0E:6E:AE:11:5F:7D:4D:6D:34:DE:9E:5D:F5:5D:72:8F:B4:9'
     return {
         "relation": ["delegate_permission/common.handle_all_urls"],
         "target": {
             "namespace": "android_app",
             "package_name": "com.prismxe.patrol",
-            "sha256_cert_fingerprints": fingerprints,
+            "sha256_cert_fingerprints": [sha],
         },
     }, 200, {"Content-Type": "application/json"}
 
