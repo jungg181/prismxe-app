@@ -258,6 +258,12 @@ def inspect_page():
     return render_template("inspect.html")
 
 
+@bp.get("/upload")
+def upload_page():
+    """Standalone photo upload page — no need to go through Inspection."""
+    return render_template("upload.html")
+
+
 @bp.get("/api/inspect")
 def api_inspect():
     ids = [b.strip() for b in request.args.get("boilers", "").split(",")
