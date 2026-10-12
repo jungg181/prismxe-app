@@ -332,7 +332,10 @@ async function capturePhoto() {
     String(now.getSeconds()).padStart(2,"0");
 
   const stampLines = [category + " " + gaugeName + " (" + gid + ")", dateStr];
-  const fname = gid + "_" + dateStr.replace(/[-: ]/g, "").replace(/(\d{8})(\d{6})/, "$1_$2") + ".jpg";
+  // Date-first filename so photos group by day in the same Drive folder: 2026-10-12_093045_CB-1-G1.jpg
+  const datePart = dateStr.slice(0, 10);           // YYYY-MM-DD
+  const timePart = dateStr.slice(11, 19).replace(/:/g, "");  // HHMMSS
+  const fname = datePart + "_" + timePart + "_" + gid + ".jpg";
 
   closeCam();
   if (blob) onPhoto(gid, blob, fname, stampLines);
