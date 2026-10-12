@@ -218,31 +218,17 @@ async function onPhoto(g, file) {
   window["_last_" + g.id] = data;
   let html = "";
   if (data.value == null) {
-    // Not calibrated — ask for unit and range, then calculate
+    // Not calibrated — ask for unit, then manual entry
     html = `<div class="warn">Needle angle: ${data.angle_deg}°</div>
       <div style="margin:12px 0">
         <div style="font-weight:600;margin-bottom:8px">Unit?</div>
         <div class="row" style="margin-bottom:12px">
-          <button class="btn" onclick="quickCal('${g.id}',${data.angle_deg},'MPa')">MPa</button>
-          <button class="btn" onclick="quickCal('${g.id}',${data.angle_deg},'psi')">psi</button>
-          <button class="btn" onclick="quickCal('${g.id}',${data.angle_deg},'bar')">bar</button>
+          <button class="btn" onclick="quickUnit('${g.id}','MPa')">MPa</button>
+          <button class="btn" onclick="quickUnit('${g.id}','psi')">psi</button>
+          <button class="btn" onclick="quickUnit('${g.id}','bar')">bar</button>
         </div>
-        <div style="font-weight:600;margin-bottom:8px">Range? (0 to ?)</div>
-        <div class="row" style="flex-wrap:wrap;gap:8px">
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},1)">1</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},1.5)">1.5</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},2.5)">2.5</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},23)">23</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},100)">100</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},200)">200</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},220)">220</button>
-          <button class="btn" onclick="quickCalRange('${g.id}',${data.angle_deg},300)">300</button>
-        </div>
-        <div style="margin-top:12px">
-          <input type="number" id="custom-max-${g.id}" placeholder="Custom max" style="width:120px;padding:8px">
-          <button class="btn" onclick="quickCalCustom('${g.id}',${data.angle_deg})">Use custom</button>
-        </div>
-      </div>` + manualHtml(g, "");
+        <div id="quick-val-${g.id}"></div>
+      </div>`;
   } else {
     html = `<div class="val">${data.value} <span style="font-size:18px">${esc(data.unit || "")}</span></div>
       <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read ✓ saved</div>
@@ -261,60 +247,36 @@ function manualHtml(g, preset) {
     <button class="btn btn-ok" onclick="confirmReading('${g.id}', true)">✓ Save</button>`;
 }
 
-// Quick calibration: user picks unit, then range, we calculate using standard 270° dial
-let _quickUnit = {};
-function quickCal(gid, angleDeg, unit) {
-  _quickUnit[gid] = unit;
+// Quick unit selection: user picks unit, then enters value manually
+function quickUnit(gid, unit) {
   event.target.closest('.row').querySelectorAll('.btn').forEach(b => b.style.opacity = '0.5');
   event.target.style.opacity = '1';
   event.target.style.borderColor = '#d4a017';
+  const div = document.getElementById(`quick-val-${gid}`);
+  div.innerHTML = `<div style="margin-top:8px">
+      <input type="number" step="any" id="quick-input-${gid}" placeholder="Enter value (${unit})" style="width:150px;padding:10px;font-size:16px">
+      <button class="btn btn-ok" onclick="quickSave('${gid}','${unit}')">✓ Save</button>
+    </div>`;
+  setTimeout(() => document.getElementById(`quick-input-${gid}`).focus(), 100);
 }
 
-function quickCalRange(gid, angleDeg, maxVal) {
-  const unit = _quickUnit[gid] || 'psi';
-  const angleMin = 225, angleMax = 135;
-  let frac = (angleDeg - angleMin) / 270;
-  if (frac < 0) frac += 360/270;
-  if (frac < 0) frac = 0;
-  if (frac > 1) frac = 1;
-  const value = Math.round((frac * maxVal) * 100) / 100;
-  
-  fetch('/gauge/api/save-calibration', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      gauge_id: gid,
-      angle_min: angleMin, value_min: 0,
-      angle_max: angleMax, value_max: maxVal,
-      unit: unit
-    })
-  });
-  
-  const card = document.getElementById("card-" + gid);
-  const res = card.querySelector(".res");
-  const g = gaugeMap[gid] ? gaugeMap[gid].g : {id: gid};
-  res.innerHTML = `<div class="val">${value} <span style="font-size:18px">${unit}</span></div>
-      <div class="muted-sm" style="font-size:12px">Needle angle ${angleDeg}° · calculated ✓ saved</div>
-      <div class="row">
-        <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
-      </div>
-      <div class="manual" style="display:none">${manualHtml(g, value)}</div>`;
-  
+function quickSave(gid, unit) {
+  const inp = document.getElementById(`quick-input-${gid}`);
+  const val = parseFloat(inp.value);
+  if (isNaN(val)) {
+    alert('Enter a value');
+    return;
+  }
   fetch('/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({gauge_id: gid, value: value, unit: unit, angle_deg: angleDeg})
+    body: JSON.stringify({gauge_id: gid, value: val, unit: unit})
+  }).then(() => {
+    const card = document.getElementById("card-" + gid);
+    const res = card.querySelector(".res");
+    res.innerHTML = `<div class="val">${val} <span style="font-size:18px">${unit}</span></div>
+        <div class="muted-sm" style="font-size:12px">✓ saved</div>`;
   });
-}
-
-function quickCalCustom(gid, angleDeg) {
-  const inp = document.getElementById(`custom-max-${gid}`);
-  const maxVal = parseFloat(inp.value);
-  if (!maxVal || maxVal <= 0) {
-    alert('Enter a valid max value');
-    return;
-  }
-  quickCalRange(gid, angleDeg, maxVal);
 }
 
 function showManual(gid) {
