@@ -72,6 +72,11 @@ def drive_service():
 
 @bp.route("/api/drive-upload", methods=["POST"])
 def api_drive_upload():
+    """Upload a gauge photo to Google Drive (as the user via OAuth).
+
+    Expects multipart form: photo=<file>, filename=<name>.
+    Auto-creates a YYYY-MM-DD subfolder inside DRIVE_FOLDER_ID.
+    """
     svc = drive_service()
     if not svc:
         return jsonify({"ok": False, "error": "Drive not configured"}), 500
@@ -81,13 +86,30 @@ def api_drive_upload():
     if not f:
         return jsonify({"ok": False, "error": "no photo"}), 400
     filename = request.form.get("filename") or "photo.jpg"
+    # Date subfolder: YYYY-MM-DD from filename or today
+    import re
+    m = re.match(r"(\d{4}-\d{2}-\d{2})", filename)
+    date_str = m.group(1) if m else datetime.now().strftime("%Y-%m-%d")
     try:
         from googleapiclient.http import MediaIoBaseUpload
+        # Find or create date subfolder
+        q = (f"'{DRIVE_FOLDER_ID}' in parents and "
+             f"name='{date_str}' and mimeType='application/vnd.google-apps.folder' "
+             f"and trashed=false")
+        res = svc.files().list(q=q, fields="files(id)", pageSize=1).execute()
+        files = res.get("files", [])
+        if files:
+            folder_id = files[0]["id"]
+        else:
+            meta = {"name": date_str, "mimeType": "application/vnd.google-apps.folder",
+                    "parents": [DRIVE_FOLDER_ID]}
+            folder_id = svc.files().create(body=meta, fields="id").execute()["id"]
         data = f.read()
         media = MediaIoBaseUpload(io.BytesIO(data), mimetype="image/jpeg", resumable=False)
-        meta = {"name": filename, "parents": [DRIVE_FOLDER_ID]}
+        meta = {"name": filename, "parents": [folder_id]}
         result = svc.files().create(body=meta, media_body=media, fields="id,name").execute()
-        return jsonify({"ok": True, "id": result.get("id"), "name": result.get("name")})
+        return jsonify({"ok": True, "id": result.get("id"), "name": result.get("name"),
+                        "folder": date_str})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
