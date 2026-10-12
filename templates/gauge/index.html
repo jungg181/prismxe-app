@@ -6,34 +6,166 @@
 <title>Hanseong Check List</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f2f4f7; color: #222; }
-  header { background: #1F4E78; color: #fff; padding: 16px; }
-  header h1 { margin: 0; font-size: 20px; }
-  main { padding: 12px; max-width: 640px; margin: 0 auto; }
-  .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  .card h2 { margin: 0 0 4px; font-size: 17px; }
-  .card p { margin: 0 0 10px; font-size: 13px; color: #666; }
-  .cat { font-size: 15px; font-weight: bold; color: #1F4E78; margin: 14px 0 4px; border-bottom: 2px solid #1F4E78; padding-bottom: 4px; }
-  .grp-label { font-size: 13px; font-weight: bold; color: #1F4E78; margin: 10px 0 6px; }
-  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
-  .toggles button { flex: 1 1 28%; padding: 13px 6px; font-size: 16px; font-weight: bold; border: 2px solid #1F4E78; border-radius: 10px; background: #fff; color: #1F4E78; cursor: pointer; }
-  .toggles button.on { background: #1F4E78; color: #fff; }
-  .toggles.pump button { border-color: #2e7d32; color: #2e7d32; }
-  .toggles.pump button.on { background: #2e7d32; color: #fff; }
-  .empty-note { font-size: 13px; color: #999; font-style: italic; margin: 6px 0; }
-  .btn { display: block; width: 100%; padding: 14px; font-size: 17px; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; margin-top: 12px; }
-  .btn-go { background: #2e7d32; color: #fff; }
-  .btn:disabled { opacity: .4; }
-  .foot { text-align: center; margin: 20px 0; display: flex; flex-direction: column; gap: 10px; }
-  .foot a { color: #1F4E78; font-size: 15px; }
+  body {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    background: linear-gradient(135deg, #0f1b2d 0%, #1a2b45 100%);
+    color: #e8eaf0;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%);
+    color: #fff;
+    padding: 24px 20px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header .subtitle {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  main { padding: 20px 16px; max-width: 640px; margin: 0 auto; }
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 16px;
+    padding: 24px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+  }
+  .card h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #f4e4a6;
+    letter-spacing: 0.5px;
+  }
+  .card p {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.5;
+  }
+  .cat {
+    font-size: 16px;
+    font-weight: 700;
+    color: #d4af37;
+    margin: 20px 0 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .cat:first-of-type { margin-top: 8px; }
+  .grp-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    margin: 14px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .toggles { display: flex; flex-wrap: wrap; gap: 10px; }
+  .toggles button {
+    flex: 1 1 28%;
+    padding: 16px 8px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #e8eaf0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .toggles button:active { transform: scale(0.97); }
+  .toggles button.on {
+    background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+    border-color: #d4af37;
+    color: #0d1526;
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4);
+  }
+  .toggles.pump button {
+    border-color: rgba(46, 125, 50, 0.5);
+  }
+  .toggles.pump button.on {
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border-color: #2e7d32;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.4);
+  }
+  .empty-note {
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    font-style: italic;
+    margin: 8px 0;
+    text-align: center;
+    padding: 12px;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+  }
+  .btn-go {
+    background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+    color: #0d1526;
+    box-shadow: 0 6px 24px rgba(212, 175, 55, 0.3);
+  }
+  .btn-go:active { transform: scale(0.98); }
+  .btn:disabled {
+    opacity: 0.3;
+    box-shadow: none;
+  }
+  .foot {
+    text-align: center;
+    margin: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .foot a {
+    color: rgba(212, 175, 55, 0.8);
+    font-size: 14px;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+  }
+  .foot a:hover { color: #d4af37; }
 </style>
 </head>
 <body>
-<header><h1>🔧 Hanseong Check List</h1></header>
+<header>
+  <h1>Hanseong Check List</h1>
+  <div class="subtitle">Equipment Inspection</div>
+</header>
 <main>
   <div class="card">
-    <h2>Start inspection</h2>
-    <p>Turn on the burners and pumps running now. One pump runs per burner — tapping another pump switches to it.</p>
+    <h2>Start Inspection</h2>
+    <p>Select the burners and pumps currently running. One pump per burner — tapping another pump switches to it.</p>
     {% for cat in ["HOB", "SRP", "RO"] %}
     <div class="cat">{{ cat }}</div>
     {% set cat_burners = boilers | selectattr("system", "equalto", cat) | list %}
@@ -58,12 +190,12 @@
     <div class="empty-note">No equipment yet</div>
     {% endif %}
     {% endfor %}
-    <button class="btn btn-go" id="startBtn" disabled>Select equipment first</button>
+    <button class="btn btn-go" id="startBtn" disabled>Select Equipment</button>
   </div>
 
   <div class="foot">
-    <a href="/gauge/api/export">📥 Download readings CSV</a>
-    <a href="/gauge/admin">⚙️ Settings (equipment &amp; gauges)</a>
+    <a href="/gauge/api/export">📥 Download Readings CSV</a>
+    <a href="/gauge/admin">⚙️ Settings</a>
   </div>
 </main>
 <script>
@@ -80,7 +212,6 @@ const pumpSlot = new Map();    // burner -> its one running pump (one pump per b
 const startBtn = document.getElementById("startBtn");
 
 function pumpBtn(pid) { return document.querySelector(`.toggles.pump button[data-id="${pid}"]`); }
-function burnerBtn(bid) { return document.querySelector(`button[data-id="${bid}"]:not(.toggles.pump button)`); }
 function pumpOn(pid) { pumpSel.add(pid); const pb = pumpBtn(pid); if (pb) pb.classList.add("on"); }
 function pumpOff(pid) { pumpSel.delete(pid); const pb = pumpBtn(pid); if (pb) pb.classList.remove("on"); }
 // is pid the running pump of a selected burner other than `except`?
@@ -95,15 +226,11 @@ document.querySelectorAll(".toggles:not(.pump) button").forEach(b => b.onclick =
   const id = b.dataset.id;
   if (burnerSel.has(id)) {
     burnerSel.delete(id); b.classList.remove("on");
-    // release this burner's pump slot; switch the pump off only if no other
-    // selected burner still uses it (shared pumps CP-2 / AP-2)
     const old = pumpSlot.get(id);
     pumpSlot.delete(id);
     if (old && !slotUsedElsewhere(old, id)) pumpOff(old);
   } else {
     burnerSel.add(id); b.classList.add("on");
-    // one pump per burner: adopt an already-running pump of this burner,
-    // otherwise auto-start the first one
     const grp = B2P[id] || [];
     const already = grp.find(pid => pumpSel.has(pid));
     if (already) {
@@ -119,16 +246,12 @@ document.querySelectorAll(".toggles:not(.pump) button").forEach(b => b.onclick =
 document.querySelectorAll(".toggles.pump button").forEach(b => b.onclick = () => {
   const id = b.dataset.id;
   if (pumpSel.has(id)) {
-    // switching a pump off releases it from every burner slot using it
     pumpOff(id);
     for (const [burner, p] of [...pumpSlot]) {
       if (p === id) pumpSlot.delete(burner);
     }
   } else {
     pumpOn(id);
-    // one pump per burner: tapping another pump switches each selected burner
-    // it can serve over to it; the previous pump switches off unless another
-    // selected burner still uses it (shared pumps CP-2 / AP-2)
     (P2B[id] || []).forEach(burner => {
       if (!burnerSel.has(burner)) return;
       const old = pumpSlot.get(burner);
@@ -142,8 +265,8 @@ document.querySelectorAll(".toggles.pump button").forEach(b => b.onclick = () =>
 function refresh() {
   const n = burnerSel.size + pumpSel.size;
   startBtn.disabled = n === 0;
-  startBtn.textContent = n === 0 ? "Select equipment first"
-    : `Start inspection (${burnerSel.size} burner${burnerSel.size === 1 ? "" : "s"}, ${pumpSel.size} pump${pumpSel.size === 1 ? "" : "s"})`;
+  startBtn.textContent = n === 0 ? "Select Equipment"
+    : `Start Inspection (${burnerSel.size} Burner${burnerSel.size === 1 ? "" : "s"}, ${pumpSel.size} Pump${pumpSel.size === 1 ? "" : "s"})`;
 }
 startBtn.onclick = () => {
   const q = "boilers=" + [...burnerSel].join(",") + "&pumps=" + [...pumpSel].join(",");
