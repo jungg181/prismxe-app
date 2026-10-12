@@ -6,38 +6,76 @@
 <title>Settings</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: linear-gradient(135deg, #0f1b2d 0%, #1a2b45 100%); color: #e8eaf0; min-height: 100vh; }
-  header { background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); padding: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); text-align: center; }
-  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  header p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.6); }
-  main { padding: 20px 16px; max-width: 720px; margin: 0 auto; }
-  .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
-  .card h2 { margin: 0 0 8px; font-size: 17px; color: #f4e4a6; }
-  .card h3 { margin: 14px 0 6px; font-size: 15px; color: #d4af37; }
-  .btn { display: block; width: 100%; padding: 13px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; border: none; border-radius: 12px; margin-top: 10px; cursor: pointer; transition: all 0.2s ease; }
-  .btn:active { transform: scale(0.98); }
-  .btn-save { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
-  .btn-add { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
-  .btn-del { background: rgba(198,40,40,0.12); color: #ef9a9a; border: 1px solid #c62828; font-weight: normal; font-size: 14px; padding: 8px; }
-  .btn-sec { background: rgba(255,255,255,0.08); color: #e8eaf0; border: 1px solid rgba(255,255,255,0.2); }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background: #f5f5f5;
+    color: #222;
+    min-height: 100vh;
+  }
+  header {
+    background: #1976d2;
+    color: #fff;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; color: #222; }
+  .card h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; color: #1976d2; }
+  .btn {
+    display: block; width: 100%;
+    padding: 13px; font-size: 16px; font-weight: 600;
+    border: none; border-radius: 8px;
+    margin-top: 10px; cursor: pointer;
+  }
+  .btn-save { background: #1976d2; color: #fff; }
+  .btn-add { background: #1976d2; color: #fff; }
+  .btn-del { background: #fff; color: #d32f2f; border: 1px solid #d32f2f; font-weight: normal; font-size: 14px; padding: 8px; }
+  .btn-sec { background: #fff; color: #222; border: 1px solid #bbb; }
   .row { display: flex; gap: 8px; }
   .row > * { flex: 1; }
-  label { display: block; font-size: 13px; color: rgba(255,255,255,0.55); margin: 8px 0 2px; }
-  input[type=text], input[type=number], input[type=password], select { width: 100%; padding: 10px; font-size: 15px; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; background: rgba(0,0,0,0.3); color: #e8eaf0; }
-  input::placeholder { color: rgba(255,255,255,0.35); }
-  select option { background: #1a2b45; color: #e8eaf0; }
-  .gauge { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 14px; margin: 8px 0; background: rgba(255,255,255,0.02); }
-  .gauge .gid { font-size: 13px; color: rgba(255,255,255,0.45); }
+  label { display: block; font-size: 13px; color: #666; margin: 8px 0 2px; }
+  input[type=text], input[type=number], input[type=password], select {
+    width: 100%; padding: 10px; font-size: 15px;
+    border: 1px solid #bbb; border-radius: 8px;
+    background: #fff; color: #222;
+  }
+  input::placeholder { color: #999; }
+  .gauge {
+    border: 1px solid #ddd; border-radius: 8px;
+    padding: 14px; margin: 8px 0; background: #fafafa;
+  }
+  .gauge .gid { font-size: 13px; color: #888; }
   .chk { display: flex; gap: 16px; margin-top: 8px; font-size: 15px; }
-  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #e8eaf0; }
+  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #222; }
   .chk input { width: 20px; height: 20px; }
-  .warn { background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 10px; padding: 10px; font-size: 13px; margin-bottom: 12px; color: #f4e4a6; }
-  .sys { font-size: 14px; font-weight: bold; color: #d4af37; margin: 20px 4px 8px; text-transform: uppercase; letter-spacing: 2px; padding-bottom: 6px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); }
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(13, 21, 38, 0.95); border: 1px solid rgba(212, 175, 55, 0.4); color: #f4e4a6; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
+  .warn {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
+    padding: 10px; font-size: 13px; margin-bottom: 12px; color: #7a5c00;
+  }
+  .sys {
+    font-size: 14px; font-weight: 700; color: #1976d2;
+    margin: 20px 4px 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;
+  }
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff;
+    padding: 12px 20px; border-radius: 8px; display: none;
+    font-size: 15px; z-index: 50;
+  }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .gtoggle { cursor: pointer; user-select: none; -webkit-user-select: none; }
-  .muted { color: rgba(255,255,255,0.55); }
-  a.back { color: #d4af37; text-decoration: none; font-size: 15px; }
+  .muted { color: #666; }
+  a.back { color: #1976d2; text-decoration: none; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -83,13 +121,13 @@
 </main>
 <div id="calModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto">
   <div class="card" style="margin:16px auto;max-width:560px">
-    <h3 style="margin:0 0 8px">📷 Calibrate from photo <span id="calGid" style="color:#f4e4a6"></span></h3>
-    <div class="muted" style="font-size:13px;margin-bottom:10px">Take a straight-on photo of the gauge face, then click the <b style="color:#8bc34a">0 (min) mark</b> and the <b style="color:#ef9a9a">max scale mark</b> on the photo. The gold dot marks the assumed dial center.</div>
+    <h3 style="margin:0 0 8px">📷 Calibrate from photo <span id="calGid" style="color:#1976d2"></span></h3>
+    <div class="muted" style="font-size:13px;margin-bottom:10px">Take a straight-on photo of the gauge face, then click the <b style="color:#8bc34a">0 (min) mark</b> and the <b style="color:#ef9a9a">max scale mark</b> on the photo. The blue dot marks the assumed dial center.</div>
     <label>Gauge face photo</label>
     <input type="file" id="calFile" accept="image/*" capture="environment">
     <div id="calWrap" style="display:none;position:relative;margin-top:10px">
       <img id="calImg" style="width:100%;border-radius:10px;cursor:crosshair;touch-action:manipulation;display:block">
-      <div id="calCenterDot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:#d4af37;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calCenterDot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:#1976d2;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
       <div id="calMinDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#2e7d32;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
       <div id="calMaxDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#c62828;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
     </div>

@@ -7,42 +7,87 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: linear-gradient(135deg, #0f1b2d 0%, #1a2b45 100%); color: #e8eaf0; min-height: 100vh; }
-  header { background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); padding: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); position: sticky; top: 0; z-index: 10; text-align: center; }
-  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  header p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.6); }
-  main { padding: 20px 16px; max-width: 640px; margin: 0 auto; }
-  .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
-  .card.done { border: 2px solid #2e7d32; box-shadow: 0 8px 32px rgba(46,125,50,0.25); }
-  .gname { font-size: 17px; font-weight: bold; color: #f4e4a6; }
-  .gmeta { font-size: 13px; color: rgba(255,255,255,0.55); margin: 4px 0 10px; }
-  .btn { display: block; width: 100%; padding: 14px; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; border: none; border-radius: 12px; margin-top: 8px; cursor: pointer; transition: all 0.2s ease; }
-  .btn:active { transform: scale(0.98); }
-  .btn-cam { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
-  .btn-ok { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); color: #fff; box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3); }
-  .btn-edit { background: rgba(255,255,255,0.08); color: #e8eaf0; border: 1px solid rgba(255,255,255,0.2); font-weight: normal; }
-  .btn:disabled { opacity: .3; }
-  .sec { font-size: 15px; font-weight: bold; color: #d4af37; margin: 20px 4px 8px; letter-spacing: 1px; }
-  .sec small { color: rgba(255,255,255,0.5); font-weight: normal; }
-  .val { font-size: 34px; font-weight: bold; color: #f4e4a6; margin: 8px 0; }
-  .thumb { width: 100%; border-radius: 12px; margin-top: 8px; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background: #f5f5f5;
+    color: #222;
+    min-height: 100vh;
+  }
+  header {
+    background: #1976d2;
+    color: #fff;
+    padding: 16px 20px;
+    text-align: center;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card.done { border: 2px solid #2e7d32; }
+  .gname { font-size: 17px; font-weight: 600; color: #222; }
+  .gmeta { font-size: 13px; color: #666; margin: 4px 0 10px; }
+  .btn {
+    display: block; width: 100%;
+    padding: 14px; font-size: 16px; font-weight: 600;
+    border: none; border-radius: 8px;
+    margin-top: 8px; cursor: pointer;
+  }
+  .btn-cam { background: #1976d2; color: #fff; }
+  .btn-ok { background: #2e7d32; color: #fff; }
+  .btn-edit { background: #fff; color: #222; border: 1px solid #bbb; font-weight: normal; }
+  .btn:disabled { opacity: 0.5; }
+  .sec { font-size: 15px; font-weight: 700; color: #1976d2; margin: 16px 4px 8px; }
+  .sec small { color: #666; font-weight: normal; }
+  .val { font-size: 32px; font-weight: 700; color: #222; margin: 8px 0; }
+  .thumb { width: 100%; border-radius: 8px; margin-top: 8px; }
   .row { display: flex; gap: 8px; }
-  input[type=text], input[type=number] { width: 100%; padding: 12px; font-size: 17px; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; margin-top: 8px; background: rgba(0,0,0,0.3); color: #e8eaf0; }
-  input::placeholder { color: rgba(255,255,255,0.35); }
-  .prog { position: sticky; top: 0; background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); color: #f4e4a6; text-align: center; font-size: 15px; font-weight: bold; padding: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); z-index: 9; }
-  .bar { height: 6px; background: rgba(255,255,255,.15); border-radius: 3px; margin-top: 6px; }
-  .bar > div { height: 6px; background: linear-gradient(90deg, #d4af37, #7fd67f); border-radius: 3px; width: 0; }
-  .warn { background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 10px; padding: 10px; font-size: 13px; margin-top: 8px; color: #f4e4a6; }
-  .ok-badge { color: #7fd67f; font-weight: bold; }
-  .cal-need { color: #f0c36d; }
-  .muted { color: rgba(255,255,255,0.55); }
-  .muted-sm { color: rgba(255,255,255,0.45); }
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(13, 21, 38, 0.95); border: 1px solid rgba(212, 175, 55, 0.4); color: #f4e4a6; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
+  input[type=text], input[type=number] {
+    width: 100%; padding: 12px; font-size: 16px;
+    border: 1px solid #bbb; border-radius: 8px; margin-top: 8px;
+    background: #fff; color: #222;
+  }
+  input::placeholder { color: #999; }
+  .prog {
+    position: sticky; top: 0; z-index: 9;
+    background: #1976d2; color: #fff;
+    text-align: center; font-size: 15px; font-weight: 600; padding: 10px;
+  }
+  .bar { height: 6px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; }
+  .bar > div { height: 6px; background: #fff; border-radius: 3px; width: 0; }
+  .warn {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
+    padding: 10px; font-size: 13px; margin-top: 8px; color: #7a5c00;
+  }
+  .ok-badge { color: #2e7d32; font-weight: bold; }
+  .cal-need { color: #e65100; }
+  .muted { color: #666; }
+  .muted-sm { color: #888; }
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff;
+    padding: 12px 20px; border-radius: 8px; display: none;
+    font-size: 15px; z-index: 50;
+  }
   .topbtns { display: flex; gap: 8px; margin-bottom: 4px; }
-  .topbtns a, .topbtns button { flex: 1; text-align: center; padding: 10px; font-size: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #e8eaf0; text-decoration: none; cursor: pointer; }
-  .seg-on { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%) !important; color: #0d1526 !important; border-color: #d4af37 !important; }
-  #driveModal details { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 6px; }
-  #pendingList .pitem { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 6px; }
+  .topbtns a, .topbtns button {
+    flex: 1; text-align: center; padding: 10px; font-size: 14px;
+    border-radius: 8px; border: 1px solid #bbb;
+    background: #fff; color: #222; text-decoration: none; cursor: pointer;
+  }
+  .seg-on { background: #1976d2 !important; color: #fff !important; border-color: #1976d2 !important; }
+  #driveModal details { font-size: 12px; color: #666; margin-top: 6px; }
+  #pendingList .pitem {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+    border: 1px solid #ddd; border-radius: 8px; padding: 6px;
+  }
 </style>
 </head>
 <body>
@@ -84,7 +129,7 @@
 </div>
 <div id="qrOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:100">
   <video id="qrVideo" autoplay playsinline style="width:100%;height:calc(100% - 96px);object-fit:cover;background:#000"></video>
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid #d4af37;border-radius:12px;pointer-events:none"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid #1976d2;border-radius:12px;pointer-events:none"></div>
   <div style="display:flex;gap:8px;padding:16px;position:absolute;bottom:0;left:0;right:0">
     <button class="btn" style="background:#555;color:#fff;margin-top:0" onclick="closeQrScan()">Cancel</button>
   </div>
@@ -356,7 +401,7 @@ function readingHtml(gid, data) {
 function quickUnit(gid, unit) {
   event.target.closest('.row').querySelectorAll('.btn').forEach(b => b.style.opacity = '0.5');
   event.target.style.opacity = '1';
-  event.target.style.borderColor = '#d4a017';
+  event.target.style.borderColor = '#1976d2';
   const div = document.getElementById(`quick-val-${gid}`);
   div.innerHTML = `<div style="margin-top:8px">
       <input type="number" step="any" id="quick-input-${gid}" placeholder="Enter value (${unit})" style="width:150px;padding:10px;font-size:16px">
