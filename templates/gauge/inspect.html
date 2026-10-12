@@ -156,8 +156,9 @@ async function capturePhoto() {
   const w = v.videoWidth || 1280, h = v.videoHeight || 960;
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
-  const ctx = c.getContext("2d");
-  ctx.drawImage(v, 0, 0, w, h);
+  c.getContext("2d").drawImage(v, 0, 0, w, h);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
+  const gid = camGid;
 
   // Get GPS location (best effort)
   let latLng = "";
@@ -169,8 +170,6 @@ async function capturePhoto() {
     latLng = pos.coords.latitude.toFixed(6) + ", " + pos.coords.longitude.toFixed(6);
   } catch (e) { latLng = "GPS unavailable"; }
 
-  // Stamp overlays: gauge ID, date/time, GPS
-  const gid = camGid;
   const { g } = gaugeMap[gid] || {};
   const gaugeName = (g && g.name) || gid;
   const now = new Date();
@@ -181,36 +180,33 @@ async function capturePhoto() {
     String(now.getMinutes()).padStart(2,"0") + ":" +
     String(now.getSeconds()).padStart(2,"0");
 
-  const lines = [gaugeName + " (" + gid + ")", dateStr, latLng];
-  const fontSize = Math.max(24, Math.round(w / 40));
+  const stampLines = [gaugeName + " (" + gid + ")", dateStr, latLng];
+  const fname = gid + "_" + dateStr.replace(/[-: ]/g, "").replace(/(\d{8})(\d{6})/, "$1_$2") + ".jpg";
+
+  closeCam();
+  if (blob) onPhoto(gid, blob, fname, stampLines);
+  else toast("Capture failed — try again");
+}
+
+function stampImage(canvas, lines) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const fontSize = Math.max(20, Math.round(w / 40));
   ctx.font = "bold " + fontSize + "px sans-serif";
   const lineH = fontSize * 1.4;
   const pad = fontSize * 0.6;
   const boxH = lines.length * lineH + pad * 2;
   const boxY = h - boxH - pad;
-
-  // Semi-transparent black background
   ctx.fillStyle = "rgba(0,0,0,0.65)";
   ctx.fillRect(0, boxY, w, boxH);
-
-  // White text
   ctx.fillStyle = "#fff";
   ctx.textBaseline = "top";
   lines.forEach((line, i) => {
     ctx.fillText(line, pad, boxY + pad + i * lineH);
   });
-
-  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
-  closeCam();
-  if (blob) {
-    // Filename: gaugeID_YYYYMMDD_HHMMSS.jpg
-    const fname = gid + "_" + dateStr.replace(/[-: ]/g, "").replace(/(\d{8})(\d{6})/, "$1_$2") + ".jpg";
-    onPhoto(gid, blob, fname);
-  }
-  else toast("Capture failed — try again");
 }
 
-async function shrinkPhoto(file) {
+async function shrinkAndStamp(file, stampLines) {
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
     const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
@@ -218,13 +214,15 @@ async function shrinkPhoto(file) {
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
     c.getContext("2d").drawImage(bmp, 0, 0, w, h);
-    const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
     bmp.close();
+    // Stamp AFTER resizing so text is burned into the final image
+    if (stampLines && stampLines.length) stampImage(c, stampLines);
+    const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.9));
     return blob || file;
   } catch (e) { return file; }
 }
 
-async function onPhoto(gid, file, fname) {
+async function onPhoto(gid, file, fname, stampLines) {
   if (!file) return;
   const { g, equip } = gaugeMap[gid];
   const card = document.getElementById("card-" + gid);
@@ -233,7 +231,7 @@ async function onPhoto(gid, file, fname) {
   res.innerHTML = `<img class="thumb" id="thumb-${gid}"><div style="margin-top:8px;color:#666">Uploading / reading...</div>`;
   document.getElementById("thumb-" + gid).src = URL.createObjectURL(file);
 
-  const small = await shrinkPhoto(file);
+  const small = await shrinkAndStamp(file, stampLines);
   const fd = new FormData();
   fd.append("gauge_id", gid);
   fd.append("photo", small, fname || "photo.jpg");
