@@ -34,23 +34,40 @@ bp = Blueprint("gauge", __name__, url_prefix="/gauge",
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123")
 SHEETS_URL = os.environ.get("SHEETS_URL", "")  # Google Apps Script web app URL
 # Service-account Drive upload (server-side, no user OAuth needed)
-DRIVE_SA_JSON = os.environ.get("GOOGLE_DRIVE_SA_JSON", "")  # service account JSON content
+DRIVE_SA_JSON = os.environ.get("GOOGLE_DRIVE_SA_JSON", "")  # service account JSON content (deprecated)
+# OAuth refresh token approach (uploads as the user, has storage quota)
+DRIVE_REFRESH_TOKEN = os.environ.get("GOOGLE_DRIVE_REFRESH_TOKEN", "")
+DRIVE_CLIENT_ID = os.environ.get("GOOGLE_DRIVE_CLIENT_ID", "")
+DRIVE_CLIENT_SECRET = os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", "")
 DRIVE_FOLDER_ID = os.environ.get("GAUGE_DRIVE_FOLDER_ID", "")  # Drive folder for gauge photos
 
 
 def drive_service():
-    """Build a Drive API client from the service account JSON env var. Returns None if not configured."""
-    if not DRIVE_SA_JSON:
-        return None
+    """Build a Drive API client. Prefers OAuth refresh token (user quota);
+    falls back to service account JSON if configured."""
     try:
-        from google.oauth2 import service_account
         from googleapiclient.discovery import build
-        info = json.loads(DRIVE_SA_JSON)
-        creds = service_account.Credentials.from_service_account_info(
-            info, scopes=["https://www.googleapis.com/auth/drive.file"])
-        return build("drive", "v3", credentials=creds)
+        # OAuth refresh token (preferred — uploads as user with quota)
+        if DRIVE_REFRESH_TOKEN and DRIVE_CLIENT_ID and DRIVE_CLIENT_SECRET:
+            from google.oauth2.credentials import Credentials
+            creds = Credentials(
+                None,
+                refresh_token=DRIVE_REFRESH_TOKEN,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=DRIVE_CLIENT_ID,
+                client_secret=DRIVE_CLIENT_SECRET,
+                scopes=["https://www.googleapis.com/auth/drive.file"])
+            return build("drive", "v3", credentials=creds)
+        # Service account fallback
+        if DRIVE_SA_JSON:
+            from google.oauth2 import service_account
+            info = json.loads(DRIVE_SA_JSON)
+            creds = service_account.Credentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/drive.file"])
+            return build("drive", "v3", credentials=creds)
     except Exception:
-        return None
+        pass
+    return None
 
 
 @bp.route("/api/drive-upload", methods=["POST"])
