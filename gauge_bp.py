@@ -55,11 +55,6 @@ def drive_service():
 
 @bp.route("/api/drive-upload", methods=["POST"])
 def api_drive_upload():
-    """Upload a gauge photo to Google Drive via the service account.
-
-    Expects multipart form: photo=<file>, filename=<name>.
-    Uploads into DRIVE_FOLDER_ID (env GAUGE_DRIVE_FOLDER_ID).
-    """
     svc = drive_service()
     if not svc:
         return jsonify({"ok": False, "error": "Drive not configured"}), 500
@@ -76,6 +71,42 @@ def api_drive_upload():
         meta = {"name": filename, "parents": [DRIVE_FOLDER_ID]}
         result = svc.files().create(body=meta, media_body=media, fields="id,name").execute()
         return jsonify({"ok": True, "id": result.get("id"), "name": result.get("name")})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]}), 500
+
+
+@bp.route("/api/drive-photos", methods=["GET"])
+def api_drive_photos():
+    """List photos in the Drive folder (for agent review). Returns id, name, createdTime."""
+    svc = drive_service()
+    if not svc or not DRIVE_FOLDER_ID:
+        return jsonify({"ok": False, "error": "Drive not configured"}), 500
+    try:
+        res = svc.files().list(
+            q=f"'{DRIVE_FOLDER_ID}' in parents and trashed=false",
+            fields="files(id,name,createdTime)", orderBy="createdTime",
+            pageSize=100).execute()
+        return jsonify({"ok": True, "files": res.get("files", [])})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]}), 500
+
+
+@bp.route("/api/drive-photo/<fid>", methods=["GET"])
+def api_drive_photo(fid):
+    """Download a photo from Drive by file ID (for agent review)."""
+    svc = drive_service()
+    if not svc:
+        return jsonify({"ok": False, "error": "Drive not configured"}), 500
+    try:
+        from googleapiclient.http import MediaIoBaseDownload
+        req = svc.files().get_media(fileId=fid)
+        buf = io.BytesIO()
+        dl = MediaIoBaseDownload(buf, req)
+        done = False
+        while not done:
+            _, done = dl.next_chunk()
+        buf.seek(0)
+        return send_file(buf, mimetype="image/jpeg")
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
