@@ -52,6 +52,9 @@
 </header>
 <div class="prog"><span id="progText">Loading...</span><div class="bar"><div id="progBar"></div></div></div>
 <main>
+  <div class="card" style="text-align:center">
+    <button class="btn btn-cam" id="scanQrBtn" style="margin-top:0">📷 Scan QR Code</button>
+  </div>
   <div class="card">
     <div class="muted" style="font-size:14px;margin-bottom:4px">Worker name</div>
     <input type="text" id="worker" placeholder="e.g. John" style="margin-top:0">
@@ -78,6 +81,14 @@
     <button class="btn" style="background:#555;color:#fff;margin-top:0" onclick="closeCam()">Cancel</button>
     <button class="btn" style="background:#2e7d32;color:#fff;margin-top:0" onclick="capturePhoto()">📷 Capture</button>
   </div>
+</div>
+<div id="qrOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:100">
+  <video id="qrVideo" autoplay playsinline style="width:100%;height:calc(100% - 96px);object-fit:cover;background:#000"></video>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid #d4af37;border-radius:12px;pointer-events:none"></div>
+  <div style="display:flex;gap:8px;padding:16px;position:absolute;bottom:0;left:0;right:0">
+    <button class="btn" style="background:#555;color:#fff;margin-top:0" onclick="closeQrScan()">Cancel</button>
+  </div>
+  <div style="position:absolute;top:20px;left:0;right:0;text-align:center;color:#fff;font-size:16px">Point at a gauge QR code</div>
 </div>
 <div id="driveModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300">
   <div class="card" style="margin:20px auto;max-width:560px;max-height:88vh;overflow-y:auto">
@@ -207,6 +218,54 @@ function closeCam() {
   if (v) v.srcObject = null;
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
 }
+// QR Code Scanner
+let qrStream = null, qrScanning = false;
+async function openQrScan() {
+  if (!("BarcodeDetector" in window)) {
+    toast("QR scanning not supported on this device");
+    return;
+  }
+  try {
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    const v = document.getElementById("qrVideo");
+    v.srcObject = qrStream;
+    document.getElementById("qrOverlay").style.display = "block";
+    qrScanning = true;
+    scanQrLoop(detector, v);
+  } catch (e) {
+    toast("Camera access denied");
+  }
+}
+async function scanQrLoop(detector, video) {
+  if (!qrScanning) return;
+  try {
+    const barcodes = await detector.detect(video);
+    if (barcodes.length > 0) {
+      const url = barcodes[0].rawValue;
+      // QR should link to /gauge/e/<equip>?gauge=<gid>
+      if (url && url.includes("/gauge/e/")) {
+        closeQrScan();
+        location.href = url;
+        return;
+      } else {
+        toast("Not a gauge QR code");
+      }
+    }
+  } catch (e) { /* continue scanning */ }
+  if (qrScanning) setTimeout(() => scanQrLoop(detector, video), 300);
+}
+function closeQrScan() {
+  qrScanning = false;
+  document.getElementById("qrOverlay").style.display = "none";
+  const v = document.getElementById("qrVideo");
+  if (v) v.srcObject = null;
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+}
+document.getElementById("scanQrBtn").onclick = openQrScan;
 async function capturePhoto() {
   const v = document.getElementById("camVideo");
   const w = v.videoWidth || 1280, h = v.videoHeight || 960;
