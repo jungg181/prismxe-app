@@ -13,19 +13,17 @@
   .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   .card h2 { margin: 0 0 4px; font-size: 17px; }
   .card p { margin: 0 0 10px; font-size: 13px; color: #666; }
+  .cat { font-size: 15px; font-weight: bold; color: #1F4E78; margin: 14px 0 4px; border-bottom: 2px solid #1F4E78; padding-bottom: 4px; }
   .grp-label { font-size: 13px; font-weight: bold; color: #1F4E78; margin: 10px 0 6px; }
   .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
   .toggles button { flex: 1 1 28%; padding: 13px 6px; font-size: 16px; font-weight: bold; border: 2px solid #1F4E78; border-radius: 10px; background: #fff; color: #1F4E78; cursor: pointer; }
   .toggles button.on { background: #1F4E78; color: #fff; }
   .toggles.pump button { border-color: #2e7d32; color: #2e7d32; }
   .toggles.pump button.on { background: #2e7d32; color: #fff; }
+  .empty-note { font-size: 13px; color: #999; font-style: italic; margin: 6px 0; }
   .btn { display: block; width: 100%; padding: 14px; font-size: 17px; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; margin-top: 12px; }
   .btn-go { background: #2e7d32; color: #fff; }
   .btn:disabled { opacity: .4; }
-  .equip-link { display: block; background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 10px; text-decoration: none; color: #222; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  .equip-link b { font-size: 17px; }
-  .equip-link span { display: block; font-size: 13px; color: #666; margin-top: 4px; }
-  .sec { font-size: 14px; font-weight: bold; color: #1F4E78; margin: 16px 4px 8px; }
   .foot { text-align: center; margin: 20px 0; display: flex; flex-direction: column; gap: 10px; }
   .foot a { color: #1F4E78; font-size: 15px; }
 </style>
@@ -35,31 +33,34 @@
 <main>
   <div class="card">
     <h2>Start inspection</h2>
-    <p>Turn on the boilers and pumps running now. One pump runs per boiler — tapping another pump switches to it.</p>
-    <div class="grp-label">Boilers</div>
-    <div class="toggles" id="boilers">
-      {% for b in boilers %}
+    <p>Turn on the burners and pumps running now. One pump runs per burner — tapping another pump switches to it.</p>
+    {% for cat in ["HOB", "SRP", "RO"] %}
+    <div class="cat">{{ cat }}</div>
+    {% set cat_burners = boilers | selectattr("system", "equalto", cat) | list %}
+    {% set cat_pumps = pumps | selectattr("system", "equalto", cat) | list %}
+    {% if cat_burners %}
+    <div class="grp-label">Burners</div>
+    <div class="toggles" id="burners-{{ cat }}">
+      {% for b in cat_burners %}
       <button data-id="{{ b.id }}">{{ b.id }}</button>
       {% endfor %}
     </div>
+    {% endif %}
+    {% if cat_pumps %}
     <div class="grp-label">Pumps</div>
-    <div class="toggles pump" id="pumps">
-      {% for p in pumps %}
+    <div class="toggles pump" id="pumps-{{ cat }}">
+      {% for p in cat_pumps %}
       <button data-id="{{ p.id }}">{{ p.id }}</button>
       {% endfor %}
     </div>
+    {% endif %}
+    {% if not cat_burners and not cat_pumps %}
+    <div class="empty-note">No equipment yet</div>
+    {% endif %}
+    {% endfor %}
     <button class="btn btn-go" id="startBtn" disabled>Select equipment first</button>
   </div>
 
-  <div class="sec">All equipment</div>
-  <div class="sec">Cathode</div>
-  {% for it in items if it.system == "Cathode" %}
-  <a class="equip-link" href="/gauge/e/{{ it.id }}"><b>{{ it.name }}</b><span>{{ it.kind }} · {{ it.id }}</span></a>
-  {% endfor %}
-  <div class="sec">Anode</div>
-  {% for it in items if it.system == "Anode" %}
-  <a class="equip-link" href="/gauge/e/{{ it.id }}"><b>{{ it.name }}</b><span>{{ it.kind }} · {{ it.id }}</span></a>
-  {% endfor %}
   <div class="foot">
     <a href="/gauge/api/export">📥 Download readings CSV</a>
     <a href="/gauge/admin">⚙️ Settings (equipment &amp; gauges)</a>
@@ -67,40 +68,41 @@
 </main>
 <script>
 const PUMPS = {{ pumps|tojson }};
-const P2B = {};  // pump -> boilers
-const B2P = {};  // boiler -> pumps
+const P2B = {};  // pump -> burners
+const B2P = {};  // burner -> pumps
 PUMPS.forEach(p => {
   P2B[p.id] = p.boilers || [];
   (p.boilers || []).forEach(b => { (B2P[b] = B2P[b] || []).push(p.id); });
 });
-const boilerSel = new Set();   // boilers turned on
+const burnerSel = new Set();   // burners turned on
 const pumpSel = new Set();     // pumps turned on (button state, sent to /inspect)
-const pumpSlot = new Map();    // boiler -> its one running pump (one pump per boiler)
+const pumpSlot = new Map();    // burner -> its one running pump (one pump per burner)
 const startBtn = document.getElementById("startBtn");
 
-function pumpBtn(pid) { return document.querySelector(`#pumps button[data-id="${pid}"]`); }
+function pumpBtn(pid) { return document.querySelector(`.toggles.pump button[data-id="${pid}"]`); }
+function burnerBtn(bid) { return document.querySelector(`button[data-id="${bid}"]:not(.toggles.pump button)`); }
 function pumpOn(pid) { pumpSel.add(pid); const pb = pumpBtn(pid); if (pb) pb.classList.add("on"); }
 function pumpOff(pid) { pumpSel.delete(pid); const pb = pumpBtn(pid); if (pb) pb.classList.remove("on"); }
-// is pid the running pump of a selected boiler other than `except`?
+// is pid the running pump of a selected burner other than `except`?
 function slotUsedElsewhere(pid, except) {
   for (const [b, p] of pumpSlot) {
-    if (p === pid && b !== except && boilerSel.has(b)) return true;
+    if (p === pid && b !== except && burnerSel.has(b)) return true;
   }
   return false;
 }
 
-document.querySelectorAll("#boilers button").forEach(b => b.onclick = () => {
+document.querySelectorAll(".toggles:not(.pump) button").forEach(b => b.onclick = () => {
   const id = b.dataset.id;
-  if (boilerSel.has(id)) {
-    boilerSel.delete(id); b.classList.remove("on");
-    // release this boiler's pump slot; switch the pump off only if no other
-    // selected boiler still uses it (shared pumps CP-2 / AP-2)
+  if (burnerSel.has(id)) {
+    burnerSel.delete(id); b.classList.remove("on");
+    // release this burner's pump slot; switch the pump off only if no other
+    // selected burner still uses it (shared pumps CP-2 / AP-2)
     const old = pumpSlot.get(id);
     pumpSlot.delete(id);
     if (old && !slotUsedElsewhere(old, id)) pumpOff(old);
   } else {
-    boilerSel.add(id); b.classList.add("on");
-    // one pump per boiler: adopt an already-running pump of this boiler,
+    burnerSel.add(id); b.classList.add("on");
+    // one pump per burner: adopt an already-running pump of this burner,
     // otherwise auto-start the first one
     const grp = B2P[id] || [];
     const already = grp.find(pid => pumpSel.has(pid));
@@ -114,37 +116,37 @@ document.querySelectorAll("#boilers button").forEach(b => b.onclick = () => {
   refresh();
 });
 
-document.querySelectorAll("#pumps button").forEach(b => b.onclick = () => {
+document.querySelectorAll(".toggles.pump button").forEach(b => b.onclick = () => {
   const id = b.dataset.id;
   if (pumpSel.has(id)) {
-    // switching a pump off releases it from every boiler slot using it
+    // switching a pump off releases it from every burner slot using it
     pumpOff(id);
-    for (const [boiler, p] of [...pumpSlot]) {
-      if (p === id) pumpSlot.delete(boiler);
+    for (const [burner, p] of [...pumpSlot]) {
+      if (p === id) pumpSlot.delete(burner);
     }
   } else {
     pumpOn(id);
-    // one pump per boiler: tapping another pump switches each selected boiler
+    // one pump per burner: tapping another pump switches each selected burner
     // it can serve over to it; the previous pump switches off unless another
-    // selected boiler still uses it (shared pumps CP-2 / AP-2)
-    (P2B[id] || []).forEach(boiler => {
-      if (!boilerSel.has(boiler)) return;
-      const old = pumpSlot.get(boiler);
-      pumpSlot.set(boiler, id);
-      if (old && old !== id && !slotUsedElsewhere(old, boiler)) pumpOff(old);
+    // selected burner still uses it (shared pumps CP-2 / AP-2)
+    (P2B[id] || []).forEach(burner => {
+      if (!burnerSel.has(burner)) return;
+      const old = pumpSlot.get(burner);
+      pumpSlot.set(burner, id);
+      if (old && old !== id && !slotUsedElsewhere(old, burner)) pumpOff(old);
     });
   }
   refresh();
 });
 
 function refresh() {
-  const n = boilerSel.size + pumpSel.size;
+  const n = burnerSel.size + pumpSel.size;
   startBtn.disabled = n === 0;
   startBtn.textContent = n === 0 ? "Select equipment first"
-    : `Start inspection (${boilerSel.size} boiler${boilerSel.size === 1 ? "" : "s"}, ${pumpSel.size} pump${pumpSel.size === 1 ? "" : "s"})`;
+    : `Start inspection (${burnerSel.size} burner${burnerSel.size === 1 ? "" : "s"}, ${pumpSel.size} pump${pumpSel.size === 1 ? "" : "s"})`;
 }
 startBtn.onclick = () => {
-  const q = "boilers=" + [...boilerSel].join(",") + "&pumps=" + [...pumpSel].join(",");
+  const q = "boilers=" + [...burnerSel].join(",") + "&pumps=" + [...pumpSel].join(",");
   location.href = "/gauge/inspect?" + q;
 };
 </script>

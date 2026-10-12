@@ -140,7 +140,7 @@ function updateProg() {
 async function load() {
   if (!BOILERS.length && !PUMPS.length) { location.href = "/"; return; }
   document.getElementById("subtitle").textContent =
-    "Boilers: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
+    "Burners: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
   const q = "boilers=" + BOILERS.join(",") + (HAS_PUMPS_PARAM ? "&pumps=" + PUMPS.join(",") : "");
   const r = await fetch("/gauge/api/inspect?" + q);
   const d = await r.json();

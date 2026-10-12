@@ -151,7 +151,7 @@ def index():
             for dev in sys[grp]:
                 items.append({"system": sys["name"], "id": dev["id"],
                               "name": dev["name"],
-                              "kind": "Boiler" if grp == "boilers" else "Pump"})
+                              "kind": "Burner" if grp == "boilers" else "Pump"})
                 if grp == "boilers":
                     boilers.append({"system": sys["name"], "id": dev["id"],
                                     "name": dev["name"]})
@@ -191,7 +191,7 @@ def api_inspect():
     for bid in ids:  # selected boilers first
         sys, dev = find_equipment(bid)
         if dev and bid not in seen and bid not in pump_id_set:
-            items.append(_equip_payload(sys, dev, "Boiler"))
+            items.append(_equip_payload(sys, dev, "Burner"))
             seen.add(bid)
     if "pumps" in request.args:
         # explicit pump selection from the home screen
