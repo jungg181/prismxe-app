@@ -156,11 +156,57 @@ async function capturePhoto() {
   const w = v.videoWidth || 1280, h = v.videoHeight || 960;
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
-  c.getContext("2d").drawImage(v, 0, 0, w, h);
-  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+  const ctx = c.getContext("2d");
+  ctx.drawImage(v, 0, 0, w, h);
+
+  // Get GPS location (best effort)
+  let latLng = "";
+  try {
+    const pos = await new Promise((res, rej) => {
+      if (!navigator.geolocation) return rej("no geo");
+      navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000, maximumAge: 60000});
+    });
+    latLng = pos.coords.latitude.toFixed(6) + ", " + pos.coords.longitude.toFixed(6);
+  } catch (e) { latLng = "GPS unavailable"; }
+
+  // Stamp overlays: gauge ID, date/time, GPS
   const gid = camGid;
+  const { g } = gaugeMap[gid] || {};
+  const gaugeName = (g && g.name) || gid;
+  const now = new Date();
+  const dateStr = now.getFullYear() + "-" +
+    String(now.getMonth()+1).padStart(2,"0") + "-" +
+    String(now.getDate()).padStart(2,"0") + " " +
+    String(now.getHours()).padStart(2,"0") + ":" +
+    String(now.getMinutes()).padStart(2,"0") + ":" +
+    String(now.getSeconds()).padStart(2,"0");
+
+  const lines = [gaugeName + " (" + gid + ")", dateStr, latLng];
+  const fontSize = Math.max(24, Math.round(w / 40));
+  ctx.font = "bold " + fontSize + "px sans-serif";
+  const lineH = fontSize * 1.4;
+  const pad = fontSize * 0.6;
+  const boxH = lines.length * lineH + pad * 2;
+  const boxY = h - boxH - pad;
+
+  // Semi-transparent black background
+  ctx.fillStyle = "rgba(0,0,0,0.65)";
+  ctx.fillRect(0, boxY, w, boxH);
+
+  // White text
+  ctx.fillStyle = "#fff";
+  ctx.textBaseline = "top";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, pad, boxY + pad + i * lineH);
+  });
+
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
   closeCam();
-  if (blob) onPhoto(gid, blob);
+  if (blob) {
+    // Filename: gaugeID_YYYYMMDD_HHMMSS.jpg
+    const fname = gid + "_" + dateStr.replace(/[-: ]/g, "").replace(/(\d{8})(\d{6})/, "$1_$2") + ".jpg";
+    onPhoto(gid, blob, fname);
+  }
   else toast("Capture failed — try again");
 }
 
@@ -178,7 +224,7 @@ async function shrinkPhoto(file) {
   } catch (e) { return file; }
 }
 
-async function onPhoto(gid, file) {
+async function onPhoto(gid, file, fname) {
   if (!file) return;
   const { g, equip } = gaugeMap[gid];
   const card = document.getElementById("card-" + gid);
@@ -190,7 +236,7 @@ async function onPhoto(gid, file) {
   const small = await shrinkPhoto(file);
   const fd = new FormData();
   fd.append("gauge_id", gid);
-  fd.append("photo", small, "photo.jpg");
+  fd.append("photo", small, fname || "photo.jpg");
   let data;
   try {
     const r = await fetch("/gauge/api/read", { method: "POST", body: fd });
