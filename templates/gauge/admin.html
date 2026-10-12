@@ -6,33 +6,38 @@
 <title>Settings</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f2f4f7; color: #222; }
-  header { background: #37474F; color: #fff; padding: 16px; }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
-  main { padding: 12px; max-width: 720px; margin: 0 auto; }
-  .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  .card h2 { margin: 0 0 8px; font-size: 17px; }
-  .card h3 { margin: 14px 0 6px; font-size: 15px; color: #1F4E78; }
-  .btn { display: block; width: 100%; padding: 13px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; margin-top: 10px; cursor: pointer; }
-  .btn-save { background: #2e7d32; color: #fff; }
-  .btn-add { background: #1F4E78; color: #fff; }
-  .btn-del { background: #fff; color: #c62828; border: 1px solid #c62828; font-weight: normal; font-size: 14px; padding: 8px; }
-  .btn-sec { background: #e0e0e0; color: #222; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: linear-gradient(135deg, #0f1b2d 0%, #1a2b45 100%); color: #e8eaf0; min-height: 100vh; }
+  header { background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); padding: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); text-align: center; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  header p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.6); }
+  main { padding: 20px 16px; max-width: 720px; margin: 0 auto; }
+  .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
+  .card h2 { margin: 0 0 8px; font-size: 17px; color: #f4e4a6; }
+  .card h3 { margin: 14px 0 6px; font-size: 15px; color: #d4af37; }
+  .btn { display: block; width: 100%; padding: 13px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; border: none; border-radius: 12px; margin-top: 10px; cursor: pointer; transition: all 0.2s ease; }
+  .btn:active { transform: scale(0.98); }
+  .btn-save { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
+  .btn-add { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
+  .btn-del { background: rgba(198,40,40,0.12); color: #ef9a9a; border: 1px solid #c62828; font-weight: normal; font-size: 14px; padding: 8px; }
+  .btn-sec { background: rgba(255,255,255,0.08); color: #e8eaf0; border: 1px solid rgba(255,255,255,0.2); }
   .row { display: flex; gap: 8px; }
   .row > * { flex: 1; }
-  label { display: block; font-size: 13px; color: #555; margin: 8px 0 2px; }
-  input[type=text], input[type=number], input[type=password], select { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #bbb; border-radius: 8px; }
-  .gauge { border: 1px solid #ddd; border-radius: 10px; padding: 10px; margin: 8px 0; background: #fafafa; }
-  .gauge .gid { font-size: 13px; color: #888; }
+  label { display: block; font-size: 13px; color: rgba(255,255,255,0.55); margin: 8px 0 2px; }
+  input[type=text], input[type=number], input[type=password], select { width: 100%; padding: 10px; font-size: 15px; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; background: rgba(0,0,0,0.3); color: #e8eaf0; }
+  input::placeholder { color: rgba(255,255,255,0.35); }
+  select option { background: #1a2b45; color: #e8eaf0; }
+  .gauge { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 14px; margin: 8px 0; background: rgba(255,255,255,0.02); }
+  .gauge .gid { font-size: 13px; color: rgba(255,255,255,0.45); }
   .chk { display: flex; gap: 16px; margin-top: 8px; font-size: 15px; }
-  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #222; }
+  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #e8eaf0; }
   .chk input { width: 20px; height: 20px; }
-  .warn { background: #fff8e1; border: 1px solid #f0c36d; border-radius: 8px; padding: 10px; font-size: 13px; margin-bottom: 12px; }
-  .sys { font-size: 14px; font-weight: bold; color: #37474F; margin: 18px 4px 8px; text-transform: uppercase; letter-spacing: 1px; }
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
+  .warn { background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 10px; padding: 10px; font-size: 13px; margin-bottom: 12px; color: #f4e4a6; }
+  .sys { font-size: 14px; font-weight: bold; color: #d4af37; margin: 20px 4px 8px; text-transform: uppercase; letter-spacing: 2px; padding-bottom: 6px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); }
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(13, 21, 38, 0.95); border: 1px solid rgba(212, 175, 55, 0.4); color: #f4e4a6; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .gtoggle { cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .muted { color: rgba(255,255,255,0.55); }
+  a.back { color: #d4af37; text-decoration: none; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -73,7 +78,7 @@
       <button class="btn btn-sec" onclick="backup()">📥 Download backup</button>
       <button class="btn btn-sec" onclick="doLogout()">Log out</button>
     </div>
-    <div style="text-align:center;margin:16px 0"><a href="/gauge/" style="color:#1F4E78">‹ Back to home</a></div>
+    <div style="text-align:center;margin:16px 0"><a href="/gauge/" class="back">‹ Back to home</a></div>
   </div>
 </main>
 <div id="toast"></div>
@@ -187,7 +192,7 @@ function render() {
           <input type="text" data-dev="name" value="${esc(dev.name)}">
           ${grp === "pumps" ? `<label>Connected boilers (comma separated)</label><input type="text" data-dev="boilers" value="${esc((dev.boilers || []).join(","))}">` : ""}
           <h3 class="gtoggle" onclick="toggleGauges('${esc(dev.id)}')">${gOpen ? "▾" : "▸"} Gauges (${(dev.gauges || []).length})</h3>
-          <div class="gauges"${gOpen ? "" : ' style="display:none"'}>${gauges || '<div style="font-size:13px;color:#888">No gauges yet.</div>'}</div>
+          <div class="gauges"${gOpen ? "" : ' style="display:none"'}>${gauges || '<div class="muted" style="font-size:13px">No gauges yet.</div>'}</div>
           <button class="btn btn-add" onclick="addGauge('${esc(sys.name)}','${grp}','${esc(dev.id)}')">+ Add gauge</button>
           <button class="btn btn-del" onclick="delEquipment('${esc(sys.name)}','${grp}','${esc(dev.id)}')">Delete equipment</button>`;
         box.appendChild(card);

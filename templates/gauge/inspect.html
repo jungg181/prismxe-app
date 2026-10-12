@@ -7,34 +7,42 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f2f4f7; color: #222; }
-  header { background: #1F4E78; color: #fff; padding: 16px; position: sticky; top: 0; z-index: 10; }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
-  main { padding: 12px; max-width: 640px; margin: 0 auto; }
-  .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  .card.done { border: 2px solid #2e7d32; }
-  .gname { font-size: 17px; font-weight: bold; }
-  .gmeta { font-size: 13px; color: #666; margin: 4px 0 10px; }
-  .btn { display: block; width: 100%; padding: 14px; font-size: 17px; border: none; border-radius: 10px; margin-top: 8px; cursor: pointer; }
-  .btn-cam { background: #1F4E78; color: #fff; }
-  .btn-ok { background: #2e7d32; color: #fff; }
-  .btn-edit { background: #e0e0e0; color: #222; }
-  .sec { font-size: 15px; font-weight: bold; color: #1F4E78; margin: 18px 4px 8px; }
-  .sec small { color: #666; font-weight: normal; }
-  .val { font-size: 34px; font-weight: bold; color: #1F4E78; margin: 8px 0; }
-  .thumb { width: 100%; border-radius: 8px; margin-top: 8px; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: linear-gradient(135deg, #0f1b2d 0%, #1a2b45 100%); color: #e8eaf0; min-height: 100vh; }
+  header { background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); padding: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); position: sticky; top: 0; z-index: 10; text-align: center; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; background: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  header p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.6); }
+  main { padding: 20px 16px; max-width: 640px; margin: 0 auto; }
+  .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
+  .card.done { border: 2px solid #2e7d32; box-shadow: 0 8px 32px rgba(46,125,50,0.25); }
+  .gname { font-size: 17px; font-weight: bold; color: #f4e4a6; }
+  .gmeta { font-size: 13px; color: rgba(255,255,255,0.55); margin: 4px 0 10px; }
+  .btn { display: block; width: 100%; padding: 14px; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; border: none; border-radius: 12px; margin-top: 8px; cursor: pointer; transition: all 0.2s ease; }
+  .btn:active { transform: scale(0.98); }
+  .btn-cam { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: #0d1526; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3); }
+  .btn-ok { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); color: #fff; box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3); }
+  .btn-edit { background: rgba(255,255,255,0.08); color: #e8eaf0; border: 1px solid rgba(255,255,255,0.2); font-weight: normal; }
+  .btn:disabled { opacity: .3; }
+  .sec { font-size: 15px; font-weight: bold; color: #d4af37; margin: 20px 4px 8px; letter-spacing: 1px; }
+  .sec small { color: rgba(255,255,255,0.5); font-weight: normal; }
+  .val { font-size: 34px; font-weight: bold; color: #f4e4a6; margin: 8px 0; }
+  .thumb { width: 100%; border-radius: 12px; margin-top: 8px; }
   .row { display: flex; gap: 8px; }
-  input[type=text], input[type=number] { width: 100%; padding: 12px; font-size: 17px; border: 1px solid #bbb; border-radius: 8px; margin-top: 8px; }
-  .prog { position: sticky; top: 0; background: #1F4E78; color: #fff; text-align: center; font-size: 15px; font-weight: bold; padding: 10px; }
-  .bar { height: 6px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; }
-  .bar > div { height: 6px; background: #7fd67f; border-radius: 3px; width: 0; }
-  .warn { background: #fff8e1; border: 1px solid #f0c36d; border-radius: 8px; padding: 10px; font-size: 13px; margin-top: 8px; }
-  .ok-badge { color: #2e7d32; font-weight: bold; }
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
+  input[type=text], input[type=number] { width: 100%; padding: 12px; font-size: 17px; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 10px; margin-top: 8px; background: rgba(0,0,0,0.3); color: #e8eaf0; }
+  input::placeholder { color: rgba(255,255,255,0.35); }
+  .prog { position: sticky; top: 0; background: linear-gradient(135deg, #0d1526 0%, #1a2b45 100%); color: #f4e4a6; text-align: center; font-size: 15px; font-weight: bold; padding: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); z-index: 9; }
+  .bar { height: 6px; background: rgba(255,255,255,.15); border-radius: 3px; margin-top: 6px; }
+  .bar > div { height: 6px; background: linear-gradient(90deg, #d4af37, #7fd67f); border-radius: 3px; width: 0; }
+  .warn { background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 10px; padding: 10px; font-size: 13px; margin-top: 8px; color: #f4e4a6; }
+  .ok-badge { color: #7fd67f; font-weight: bold; }
+  .cal-need { color: #f0c36d; }
+  .muted { color: rgba(255,255,255,0.55); }
+  .muted-sm { color: rgba(255,255,255,0.45); }
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(13, 21, 38, 0.95); border: 1px solid rgba(212, 175, 55, 0.4); color: #f4e4a6; padding: 12px 20px; border-radius: 24px; display: none; font-size: 15px; z-index: 50; }
   .topbtns { display: flex; gap: 8px; margin-bottom: 4px; }
-  .topbtns a, .topbtns button { flex: 1; text-align: center; padding: 10px; font-size: 14px; border-radius: 8px; border: 1px solid #bbb; background: #fff; color: #333; text-decoration: none; cursor: pointer; }
-  .seg-on { background: #1F4E78 !important; color: #fff !important; }
+  .topbtns a, .topbtns button { flex: 1; text-align: center; padding: 10px; font-size: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #e8eaf0; text-decoration: none; cursor: pointer; }
+  .seg-on { background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%) !important; color: #0d1526 !important; border-color: #d4af37 !important; }
+  #driveModal details { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 6px; }
+  #pendingList .pitem { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 6px; }
 </style>
 </head>
 <body>
@@ -45,12 +53,12 @@
 <div class="prog"><span id="progText">Loading...</span><div class="bar"><div id="progBar"></div></div></div>
 <main>
   <div class="card">
-    <div style="font-size:14px;color:#555;margin-bottom:4px">Worker name</div>
+    <div class="muted" style="font-size:14px;margin-bottom:4px">Worker name</div>
     <input type="text" id="worker" placeholder="e.g. John" style="margin-top:0">
   </div>
   <div class="card">
     <div style="font-weight:bold;font-size:15px">📱 Photo storage</div>
-    <div style="font-size:13px;color:#666;margin:2px 0 8px">Save photos on the phone first, upload them to Google Drive later.</div>
+    <div class="muted" style="font-size:13px;margin:2px 0 8px">Save photos on the phone first, upload them to Google Drive later.</div>
     <div class="row">
       <button class="btn" id="modeUploadBtn" style="margin-top:0">☁️ Upload now</button>
       <button class="btn" id="modeSaveBtn" style="margin-top:0">📱 Save to phone</button>
@@ -86,13 +94,13 @@
         <span class="ok-badge">✓ Signed in</span>
         <button class="btn btn-edit" id="gSignOutBtn" style="width:auto;display:inline-block;margin-top:0;padding:8px 14px">Sign out</button>
       </div>
-      <label style="font-size:13px">OAuth Client ID
+      <label class="muted" style="font-size:13px">OAuth Client ID
         <input type="text" id="gClientId" placeholder="xxxx.apps.googleusercontent.com" style="font-size:14px">
       </label>
-      <label style="font-size:13px">Drive folder ID
+      <label class="muted" style="font-size:13px">Drive folder ID
         <input type="text" id="gFolderId" placeholder="from drive.google.com/drive/folders/<ID>" style="font-size:14px">
       </label>
-      <details style="font-size:12px;color:#666;margin-top:6px">
+      <details>
         <summary>How to get a Client ID &amp; folder ID</summary>
         <ol style="padding-left:18px;margin:6px 0">
           <li>Go to <b>console.cloud.google.com</b> → create/select a project.</li>
@@ -105,7 +113,7 @@
     </div>
     <div id="pendingList" style="margin-top:10px"></div>
     <button class="btn btn-ok" id="driveUploadBtn">⬆ Upload all to Google Drive</button>
-    <div id="driveStatus" style="font-size:13px;color:#555;margin-top:8px;white-space:pre-line"></div>
+    <div id="driveStatus" class="muted" style="font-size:13px;margin-top:8px;white-space:pre-line"></div>
   </div>
 </div>
 
@@ -159,7 +167,7 @@ async function load() {
       card.id = "card-" + g.id;
       card.innerHTML = `
         <div class="gname">${doneSet.has(g.id) ? '<span class="ok-badge">✓</span> ' : ""}${esc(g.name)}</div>
-        <div class="gmeta">${esc(it.name)} · ${esc(g.item || "Item not registered")} ${g.unit ? "· " + esc(g.unit) : ""}${g.calibrated ? "" : ' · <span style="color:#b26a00">Calibration needed</span>'}</div>
+        <div class="gmeta">${esc(it.name)} · ${esc(g.item || "Item not registered")} ${g.unit ? "· " + esc(g.unit) : ""}${g.calibrated ? "" : ' · <span class="cal-need">Calibration needed</span>'}</div>
         <div class="res" style="display:none"></div>
         <input type="file" accept="image/*" style="display:none" id="file-${g.id}">
         <button class="btn btn-cam" onclick="shoot('${g.id}')">📷 Take photo</button>`;
@@ -266,7 +274,7 @@ function readingHtml(gid, data) {
     return `<div class="warn">Auto read: needle angle ${data.angle_deg}° (not calibrated — please enter the value manually)</div>` + manualHtml(gid, "");
   }
   return `<div class="val">${data.value} <span style="font-size:18px">${esc(data.unit || "")}</span></div>
-      <div style="font-size:12px;color:#888">Needle angle ${data.angle_deg}° · auto read</div>
+      <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read</div>
       <div class="row">
         <button class="btn btn-ok" onclick="confirmReading('${gid}', false)">✓ Confirm</button>
         <button class="btn btn-edit" onclick="showManual('${gid}')">Manual entry</button>
@@ -280,7 +288,7 @@ async function onPhoto(gid, file, fname, stampLines) {
   const card = document.getElementById("card-" + gid);
   const res = card.querySelector(".res");
   res.style.display = "block";
-  res.innerHTML = `<img class="thumb" id="thumb-${gid}" src="${URL.createObjectURL(file)}"><div style="margin-top:8px;color:#666">Processing...</div>`;
+  res.innerHTML = `<img class="thumb" id="thumb-${gid}" src="${URL.createObjectURL(file)}"><div class="muted" style="margin-top:8px">Processing...</div>`;
 
   const small = await shrinkAndStamp(file, stampLines);
   const smallUrl = URL.createObjectURL(small);
@@ -438,13 +446,13 @@ async function renderPending() {
   try { recs = await hcDbAll(); }
   catch (e) { list.innerHTML = "<div class='warn'>Phone storage unavailable.</div>"; return; }
   recs.sort((a, b) => (a.ts < b.ts ? 1 : -1));
-  if (!recs.length) { list.innerHTML = "<p style='font-size:13px;color:#666'>No pending photos.</p>"; return; }
+  if (!recs.length) { list.innerHTML = "<p class='muted' style='font-size:13px'>No pending photos.</p>"; return; }
   list.innerHTML = recs.map(r => `
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;border:1px solid #eee;border-radius:8px;padding:6px">
+    <div class="pitem">
       <img src="${URL.createObjectURL(r.blob)}" style="width:72px;height:72px;object-fit:cover;border-radius:6px">
       <div style="flex:1;font-size:12px;min-width:0">
         <div style="font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.filename)}</div>
-        <div style="color:#666">${esc(r.gaugeName)} · ${esc((r.ts || "").replace("T", " ").slice(0, 19))}${r.reading && r.reading.value != null ? " · " + esc(String(r.reading.value)) : ""}</div>
+        <div class="muted">${esc(r.gaugeName)} · ${esc((r.ts || "").replace("T", " ").slice(0, 19))}${r.reading && r.reading.value != null ? " · " + esc(String(r.reading.value)) : ""}</div>
       </div>
       <button class="btn btn-edit" style="width:auto;margin-top:0;padding:8px 10px" onclick="hcDeletePending(${r.id})">✕</button>
     </div>`).join("");
