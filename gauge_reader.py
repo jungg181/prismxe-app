@@ -86,11 +86,16 @@ def _radial_profile(gray, cx, cy, r_inner, r_outer, angles):
 
     The line itself is sampled as a narrow band (not 1px) so thin needles are
     not missed when the candidate angle is slightly off.
+
+    Shadow robustness: instead of averaging the two sides, we take the
+    MAXIMUM (lighter side). Needle shadows fall on one side only; averaging
+    lets the shadowed side drag the contrast down. Using the lighter side
+    measures the true needle-to-dial contrast.
     """
     h, w = gray.shape
     scores = np.empty(len(angles), dtype=np.float64)
     n_samples = 80
-    band_hw = max(3.0, min(h, w) * 0.006)  # half-width of sampling band
+    band_hw = max(2.0, min(h, w) * 0.005)  # half-width of sampling band
     off1 = max(4.0, min(h, w) * 0.015)     # just outside a needle
     off2 = max(10.0, min(h, w) * 0.04)     # outside a typical shadow core
     ts = np.linspace(r_inner, r_outer, n_samples)
@@ -112,10 +117,13 @@ def _radial_profile(gray, cx, cy, r_inner, r_outer, angles):
             return acc / len(band_steps)
 
         line = band(0.0, 0.0)
-        side1 = (band(px * off1, py * off1)
-                 + band(-px * off1, -py * off1)) * 0.5
-        side2 = (band(px * off2, py * off2)
-                 + band(-px * off2, -py * off2)) * 0.5
+        # Use max (lighter side) instead of average to defeat one-sided shadows
+        s1_left = band(px * off1, py * off1)
+        s1_right = band(-px * off1, -py * off1)
+        side1 = np.maximum(s1_left, s1_right)
+        s2_left = band(px * off2, py * off2)
+        s2_right = band(-px * off2, -py * off2)
+        side2 = np.maximum(s2_left, s2_right)
         c1 = side1.mean() - line.mean()
         c2 = side2.mean() - line.mean()
         contrast = min(c1, c2)          # thin line, not a broad shadow
@@ -150,8 +158,9 @@ def needle_angle(gray, cx, cy, radius, coarse_step=2.0, refine_step=0.25):
     scores = paired(angles)
     best = float(angles[int(np.argmax(scores))])
 
-    # Sub-degree refinement around the peak.
-    angles2 = np.arange(best - coarse_step * 1.5, best + coarse_step * 1.5 + 1e-9,
+    # Sub-degree refinement around the peak. Use a wider window (±2.5x coarse
+    # step) to ensure we don't miss the true peak if coarse sampling was off.
+    angles2 = np.arange(best - coarse_step * 2.5, best + coarse_step * 2.5 + 1e-9,
                        refine_step)
     angles2 %= 360.0
     scores2 = paired(angles2)
