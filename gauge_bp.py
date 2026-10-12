@@ -33,6 +33,51 @@ bp = Blueprint("gauge", __name__, url_prefix="/gauge",
                template_folder="templates/gauge")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123")
 SHEETS_URL = os.environ.get("SHEETS_URL", "")  # Google Apps Script web app URL
+# Service-account Drive upload (server-side, no user OAuth needed)
+DRIVE_SA_JSON = os.environ.get("GOOGLE_DRIVE_SA_JSON", "")  # service account JSON content
+DRIVE_FOLDER_ID = os.environ.get("GAUGE_DRIVE_FOLDER_ID", "")  # Drive folder for gauge photos
+
+
+def drive_service():
+    """Build a Drive API client from the service account JSON env var. Returns None if not configured."""
+    if not DRIVE_SA_JSON:
+        return None
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        info = json.loads(DRIVE_SA_JSON)
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/drive.file"])
+        return build("drive", "v3", credentials=creds)
+    except Exception:
+        return None
+
+
+@bp.route("/api/drive-upload", methods=["POST"])
+def api_drive_upload():
+    """Upload a gauge photo to Google Drive via the service account.
+
+    Expects multipart form: photo=<file>, filename=<name>.
+    Uploads into DRIVE_FOLDER_ID (env GAUGE_DRIVE_FOLDER_ID).
+    """
+    svc = drive_service()
+    if not svc:
+        return jsonify({"ok": False, "error": "Drive not configured"}), 500
+    if not DRIVE_FOLDER_ID:
+        return jsonify({"ok": False, "error": "Drive folder not set"}), 500
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"ok": False, "error": "no photo"}), 400
+    filename = request.form.get("filename") or "photo.jpg"
+    try:
+        from googleapiclient.http import MediaIoBaseUpload
+        data = f.read()
+        media = MediaIoBaseUpload(io.BytesIO(data), mimetype="image/jpeg", resumable=False)
+        meta = {"name": filename, "parents": [DRIVE_FOLDER_ID]}
+        result = svc.files().create(body=meta, media_body=media, fields="id,name").execute()
+        return jsonify({"ok": True, "id": result.get("id"), "name": result.get("name")})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
 
 def sheets_post(payload, timeout=12):

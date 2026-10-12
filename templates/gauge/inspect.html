@@ -142,30 +142,7 @@
       <button class="btn btn-edit" id="driveCloseBtn" style="width:auto;margin-top:0;padding:8px 14px">Close</button>
     </div>
     <div style="margin-top:10px">
-      <div style="font-weight:bold;font-size:14px;margin-bottom:6px">Google Drive setup (one time)</div>
-      <div id="gSignedOut">
-        <button class="btn btn-cam" id="gSignInBtn" style="margin-top:0">Sign in with Google</button>
-      </div>
-      <div id="gSignedIn" style="display:none">
-        <span class="ok-badge">✓ Signed in</span>
-        <button class="btn btn-edit" id="gSignOutBtn" style="width:auto;display:inline-block;margin-top:0;padding:8px 14px">Sign out</button>
-      </div>
-      <label class="muted" style="font-size:13px">OAuth Client ID
-        <input type="text" id="gClientId" placeholder="xxxx.apps.googleusercontent.com" style="font-size:14px">
-      </label>
-      <label class="muted" style="font-size:13px">Drive folder ID
-        <input type="text" id="gFolderId" placeholder="from drive.google.com/drive/folders/<ID>" style="font-size:14px">
-      </label>
-      <details>
-        <summary>How to get a Client ID &amp; folder ID</summary>
-        <ol style="padding-left:18px;margin:6px 0">
-          <li>Go to <b>console.cloud.google.com</b> → create/select a project.</li>
-          <li>Enable the <b>Google Drive API</b> (APIs &amp; Services → Library).</li>
-          <li>APIs &amp; Services → Credentials → Create Credentials → <b>OAuth client ID</b> → type <b>Web application</b>.</li>
-          <li>Under <b>Authorized JavaScript origins</b> add <b>https://app.prismxe.com</b> → Create → copy the Client ID here.</li>
-          <li>In Google Drive, open/create the destination folder and copy the ID from the URL: <i>drive.google.com/drive/folders/&lt;FOLDER_ID&gt;</i>.</li>
-        </ol>
-      </details>
+      <div class="muted" style="font-size:13px">Photos upload directly to the configured Google Drive folder — no sign-in needed.</div>
     </div>
     <div id="pendingList" style="margin-top:10px"></div>
     <button class="btn btn-ok" id="driveUploadBtn">⬆ Upload all to Google Drive</button>
@@ -624,8 +601,6 @@ document.getElementById("resetBtn").onclick = () => {
 
 // ===== Offline photo storage (IndexedDB) + Google Drive batch upload =====
 const HC_SAVE_MODE_KEY = "hc_save_mode";
-const HC_GCID_KEY = "hc_g_client_id";
-const HC_GFID_KEY = "hc_g_folder_id";
 let hcdb = null;
 
 function hcDbOpen() {
@@ -707,10 +682,7 @@ window.hcDeletePending = async (id) => {
   renderPending(); updatePendingBadge();
 };
 document.getElementById("pendingBtn").onclick = () => {
-  document.getElementById("gClientId").value = localStorage.getItem(HC_GCID_KEY) || "";
-  document.getElementById("gFolderId").value = localStorage.getItem(HC_GFID_KEY) || "";
   driveStatus("");
-  hcRefreshAuthUi();
   renderPending();
   document.getElementById("driveModal").style.display = "block";
 };
@@ -718,73 +690,11 @@ document.getElementById("driveCloseBtn").onclick = () => {
   document.getElementById("driveModal").style.display = "none";
 };
 
-// ---- Google Drive OAuth (Google Identity Services) ----
-let gTokenClient = null, gAccessToken = null;
-function hcGisReady() { return !!(window.google && google.accounts && google.accounts.oauth2); }
-function hcRefreshAuthUi() {
-  const on = !!gAccessToken;
-  document.getElementById("gSignedIn").style.display = on ? "block" : "none";
-  document.getElementById("gSignedOut").style.display = on ? "none" : "block";
-}
-function driveStatus(m) { document.getElementById("driveStatus").textContent = m; }
-document.getElementById("gSignInBtn").onclick = () => {
-  const cid = document.getElementById("gClientId").value.trim();
-  if (!cid) { toast("Enter your Google OAuth Client ID first"); return; }
-  localStorage.setItem(HC_GCID_KEY, cid);
-  if (!hcGisReady()) { toast("Google sign-in library not loaded — check connection and reopen"); return; }
-  try {
-    gTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: cid,
-      scope: "https://www.googleapis.com/auth/drive.file",
-      callback: (resp) => {
-        if (resp && resp.access_token) {
-          gAccessToken = resp.access_token;
-          hcRefreshAuthUi();
-          driveStatus("Signed in to Google ✓");
-        } else {
-          driveStatus("Google sign-in failed or was cancelled.");
-        }
-      }
-    });
-    gTokenClient.requestAccessToken({ prompt: "" });
-  } catch (e) { driveStatus("Sign-in error: " + e); }
-};
-document.getElementById("gSignOutBtn").onclick = () => {
-  if (gAccessToken && hcGisReady()) {
-    try { google.accounts.oauth2.revoke(gAccessToken, () => {}); } catch (e) {}
-  }
-  gAccessToken = null; hcRefreshAuthUi(); driveStatus("Signed out.");
-};
-
-async function hcDriveUploadFile(rec, folderId) {
-  const metadata = { name: rec.filename };
-  if (folderId) metadata.parents = [folderId];
-  const boundary = "hcsep" + Date.now().toString(36);
-  const delimiter = "--" + boundary;
-  const body = new Blob([
-    delimiter + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n",
-    delimiter + "\r\nContent-Type: image/jpeg\r\n\r\n",
-    rec.blob,
-    "\r\n" + delimiter + "--"
-  ], { type: "multipart/related; boundary=" + boundary });
-  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name", {
-    method: "POST",
-    headers: { "Authorization": "Bearer " + gAccessToken },
-    body: body
-  });
-  if (r.status === 401 || r.status === 403) { const e = new Error("auth"); e.auth = true; throw e; }
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return r.json();
-}
-
 document.getElementById("driveUploadBtn").onclick = async () => {
   let recs = [];
   try { recs = await hcDbAll(); } catch (e) { toast("Phone storage unavailable"); return; }
   if (!recs.length) { toast("No pending photos"); return; }
-  if (!gAccessToken) { toast("Sign in with Google first"); return; }
-  const folderId = document.getElementById("gFolderId").value.trim();
-  if (!folderId) { toast("Enter a Drive folder ID"); return; }
-  localStorage.setItem(HC_GFID_KEY, folderId);
+  // Server-side upload via service account — no Google sign-in needed.
   const btn = document.getElementById("driveUploadBtn");
   btn.disabled = true;
   const failed = [];
@@ -793,16 +703,15 @@ document.getElementById("driveUploadBtn").onclick = async () => {
   for (const rec of recs) {
     try {
       driveStatus("Uploading " + (done + 1) + "/" + recs.length + ": " + rec.filename);
-      await hcDriveUploadFile(rec, folderId);
+      const fd = new FormData();
+      fd.append("photo", rec.blob, rec.filename);
+      fd.append("filename", rec.filename);
+      const r = await fetch("/gauge/api/drive-upload", { method: "POST", body: fd });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "upload failed");
       await hcDbDelete(rec.id);   // delete from phone only after Drive confirms
       done++;
     } catch (e) {
-      if (e.auth) {
-        gAccessToken = null; hcRefreshAuthUi();
-        driveStatus("Google sign-in expired at " + done + "/" + recs.length + ". Sign in again, then press upload to resume. Photos already uploaded were deleted from the phone.");
-        btn.disabled = false; renderPending(); updatePendingBadge();
-        return;
-      }
       failed.push(rec.filename + " (" + e.message + ")");
     }
   }
