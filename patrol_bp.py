@@ -9,6 +9,8 @@ import json
 import uuid
 import csv
 import hashlib
+import threading
+import urllib.request
 from functools import wraps
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
@@ -30,6 +32,52 @@ BASE_URL = os.environ.get("BASE_URL", "https://app.prismxe.com")
 ADMIN_PASSWORD_HASH = os.environ.get(
     'ADMIN_PASSWORD_HASH',
     '3a5d9797c6b9313b4e79eed8c8d369e94eabe3700cf864c625e510ebba02f5b7')
+
+# Google Sheets auto-backup (same pattern as the boiler gauge app).
+# Set SHEETS_URL to the deployed Apps Script web app URL (see
+# sheets_apps_script_patrol.js). Every meaningful DB change is POSTed there
+# asynchronously, and a fresh server restores from it on startup — so a
+# Render redeploy (ephemeral disk) can no longer wipe workers/punches.
+SHEETS_URL = os.environ.get('SHEETS_URL', '')
+
+
+def sheets_post(payload, timeout=12):
+    """Best-effort POST to the Google Sheets webhook. Never raises."""
+    if not SHEETS_URL:
+        return None
+    try:
+        req = urllib.request.Request(
+            SHEETS_URL, data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print(f"sheets_post failed: {e}", flush=True)
+        return None
+
+
+def sheets_get_data(timeout=15):
+    """Fetch the persisted patrol DB from Google Sheets. Returns dict or None."""
+    if not SHEETS_URL:
+        return None
+    try:
+        with urllib.request.urlopen(SHEETS_URL + "?action=getData",
+                                    timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8")).get("data")
+    except Exception as e:  # noqa: BLE001
+        print(f"sheets_get_data failed: {e}", flush=True)
+        return None
+
+
+def sheets_post_async(payload):
+    if SHEETS_URL:
+        threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
+
+
+def sync_data_to_sheets():
+    """Best-effort async backup of the full patrol DB to Google Sheets."""
+    if SHEETS_URL:
+        sheets_post_async({"action": "saveData", "data": DB})
 
 
 def login_required(fn):
@@ -98,22 +146,35 @@ def seed():
 
 
 def load_db():
-    if not os.path.exists(DB_PATH):
+    seeded = not os.path.exists(DB_PATH)
+    if seeded:
         db = seed()
         with open(DB_PATH, 'w') as f:
             json.dump(db, f, indent=2)
-        return db
-    with open(DB_PATH) as f:
-        db = json.load(f)
-    for c in COLLECTIONS:
-        db.setdefault(c, [])
-    db.setdefault('config', {'zipcode': ''})
+    else:
+        with open(DB_PATH) as f:
+            db = json.load(f)
+        for c in COLLECTIONS:
+            db.setdefault(c, [])
+        db.setdefault('config', {'zipcode': ''})
+    if seeded:
+        # Fresh server (e.g. Render redeploy wiped the disk): restore the
+        # last backup from Google Sheets instead of starting empty.
+        remote = sheets_get_data()
+        if isinstance(remote, dict) and remote.get('workers') is not None:
+            print("patrol: restored DB from Google Sheets", flush=True)
+            db = remote
+            with open(DB_PATH, 'w') as f:
+                json.dump(db, f, indent=2)
     return db
 
 
-def save_db():
+def save_db(sync=True):
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
+    if sync:
+        # sync=False for high-frequency/no-op saves (GPS pings, backup download)
+        sync_data_to_sheets()
 
 
 DB = load_db()
@@ -518,7 +579,7 @@ def settings_reset():
 
 @bp.route('/data/backup')
 def data_backup():
-    save_db()
+    save_db(sync=False)
     return send_file(DB_PATH, mimetype='application/json', as_attachment=True,
                      download_name='patrol-timetable-backup.json')
 
@@ -560,6 +621,7 @@ def timecard_clock():
                           "action": action, "ts": now_iso(),
                           "source": "manual"})
     save_db()
+    sheets_post_async({"action": "punch", "punch": DB['punches'][-1]})
     return jsonify({'ok': True})
 
 
@@ -680,6 +742,7 @@ def api_patrol_punch():
         worker['last_lng'] = lng
         worker['last_loc_ts'] = now_iso()
     save_db()
+    sheets_post_async({"action": "punch", "punch": DB['punches'][-1]})
     clocked_in, last = punch_status(email)
     return jsonify({'ok': True, 'clocked_in': clocked_in,
                     'since': last.get('ts') if last else None})
@@ -701,6 +764,6 @@ def api_location():
             w['last_lat'] = lat
             w['last_lng'] = lng
             w['last_loc_ts'] = now_iso()
-            save_db()
+            save_db(sync=False)  # GPS pings every ~60s; not worth a Sheets sync
             return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'Unknown worker'}), 404

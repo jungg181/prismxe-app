@@ -5,6 +5,8 @@ import csv
 import json
 import copy
 import uuid
+import threading
+import urllib.request
 from datetime import datetime, date, timedelta
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
@@ -27,6 +29,55 @@ COLLECTIONS = ['sites', 'workers', 'timecards', 'incidents', 'daily_logs',
 
 # Shared key for the patrol-board relay API (read-only punch feed).
 PATROL_API_KEY = os.environ.get('PATROL_API_KEY', 'ef2eaa7a03f346115f876731a1bd02ee')
+
+# Google Sheets auto-sync — survives Render deploys (ephemeral disk).
+# Set CM_SHEETS_URL env var to the Apps Script web app URL
+# (see sheets_apps_script_cm.js for setup instructions).
+CM_SHEETS_URL = os.environ.get("CM_SHEETS_URL", "")
+
+
+def sheets_post(payload, timeout=12):
+    """Best-effort POST to the Google Sheets webhook. Never raises."""
+    if not CM_SHEETS_URL:
+        return None
+    try:
+        req = urllib.request.Request(
+            CM_SHEETS_URL, data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print(f"cm sheets_post failed: {e}", flush=True)
+        return None
+
+
+def sheets_get_data(timeout=15):
+    """Fetch the persisted CM DB from Google Sheets. Returns dict or None."""
+    if not CM_SHEETS_URL:
+        return None
+    try:
+        with urllib.request.urlopen(CM_SHEETS_URL + "?action=getData",
+                                    timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8")).get("data")
+    except Exception as e:  # noqa: BLE001
+        print(f"cm sheets_get_data failed: {e}", flush=True)
+        return None
+
+
+def sheets_post_async(payload):
+    threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
+
+
+def sheets_sync_db():
+    """Push the full CM DB to Google Sheets (async, best-effort)."""
+    if not CM_SHEETS_URL:
+        return
+    try:
+        # Copy to avoid mutation during async JSON encoding
+        data = json.loads(json.dumps(DB))
+        sheets_post_async({"action": "saveData", "data": data})
+    except Exception as e:  # noqa: BLE001
+        print(f"cm sheets_sync_db failed: {e}", flush=True)
 
 
 def new_id():
@@ -85,15 +136,24 @@ def seed(db):
 
 def load_db():
     if not os.path.exists(DB_PATH):
-        db = {c: [] for c in COLLECTIONS}
-        seed(db)
+        # Fresh deploy (Render wiped the disk) — try to restore from Google Sheets first
+        restored = sheets_get_data()
+        if restored and isinstance(restored, dict):
+            db = restored
+            for c in COLLECTIONS:
+                db.setdefault(c, [])
+            print("cm: restored DB from Google Sheets", flush=True)
+        else:
+            db = {c: [] for c in COLLECTIONS}
+            seed(db)
         with open(DB_PATH, 'w') as f:
             json.dump(db, f, indent=2)
-        return db
-    with open(DB_PATH) as f:
-        db = json.load(f)
-    for c in COLLECTIONS:
-        db.setdefault(c, [])
+        # Apply backfills below by falling through (don't return early)
+    else:
+        with open(DB_PATH) as f:
+            db = json.load(f)
+        for c in COLLECTIONS:
+            db.setdefault(c, [])
     db.setdefault('live_locations', {})  # worker_id -> {lat, lng, at, accuracy}
     for w in db.get('workers', []):
         w.setdefault('self_registered', False)
@@ -111,6 +171,8 @@ def load_db():
 def save_db():
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
+    # Auto-sync to Google Sheets (survives Render deploys)
+    sheets_sync_db()
 
 
 DB = load_db()
