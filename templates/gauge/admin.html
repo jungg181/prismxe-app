@@ -478,18 +478,23 @@ document.getElementById("calImg").addEventListener("click", e => {
 });
 
 function applyCal() {
-  if (!calGid || calMinAngle == null || calMaxAngle == null) return;
-  const card = document.getElementById("gauge-" + calGid);
-  if (card) {
-    const setC = (k, v) => { const i = card.querySelector(`input[data-c="${k}"]`); if (i) i.value = v; };
-    setC("angle_min", calMinAngle);
-    setC("value_min", document.getElementById("calMinVal").value.trim());
-    setC("angle_max", calMaxAngle);
-    setC("value_max", document.getElementById("calMaxVal").value.trim());
-    const u = card.querySelector('[data-f="unit"]');
-    const cu = document.getElementById("calUnit").value;
-    if (u && cu) u.value = cu;
+  if (!calGid || calMinAngle == null || calMaxAngle == null) {
+    toast("Please click both the 0 mark and max mark first");
+    return;
   }
+  const card = document.getElementById("gauge-" + CSS.escape(calGid));
+  if (!card) {
+    toast("Gauge card not found: " + calGid);
+    return;
+  }
+  const setC = (k, v) => { const i = card.querySelector(`input[data-c="${k}"]`); if (i) i.value = v; };
+  setC("angle_min", Math.round(calMinAngle * 10) / 10);
+  setC("value_min", document.getElementById("calMinVal").value.trim());
+  setC("angle_max", Math.round(calMaxAngle * 10) / 10);
+  setC("value_max", document.getElementById("calMaxVal").value.trim());
+  const u = card.querySelector('[data-f="unit"]');
+  const cu = document.getElementById("calUnit").value;
+  if (u && cu) u.value = cu;
   toast("Calibration filled — tap Save all");
   closeCalModal();
 }
