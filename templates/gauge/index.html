@@ -145,7 +145,7 @@ function refresh() {
 }
 startBtn.onclick = () => {
   const q = "boilers=" + [...boilerSel].join(",") + "&pumps=" + [...pumpSel].join(",");
-  location.href = "/inspect?" + q;
+  location.href = "/gauge/inspect?" + q;
 };
 </script>
 </body>
