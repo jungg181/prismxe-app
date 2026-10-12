@@ -259,16 +259,19 @@ async function onPhoto(g, file) {
   window["_last_" + g.id] = data;
   let html = "";
   if (data.value == null) {
-    // Not calibrated — ask for unit, then manual entry
-    html = `<div class="warn">Needle angle: ${data.angle_deg}°</div>
+    // Not calibrated — tap the two ticks around the needle (local interpolation = most accurate)
+    html = `<div class="warn">Needle angle: ${data.angle_deg}° (not calibrated)</div>
       <div style="margin:12px 0">
-        <div style="font-weight:600;margin-bottom:8px">Unit?</div>
-        <div class="row" style="margin-bottom:12px">
-          <button class="btn" onclick="quickUnit('${g.id}','MPa')">MPa</button>
-          <button class="btn" onclick="quickUnit('${g.id}','psi')">psi</button>
-          <button class="btn" onclick="quickUnit('${g.id}','bar')">bar</button>
+        <button class="btn btn-ok" style="width:100%;padding:14px;font-size:16px" onclick="startTickMode('${g.id}')">📍 Tap ticks to calculate</button>
+        <div style="margin-top:12px">
+          <div style="font-weight:600;margin-bottom:8px">Or manual entry — unit?</div>
+          <div class="row" style="margin-bottom:12px">
+            <button class="btn" onclick="quickUnit('${g.id}','MPa')">MPa</button>
+            <button class="btn" onclick="quickUnit('${g.id}','psi')">psi</button>
+            <button class="btn" onclick="quickUnit('${g.id}','bar')">bar</button>
+          </div>
+          <div id="quick-val-${g.id}"></div>
         </div>
-        <div id="quick-val-${g.id}"></div>
       </div>`;
   } else {
     html = `<div class="val">${data.value} <span style="font-size:18px">${esc(data.unit || "")}</span></div>
@@ -317,6 +320,107 @@ function quickSave(gid, unit) {
     const res = card.querySelector(".res");
     res.innerHTML = `<div class="val">${val} <span style="font-size:18px">${unit}</span></div>
         <div class="muted-sm" style="font-size:12px">✓ saved</div>`;
+  });
+}
+
+// Tick-based calculation: user taps left tick, needle tip, right tick.
+// Interpolates ONLY between the two surrounding ticks (local = most accurate).
+let _tickState = {};
+function startTickMode(gid) {
+  const card = document.getElementById("card-" + gid);
+  const res = card.querySelector(".res");
+  const thumb = res.querySelector(".thumb");
+  const imgUrl = thumb ? thumb.src : "";
+  _tickState[gid] = {taps: [], unit: null};
+  res.innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px">Tap 3 points on the gauge photo</div>
+    <div id="tick-wrap-${gid}" style="position:relative;display:inline-block;max-width:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none">
+      <img id="tick-img-${gid}" src="${imgUrl}" style="max-width:100%;border-radius:8px;display:block">
+    </div>
+    <div id="tick-msg-${gid}" class="muted" style="margin:8px 0;font-size:15px">① Tap the big tick LEFT of the needle</div>
+    <div style="margin-bottom:8px"><button class="btn" onclick="startTickMode('${gid}')">↺ Re-tap</button></div>
+    <div id="tick-vals-${gid}" style="display:none;margin-top:8px">
+      <div style="margin-bottom:8px">Left tick value:
+        <input type="number" step="any" id="tick-v0-${gid}" style="width:110px;padding:10px;font-size:16px"></div>
+      <div style="margin-bottom:8px">Right tick value:
+        <input type="number" step="any" id="tick-v1-${gid}" style="width:110px;padding:10px;font-size:16px"></div>
+      <div style="margin-bottom:10px">
+        <button class="btn tick-u" onclick="tickUnitSel('${gid}','MPa',event)">MPa</button>
+        <button class="btn tick-u" onclick="tickUnitSel('${gid}','psi',event)">psi</button>
+        <button class="btn tick-u" onclick="tickUnitSel('${gid}','bar',event)">bar</button>
+      </div>
+      <button class="btn btn-ok" style="padding:12px 24px;font-size:16px" onclick="calcTicks('${gid}')">Calculate &amp; Save</button>
+    </div>`;
+  document.getElementById(`tick-img-${gid}`).addEventListener('click', (e) => onTickTap(gid, e));
+}
+
+function tickAngle(x, y, cx, cy) {
+  let a = Math.atan2(x - cx, -(y - cy)) * 180 / Math.PI;
+  if (a < 0) a += 360;
+  return a;
+}
+
+function onTickTap(gid, e) {
+  const st = _tickState[gid];
+  if (!st || st.taps.length >= 3) return;
+  const img = document.getElementById(`tick-img-${gid}`);
+  const r = img.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const ang = tickAngle(x, y, r.width / 2, r.height / 2);
+  st.taps.push(ang);
+  const dot = document.createElement('div');
+  const colors = ['#1976d2', '#2e7d32', '#1976d2'];
+  dot.style.cssText = `position:absolute;left:${x-9}px;top:${y-9}px;width:18px;height:18px;border-radius:50%;background:${colors[st.taps.length-1]};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none`;
+  document.getElementById(`tick-wrap-${gid}`).appendChild(dot);
+  const msg = document.getElementById(`tick-msg-${gid}`);
+  if (st.taps.length === 1) msg.textContent = "② Tap the NEEDLE TIP";
+  else if (st.taps.length === 2) msg.textContent = "③ Tap the big tick RIGHT of the needle";
+  else {
+    msg.textContent = "✓ Done — enter the two tick values";
+    document.getElementById(`tick-vals-${gid}`).style.display = "block";
+  }
+}
+
+function tickUnitSel(gid, unit, event) {
+  _tickState[gid].unit = unit;
+  document.querySelectorAll(`#tick-vals-${gid} .tick-u`).forEach(b => {
+    b.style.opacity = b.textContent === unit ? '1' : '0.5';
+  });
+}
+
+function cwDist(a, b) { let d = b - a; if (d < 0) d += 360; return d; }
+
+function calcTicks(gid) {
+  const st = _tickState[gid];
+  const v0 = parseFloat(document.getElementById(`tick-v0-${gid}`).value);
+  const v1 = parseFloat(document.getElementById(`tick-v1-${gid}`).value);
+  if (isNaN(v0) || isNaN(v1)) { alert('Enter both tick values'); return; }
+  const unit = st.unit || 'psi';
+  const a0 = st.taps[0], an = st.taps[1], a1 = st.taps[2];
+  const d01 = cwDist(a0, a1), d0n = cwDist(a0, an);
+  let frac;
+  if (d01 > 0.5 && d0n <= d01) frac = d0n / d01;
+  else {
+    const d10 = cwDist(a1, a0), d1n = cwDist(a1, an);
+    frac = d10 > 0.5 ? 1 - d1n / d10 : 0;
+  }
+  if (frac < 0) frac = 0;
+  if (frac > 1) frac = 1;
+  const value = Math.round((v0 + (v1 - v0) * frac) * 100) / 100;
+  const g = (typeof gaugeMap !== 'undefined' && gaugeMap[gid]) ? gaugeMap[gid].g : {id: gid};
+  fetch('/gauge/api/log', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({gauge_id: gid, value: value, unit: unit})
+  }).then(() => {
+    const card = document.getElementById("card-" + gid);
+    const res = card.querySelector(".res");
+    res.innerHTML = `<div class="val">${value} <span style="font-size:18px">${unit}</span></div>
+        <div class="muted" style="font-size:12px">Tick interpolation ✓ saved</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
+        </div>
+        <div class="manual" style="display:none">${manualHtml(g, value)}</div>`;
   });
 }
 
