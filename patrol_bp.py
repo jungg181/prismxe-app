@@ -16,7 +16,7 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   jsonify, send_file, abort, flash, session)
+                   jsonify, send_file, abort, flash, session, make_response)
 
 def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                sheets_env_var, app_version_filename,
@@ -374,7 +374,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             import qrcode
         except ImportError:
             abort(501)
-        url = BASE_URL.rstrip('/') + '/patrol/patrol-clock'
+        url = BASE_URL.rstrip('/') + url_prefix + '/patrol-clock'
         img = qrcode.make(url, box_size=8, border=2)
         buf = io.BytesIO()
         img.save(buf, format='PNG')
@@ -660,16 +660,27 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/sw.js')
     def service_worker():
-        resp = send_file(os.path.join(BASE_DIR, 'static', 'patrol', 'sw.js'),
-                         mimetype='application/javascript')
+        sw_path = os.path.join(BASE_DIR, 'static', 'patrol', 'sw.js')
+        with open(sw_path, encoding='utf-8') as _f:
+            sw_text = _f.read()
+        if url_prefix != '/patrol':
+            # Company-specific copy: re-point cached paths and keep the
+            # CacheStorage name unique per company so the two boards
+            # never overwrite each other's offline cache.
+            sw_text = sw_text.replace('/patrol/', url_prefix + '/')
+            sw_text = sw_text.replace("'/patrol'", "'%s'" % url_prefix)
+            sw_text = sw_text.replace('patrol-board-v1',
+                                      'patrol-board-v1-' + company_id)
+        resp = make_response(sw_text)
+        resp.mimetype = 'application/javascript'
         resp.headers['Cache-Control'] = 'no-cache'
-        resp.headers['Service-Worker-Allowed'] = '/patrol/'
+        resp.headers['Service-Worker-Allowed'] = url_prefix + '/'
         return resp
 
 
     @bp.after_request
     def add_cors(resp):
-        if request.path.startswith('/patrol/api/'):
+        if request.path.startswith(url_prefix + '/api/'):
             resp.headers['Access-Control-Allow-Origin'] = '*'
             resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
             resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'

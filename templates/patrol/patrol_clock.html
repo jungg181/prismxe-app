@@ -69,7 +69,7 @@ function fmtT(iso){ if(!iso) return '—'; const d = new Date(iso); return d.toL
 
 async function refreshStatus(){
   const id = ident(); if(!id) return;
-  const r = await fetch('/patrol/api/patrol-status?email=' + encodeURIComponent(id.email));
+  const r = await fetch("{{ url_for('.api_patrol_status') }}?email=" + encodeURIComponent(id.email));
   const s = await r.json();
   const card = document.getElementById('status-card');
   if (s.clocked_in) {
@@ -86,7 +86,7 @@ async function refreshStatus(){
     document.getElementById('btn-in').style.opacity = 1;
   }
   updateLiveShare(s.clocked_in);
-  const pr = await fetch('/patrol/api/patrol-mine?email=' + encodeURIComponent(id.email));
+  const pr = await fetch("{{ url_for('.api_patrol_mine') }}?email=" + encodeURIComponent(id.email));
   const mine = await pr.json();
   const tdy = new Date().toISOString().slice(0, 10);
   const rows = (mine.punches || []).filter(p => (p.ts || '').slice(0, 10) === tdy).slice(-6).reverse();
@@ -117,7 +117,7 @@ async function sendLive(){
   const pos = await getPos();
   if (pos) {
     try {
-      await fetch('/patrol/api/location', {method:'POST', headers:{'Content-Type':'application/json'},
+      await fetch("{{ url_for('.api_location') }}", {method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({email:id.email, lat:pos.lat, lng:pos.lng})});
     } catch(e){}
   }
@@ -147,7 +147,7 @@ async function punch(action){
     const pos = await getPos();
     const body = {email:id.email, name:id.name, action:action};
     if (pos) { body.lat = pos.lat; body.lng = pos.lng; }
-    const r = await fetch('/patrol/api/patrol-punch', {method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch("{{ url_for('.api_patrol_punch') }}", {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)});
     const j = await r.json();
     if (j.ok) { flash(action === 'in' ? '✅ Clocked in at ' + fmtT(j.since) : '✅ Clocked out.', 'ok'); }

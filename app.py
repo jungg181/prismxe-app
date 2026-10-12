@@ -92,21 +92,35 @@ def api_portal_save():
 
 @app.get("/.well-known/assetlinks.json")
 def assetlinks():
-    # Android App Links verification: lets the Prism Patrol app open
-    # https://app.prismxe.com/patrol/patrol-clock directly on QR scan.
-    # The sha256 fingerprint is set from Patrol Settings once the APK is built.
-    from patrol_bp import DB
-    cfg = DB.get('config', {})
-    sha = cfg.get('apk_cert_sha256', '') or \
-        '21:95:AF:59:5B:49:9F:9A:73:78:5C:E9:32:2B:F4:0E:6E:AE:11:5F:7D:4D:6D:34:DE:9E:5D:F5:5D:72:8F:B4:9'
-    return {
-        "relation": ["delegate_permission/common.handle_all_urls"],
-        "target": {
-            "namespace": "android_app",
-            "package_name": "com.prismxe.patrol",
-            "sha256_cert_fingerprints": [sha],
+    # Android App Links verification: lets the Prism Patrol apps open
+    # https://app.prismxe.com/patrol/patrol-clock (Hanseong) and
+    # https://app.prismxe.com/patrol-coa/patrol-clock (COA) directly.
+    # Each fingerprint is set from that company's Patrol Settings once its
+    # APK is built; the fallback is the debug cert both apps are currently
+    # signed with (verified 2026-10-11 from the shipped APKs via apksigner).
+    from patrol_bp import DB, patrol_coa_db
+    fallback = '72:1F:83:61:60:90:76:BF:EC:EA:32:ED:C9:62:C9:85:' \
+               'BF:51:C1:57:E6:01:61:8B:7C:08:F5:CC:09:46:E7:A7'
+    sha_h = DB.get('config', {}).get('apk_cert_sha256', '') or fallback
+    sha_c = patrol_coa_db.get('config', {}).get('apk_cert_sha256', '') or fallback
+    return [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.prismxe.patrol",
+                "sha256_cert_fingerprints": [sha_h],
+            },
         },
-    }, 200, {"Content-Type": "application/json"}
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.prismxe.patrol.coa",
+                "sha256_cert_fingerprints": [sha_c],
+            },
+        },
+    ], 200, {"Content-Type": "application/json"}
 
 
 @app.errorhandler(404)
