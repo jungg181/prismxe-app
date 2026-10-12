@@ -156,6 +156,19 @@ function gaugeHtml(sysName, grp, dev, g) {
       <label><input type="checkbox" data-f="check_stopped" ${g.check_stopped === "O" ? "checked" : ""}> Check when stopped</label>
     </div>
     <h3>Calibration (needle angle → value)</h3>
+    <div style="margin-bottom:10px">
+      <label>Quick setup (unit + range)</label>
+      <select id="preset-${g.id}" onchange="applyPreset('${esc(sysName)}','${grp}','${esc(dev.id)}','${esc(g.id)}', this.value)" style="width:100%">
+        <option value="">— Select preset —</option>
+        <option value="mpa_1.5">MPa 0–1.5 (standard)</option>
+        <option value="mpa_1">MPa 0–1 (standard)</option>
+        <option value="mpa_2.5">MPa 0–2.5 (standard)</option>
+        <option value="psi_200">psi 0–200 (standard)</option>
+        <option value="psi_100">psi 0–100 (standard)</option>
+        <option value="psi_300">psi 0–300 (standard)</option>
+      </select>
+      <div style="font-size:12px;color:#888;margin-top:4px">Standard 270° gauges: 0 at 225°, max at 135°</div>
+    </div>
     <div class="grid2">
       <div><label>Angle at min scale (°)</label><input type="number" step="any" data-c="angle_min" value="${num(cal.angle_min)}"></div>
       <div><label>Value at min</label><input type="number" step="any" data-c="value_min" value="${num(cal.value_min)}"></div>
@@ -324,6 +337,36 @@ function gaugeQR(devId, gid, gname) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+const PRESETS = {
+  "mpa_1.5": { angle_min: 225, value_min: 0, angle_max: 135, value_max: 1.5, unit: "MPa" },
+  "mpa_1":   { angle_min: 225, value_min: 0, angle_max: 135, value_max: 1, unit: "MPa" },
+  "mpa_2.5": { angle_min: 225, value_min: 0, angle_max: 135, value_max: 2.5, unit: "MPa" },
+  "psi_200": { angle_min: 225, value_min: 0, angle_max: 135, value_max: 200, unit: "psi" },
+  "psi_100": { angle_min: 225, value_min: 0, angle_max: 135, value_max: 100, unit: "psi" },
+  "psi_300": { angle_min: 225, value_min: 0, angle_max: 135, value_max: 300, unit: "psi" },
+};
+
+function applyPreset(sysName, grp, devId, gid, presetKey) {
+  if (!presetKey || !PRESETS[presetKey]) return;
+  const p = PRESETS[presetKey];
+  // Find the gauge card and fill in the calibration inputs
+  const card = document.querySelector(`[data-gid="${gid}"]`) || event.target.closest(".card");
+  if (card) {
+    const setVal = (key, val) => {
+      const inp = card.querySelector(`input[data-c="${key}"]`);
+      if (inp) inp.value = val;
+    };
+    setVal("angle_min", p.angle_min);
+    setVal("value_min", p.value_min);
+    setVal("angle_max", p.angle_max);
+    setVal("value_max", p.value_max);
+    // Also set the unit if there's a unit field
+    const unitInp = card.querySelector(`input[data-f="unit"]`);
+    if (unitInp) unitInp.value = p.unit;
+  }
+  toast(`Preset applied: ${p.unit} 0–${p.value_max}`);
 }
 
 document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
