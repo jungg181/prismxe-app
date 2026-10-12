@@ -208,18 +208,9 @@ async function capturePhoto() {
   const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
   const gid = camGid;
 
-  // Get GPS location (best effort)
-  let latLng = "";
-  try {
-    const pos = await new Promise((res, rej) => {
-      if (!navigator.geolocation) return rej("no geo");
-      navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000, maximumAge: 60000});
-    });
-    latLng = pos.coords.latitude.toFixed(6) + ", " + pos.coords.longitude.toFixed(6);
-  } catch (e) { latLng = "GPS unavailable"; }
-
-  const { g } = gaugeMap[gid] || {};
+  const { g, equip } = gaugeMap[gid] || {};
   const gaugeName = (g && g.name) || gid;
+  const category = (equip && (equip.category || equip.type)) || "";
   const now = new Date();
   const dateStr = now.getFullYear() + "-" +
     String(now.getMonth()+1).padStart(2,"0") + "-" +
@@ -228,7 +219,7 @@ async function capturePhoto() {
     String(now.getMinutes()).padStart(2,"0") + ":" +
     String(now.getSeconds()).padStart(2,"0");
 
-  const stampLines = [gaugeName + " (" + gid + ")", dateStr, latLng];
+  const stampLines = [category + " " + gaugeName + " (" + gid + ")", dateStr];
   const fname = gid + "_" + dateStr.replace(/[-: ]/g, "").replace(/(\d{8})(\d{6})/, "$1_$2") + ".jpg";
 
   closeCam();
