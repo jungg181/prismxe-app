@@ -377,7 +377,7 @@ function applyPreset(sysName, grp, devId, gid, presetKey) {
   if (!presetKey || !PRESETS[presetKey]) return;
   const p = PRESETS[presetKey];
   // Find the gauge card and fill in the calibration inputs
-  const card = document.querySelector(`[data-gid="${gid}"]`) || event.target.closest(".card");
+  const card = document.getElementById("gauge-" + CSS.escape(gid));
   if (card) {
     const setVal = (key, val) => {
       const inp = card.querySelector(`input[data-c="${key}"]`);
@@ -388,7 +388,7 @@ function applyPreset(sysName, grp, devId, gid, presetKey) {
     setVal("angle_max", p.angle_max);
     setVal("value_max", p.value_max);
     // Also set the unit if there's a unit field
-    const unitInp = card.querySelector(`input[data-f="unit"]`);
+    const unitInp = card.querySelector(`[data-f="unit"]`);
     if (unitInp) unitInp.value = p.unit;
   }
   toast(`Preset applied: ${p.unit} 0–${p.value_max}`);

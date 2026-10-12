@@ -173,7 +173,7 @@ def _equip_payload(sys, dev, kind):
             "unit": g.get("unit", "") or cal.get("unit", ""),
             "calibrated": "angle_min" in cal,
         })
-    return {"system": sys["name"], "id": dev["id"], "name": dev["name"],
+    return {"system": sys["name"], "category": sys["name"], "id": dev["id"], "name": dev["name"],
             "kind": kind, "gauges": gauges}
 
 

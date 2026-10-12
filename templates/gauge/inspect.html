@@ -332,11 +332,12 @@ function readingHtml(gid, data) {
   if (data.value == null) {
     return `<div class="warn">Auto read: needle angle ${data.angle_deg}° (not calibrated — please enter the value manually)</div>` + manualHtml(gid, "");
   }
+  // Auto-save the reading immediately
+  setTimeout(() => confirmReading(gid, false), 100);
   return `<div class="val">${data.value} <span style="font-size:18px">${esc(data.unit || "")}</span></div>
-      <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read</div>
+      <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read ✓ saved</div>
       <div class="row">
-        <button class="btn btn-ok" onclick="confirmReading('${gid}', false)">✓ Confirm</button>
-        <button class="btn btn-edit" onclick="showManual('${gid}')">Manual entry</button>
+        <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
       </div>
       <div class="manual" style="display:none">${manualHtml(gid, data.value)}</div>`;
 }
