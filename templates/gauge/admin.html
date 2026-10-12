@@ -81,6 +81,30 @@
     <div style="text-align:center;margin:16px 0"><a href="/gauge/" class="back">‹ Back to home</a></div>
   </div>
 </main>
+<div id="calModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto">
+  <div class="card" style="margin:16px auto;max-width:560px">
+    <h3 style="margin:0 0 8px">📷 Calibrate from photo <span id="calGid" style="color:#f4e4a6"></span></h3>
+    <div class="muted" style="font-size:13px;margin-bottom:10px">Take a straight-on photo of the gauge face, then click the <b style="color:#8bc34a">0 (min) mark</b> and the <b style="color:#ef9a9a">max scale mark</b> on the photo. The gold dot marks the assumed dial center.</div>
+    <label>Gauge face photo</label>
+    <input type="file" id="calFile" accept="image/*" capture="environment">
+    <div id="calWrap" style="display:none;position:relative;margin-top:10px">
+      <img id="calImg" style="width:100%;border-radius:10px;cursor:crosshair;touch-action:manipulation;display:block">
+      <div id="calCenterDot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:#d4af37;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calMinDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#2e7d32;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calMaxDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#c62828;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+    </div>
+    <div id="calStep" class="muted" style="font-size:14px;margin:10px 0"></div>
+    <div class="grid2">
+      <div><label>Unit</label><select id="calUnit"></select></div>
+      <div><label>Min value</label><input type="number" step="any" id="calMinVal" value="0"></div>
+    </div>
+    <div><label>Max value</label><input type="number" step="any" id="calMaxVal" placeholder="e.g. 1.5"></div>
+    <div class="row">
+      <button class="btn btn-sec" onclick="closeCalModal()">Cancel</button>
+      <button class="btn btn-save" id="calApplyBtn" onclick="applyCal()" disabled>Apply</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -175,6 +199,7 @@ function gaugeHtml(sysName, grp, dev, g) {
       <div><label>Angle at max scale (°)</label><input type="number" step="any" data-c="angle_max" value="${num(cal.angle_max)}"></div>
       <div><label>Value at max</label><input type="number" step="any" data-c="value_max" value="${num(cal.value_max)}"></div>
     </div>
+    <button class="btn btn-sec" onclick="openCalModal('${esc(g.id)}')">📷 Calibrate from photo</button>
     <button class="btn btn-del" onclick="delGauge('${esc(sysName)}','${grp}','${esc(dev.id)}','${esc(g.id)}')">Delete gauge</button>
     <button class="btn btn-sec" onclick="gaugeQR('${esc(dev.id)}','${esc(g.id)}','${esc(g.name)}')">📷 QR code for this gauge</button>
   </div>`;
@@ -367,6 +392,106 @@ function applyPreset(sysName, grp, devId, gid, presetKey) {
     if (unitInp) unitInp.value = p.unit;
   }
   toast(`Preset applied: ${p.unit} 0–${p.value_max}`);
+}
+
+// ---- Photo-based calibration: click 0 mark + max mark on a gauge-face photo ----
+let calGid = null, calStep = 0, calMinAngle = null, calMaxAngle = null;
+
+function openCalModal(gid) {
+  calGid = gid; calStep = 0; calMinAngle = null; calMaxAngle = null;
+  document.getElementById("calGid").textContent = gid;
+  document.getElementById("calFile").value = "";
+  document.getElementById("calWrap").style.display = "none";
+  document.getElementById("calMinDot").style.display = "none";
+  document.getElementById("calMaxDot").style.display = "none";
+  document.getElementById("calCenterDot").style.display = "none";
+  document.getElementById("calStep").textContent = "1. Take or choose a photo of the gauge face";
+  document.getElementById("calApplyBtn").disabled = true;
+  document.getElementById("calModal").style.display = "block";
+  // Build unit dropdown from UNITS, prefill from the gauge card
+  const cu = document.getElementById("calUnit");
+  let h = "";
+  UNITS.forEach(u => { h += `<option value="${u}">${UNIT_LABELS[u] || u}</option>`; });
+  cu.innerHTML = h;
+  const card = document.getElementById("gauge-" + gid);
+  if (card) {
+    const u = card.querySelector('[data-f="unit"]');
+    if (u && u.value) {
+      if (!UNITS.includes(u.value)) cu.innerHTML += `<option value="${esc(u.value)}" selected>${esc(u.value)}</option>`;
+      else cu.value = u.value;
+    }
+    const vmin = card.querySelector('input[data-c="value_min"]');
+    if (vmin && vmin.value.trim() !== "") document.getElementById("calMinVal").value = vmin.value.trim();
+    const vmax = card.querySelector('input[data-c="value_max"]');
+    if (vmax && vmax.value.trim() !== "") document.getElementById("calMaxVal").value = vmax.value.trim();
+  }
+}
+
+function closeCalModal() {
+  document.getElementById("calModal").style.display = "none";
+  calGid = null;
+}
+
+document.getElementById("calFile").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = document.getElementById("calImg");
+  img.onload = () => {
+    URL.revokeObjectURL(img.src);
+    document.getElementById("calWrap").style.display = "block";
+    const cd = document.getElementById("calCenterDot");
+    cd.style.left = "50%"; cd.style.top = "50%"; cd.style.display = "block";
+    document.getElementById("calMinDot").style.display = "none";
+    document.getElementById("calMaxDot").style.display = "none";
+    calStep = 1; calMinAngle = null; calMaxAngle = null;
+    document.getElementById("calApplyBtn").disabled = true;
+    document.getElementById("calStep").textContent = "2. Click the 0 (min) mark on the dial";
+  };
+  img.src = URL.createObjectURL(f);
+});
+
+document.getElementById("calImg").addEventListener("click", e => {
+  if (!calGid || calStep < 1) return;
+  const img = e.currentTarget;
+  const r = img.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (x < 0 || y < 0 || x > r.width || y > r.height) return;
+  const dx = x - r.width / 2, dy = y - r.height / 2;
+  // Angle clockwise from 12 o'clock, 0-360
+  let ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+  if (ang < 0) ang += 360;
+  ang = Math.round(ang * 10) / 10;
+  const dot = calStep === 1 ? document.getElementById("calMinDot") : document.getElementById("calMaxDot");
+  dot.style.left = (x / r.width * 100) + "%";
+  dot.style.top = (y / r.height * 100) + "%";
+  dot.style.display = "block";
+  if (calStep === 1) {
+    calMinAngle = ang;
+    calStep = 2;
+    document.getElementById("calStep").textContent = "0 mark: " + ang + "° — 3. Click the max scale mark";
+  } else {
+    calMaxAngle = ang;
+    calStep = 3;
+    document.getElementById("calStep").textContent = "0 mark: " + calMinAngle + "° · max mark: " + ang + "° — tap Apply";
+    document.getElementById("calApplyBtn").disabled = false;
+  }
+});
+
+function applyCal() {
+  if (!calGid || calMinAngle == null || calMaxAngle == null) return;
+  const card = document.getElementById("gauge-" + calGid);
+  if (card) {
+    const setC = (k, v) => { const i = card.querySelector(`input[data-c="${k}"]`); if (i) i.value = v; };
+    setC("angle_min", calMinAngle);
+    setC("value_min", document.getElementById("calMinVal").value.trim());
+    setC("angle_max", calMaxAngle);
+    setC("value_max", document.getElementById("calMaxVal").value.trim());
+    const u = card.querySelector('[data-f="unit"]');
+    const cu = document.getElementById("calUnit").value;
+    if (u && cu) u.value = cu;
+  }
+  toast("Calibration filled — tap Save all");
+  closeCalModal();
 }
 
 document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
