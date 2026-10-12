@@ -323,7 +323,8 @@ function quickSave(gid, unit) {
   });
 }
 
-// Tick-based calculation: user taps left tick, needle tip, right tick.
+// Tick-based calculation (slider version): user enters the two tick values
+// around the needle, then moves a 15-step slider to the needle position.
 // Interpolates ONLY between the two surrounding ticks (local = most accurate).
 let _tickState = {};
 function startTickMode(gid) {
@@ -331,109 +332,72 @@ function startTickMode(gid) {
   const res = card.querySelector(".res");
   const thumb = res.querySelector(".thumb");
   const imgUrl = thumb ? thumb.src : "";
-  _tickState[gid] = {taps: [], unit: null};
+  _tickState[gid] = {unit: null};
   res.innerHTML = `
-    <div style="font-weight:600;margin-bottom:8px">Tap 3 points on the gauge photo</div>
-    <div id="tick-wrap-${gid}" style="position:relative;display:inline-block;max-width:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none">
-      <img id="tick-img-${gid}" src="${imgUrl}" style="max-width:100%;border-radius:8px;display:block">
+    <img class="thumb" src="${imgUrl}" style="max-width:100%;border-radius:8px;margin-bottom:12px">
+    <div style="font-weight:600;margin-bottom:8px">Needle is between which two big ticks?</div>
+    <div style="display:flex;gap:10px;margin-bottom:6px">
+      <div style="flex:1">Left tick value:<br>
+        <input type="number" step="any" id="tick-v0-${gid}" placeholder="e.g. 0.5"
+          style="width:100%;padding:12px;font-size:17px;box-sizing:border-box" oninput="tickSliderMove('${gid}')"></div>
+      <div style="flex:1">Right tick value:<br>
+        <input type="number" step="any" id="tick-v1-${gid}" placeholder="e.g. 1"
+          style="width:100%;padding:12px;font-size:17px;box-sizing:border-box" oninput="tickSliderMove('${gid}')"></div>
     </div>
-    <div id="tick-msg-${gid}" class="muted" style="margin:8px 0;font-size:15px">① Tap the big tick LEFT of the needle</div>
-    <div style="margin-bottom:8px"><button class="btn" onclick="startTickMode('${gid}')">↺ Re-tap</button></div>
-    <div id="tick-vals-${gid}" style="display:none;margin-top:8px">
-      <div style="margin-bottom:8px">Left tick value:
-        <input type="number" step="any" id="tick-v0-${gid}" style="width:110px;padding:10px;font-size:16px"></div>
-      <div style="margin-bottom:8px">Right tick value:
-        <input type="number" step="any" id="tick-v1-${gid}" style="width:110px;padding:10px;font-size:16px"></div>
-      <div style="margin-bottom:10px">
-        <button class="btn tick-u" onclick="tickUnitSel('${gid}','MPa',event)">MPa</button>
-        <button class="btn tick-u" onclick="tickUnitSel('${gid}','psi',event)">psi</button>
-        <button class="btn tick-u" onclick="tickUnitSel('${gid}','bar',event)">bar</button>
+    <div style="margin:10px 0">
+      <span style="font-weight:600">Unit:</span>
+      <button class="btn tick-u" onclick="tickUnitSel('${gid}','MPa',event)">MPa</button>
+      <button class="btn tick-u" onclick="tickUnitSel('${gid}','psi',event)">psi</button>
+      <button class="btn tick-u" onclick="tickUnitSel('${gid}','bar',event)">bar</button>
+    </div>
+    <div style="margin:18px 0 6px">
+      <div style="font-weight:600;margin-bottom:4px">Needle position (15 steps): <span id="tick-pos-${gid}" style="color:#1976d2">—</span></div>
+      <input type="range" id="tick-slider-${gid}" min="0" max="15" step="1" value="7"
+        style="width:100%;height:44px" oninput="tickSliderMove('${gid}')">
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:#666">
+        <span>\u2190 left tick</span><span>right tick \u2192</span>
       </div>
-      <button class="btn btn-ok" style="padding:12px 24px;font-size:16px" onclick="calcTicks('${gid}')">Calculate &amp; Save</button>
-    </div>`;
-  document.getElementById(`tick-img-${gid}`).addEventListener('click', (e) => onTickTap(gid, e));
-}
-
-function tickAngle(x, y, cx, cy) {
-  let a = Math.atan2(x - cx, -(y - cy)) * 180 / Math.PI;
-  if (a < 0) a += 360;
-  return a;
-}
-
-function onTickTap(gid, e) {
-  const st = _tickState[gid];
-  if (!st || st.taps.length >= 3) return;
-  const img = document.getElementById(`tick-img-${gid}`);
-  const r = img.getBoundingClientRect();
-  const x = e.clientX - r.left, y = e.clientY - r.top;
-  const cx = r.width / 2, cy = r.height / 2;
-  const ang = tickAngle(x, y, cx, cy);
-  const rad = Math.hypot(x - cx, y - cy);
-  st.taps.push({ang, x, y, rad});
-  const dot = document.createElement('div');
-  const colors = ['#1976d2', '#2e7d32', '#1976d2'];
-  dot.style.cssText = `position:absolute;left:${x-9}px;top:${y-9}px;width:18px;height:18px;border-radius:50%;background:${colors[st.taps.length-1]};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none`;
-  document.getElementById(`tick-wrap-${gid}`).appendChild(dot);
-  const msg = document.getElementById(`tick-msg-${gid}`);
-  if (st.taps.length === 1) msg.textContent = "② Tap the NEEDLE TIP";
-  else if (st.taps.length === 2) msg.textContent = "③ Tap the big tick RIGHT of the needle";
-  else {
-    drawSubdivisions(gid, r);
-    msg.textContent = "✓ Done — enter the two tick values";
-    document.getElementById(`tick-vals-${gid}`).style.display = "block";
-  }
-}
-
-// Draw 14 dots dividing the arc between the two ticks into 15 equal parts
-function drawSubdivisions(gid, rect) {
-  const st = _tickState[gid];
-  const wrap = document.getElementById(`tick-wrap-${gid}`);
-  const cx = rect.width / 2, cy = rect.height / 2;
-  const radius = (st.taps[0].rad + st.taps[1].rad + st.taps[2].rad) / 3;
-  const a0 = st.taps[0].ang, an = st.taps[1].ang, a1 = st.taps[2].ang;
-  const d01 = cwDist(a0, a1), d0n = cwDist(a0, an);
-  const clockwise = d01 > 0.5 && d0n <= d01;
-  const span = clockwise ? d01 : -cwDist(a1, a0);
-  for (let k = 1; k < 15; k++) {
-    let ak = (((a0 + span * k / 15) % 360) + 360) % 360;
-    const rad = ak * Math.PI / 180;
-    const x = cx + radius * Math.sin(rad);
-    const y = cy - radius * Math.cos(rad);
-    const dot = document.createElement('div');
-    dot.style.cssText = `position:absolute;left:${x-5}px;top:${y-5}px;width:10px;height:10px;border-radius:50%;background:#ff9800;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none`;
-    wrap.appendChild(dot);
-  }
+    </div>
+    <div id="tick-result-${gid}" style="font-size:26px;font-weight:700;margin:10px 0;min-height:36px"></div>
+    <button class="btn btn-ok" style="width:100%;padding:14px;font-size:17px" onclick="calcTicksSlider('${gid}')">\u2713 Save reading</button>`;
 }
 
 function tickUnitSel(gid, unit, event) {
   _tickState[gid].unit = unit;
-  document.querySelectorAll(`#tick-vals-${gid} .tick-u`).forEach(b => {
+  const wrap = document.getElementById("card-" + gid);
+  wrap.querySelectorAll(`.tick-u`).forEach(b => {
     b.style.opacity = b.textContent === unit ? '1' : '0.5';
   });
+  tickSliderMove(gid);
 }
 
-function cwDist(a, b) { let d = b - a; if (d < 0) d += 360; return d; }
+function tickSliderMove(gid) {
+  const v0 = parseFloat(document.getElementById(`tick-v0-${gid}`).value);
+  const v1 = parseFloat(document.getElementById(`tick-v1-${gid}`).value);
+  const pos = parseInt(document.getElementById(`tick-slider-${gid}`).value, 10);
+  const st = _tickState[gid] || {};
+  const unit = st.unit || '';
+  document.getElementById(`tick-pos-${gid}`).textContent = pos + " / 15";
+  const resDiv = document.getElementById(`tick-result-${gid}`);
+  if (isNaN(v0) || isNaN(v1)) {
+    resDiv.textContent = "";
+    return;
+  }
+  const step = (v1 - v0) / 15;
+  let value = v0 + step * pos;
+  value = Math.round(value * 1000) / 1000;
+  resDiv.innerHTML = `${value} <span style="font-size:17px;font-weight:400">${unit}</span>`;
+}
 
-function calcTicks(gid) {
-  const st = _tickState[gid];
+function calcTicksSlider(gid) {
   const v0 = parseFloat(document.getElementById(`tick-v0-${gid}`).value);
   const v1 = parseFloat(document.getElementById(`tick-v1-${gid}`).value);
   if (isNaN(v0) || isNaN(v1)) { alert('Enter both tick values'); return; }
+  const pos = parseInt(document.getElementById(`tick-slider-${gid}`).value, 10);
+  const st = _tickState[gid] || {};
   const unit = st.unit || 'psi';
-  const a0 = st.taps[0].ang, an = st.taps[1].ang, a1 = st.taps[2].ang;
-  const d01 = cwDist(a0, a1), d0n = cwDist(a0, an);
-  let frac;
-  if (d01 > 0.5 && d0n <= d01) frac = d0n / d01;
-  else {
-    const d10 = cwDist(a1, a0), d1n = cwDist(a1, an);
-    frac = d10 > 0.5 ? 1 - d1n / d10 : 0;
-  }
-  if (frac < 0) frac = 0;
-  if (frac > 1) frac = 1;
-  // Snap to nearest 1/15th of the tick interval for a clean reading
   const step = (v1 - v0) / 15;
-  let value = v0 + (v1 - v0) * frac;
-  value = Math.round(value / step) * step;
+  let value = v0 + step * pos;
   value = Math.round(value * 1000) / 1000;
   const g = (typeof gaugeMap !== 'undefined' && gaugeMap[gid]) ? gaugeMap[gid].g : {id: gid};
   fetch('/gauge/api/log', {
@@ -444,9 +408,9 @@ function calcTicks(gid) {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
     res.innerHTML = `<div class="val">${value} <span style="font-size:18px">${unit}</span></div>
-        <div class="muted" style="font-size:12px">Tick interpolation ✓ saved</div>
+        <div class="muted" style="font-size:12px">\u2713 saved</div>
         <div class="row" style="margin-top:8px">
-          <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
+          <button class="btn btn-edit" onclick="showManual('${gid}')">\u2710\uFE0F Correct value</button>
         </div>
         <div class="manual" style="display:none">${manualHtml(g, value)}</div>`;
   });
