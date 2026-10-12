@@ -315,6 +315,35 @@ def admin_page():
     return render_template("admin.html")
 
 
+@bp.post("/api/save-calibration")
+def save_single_calibration():
+    """Save calibration for a single gauge (no admin required - used by quick setup)"""
+    global CALIB
+    body = request.get_json(force=True, silent=True) or {}
+    gid = body.get("gauge_id")
+    if not gid:
+        return jsonify({"error": "gauge_id required"}), 400
+    CALIB[gid] = {
+        "angle_min": body.get("angle_min", 225),
+        "value_min": body.get("value_min", 0),
+        "angle_max": body.get("angle_max", 135),
+        "value_max": body.get("value_max", 100),
+        "unit": body.get("unit", ""),
+    }
+    # Persist to disk
+    data_path = BASE / "data_gauge.json"
+    try:
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["calibration"] = CALIB
+        _atomic_write(data_path, json.dumps(data, indent=2, ensure_ascii=False))
+    except Exception:
+        pass
+    # Persist to Sheets (best-effort)
+    sheets_post_async({"action": "saveConfig",
+                       "config": {"equipment": EQUIPMENT, "calibration": CALIB}})
+    return jsonify({"ok": True})
+
+
 @bp.post("/api/admin/login")
 def admin_login():
     body = request.get_json(force=True, silent=True) or {}
