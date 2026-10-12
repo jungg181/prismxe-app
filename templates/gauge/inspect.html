@@ -493,7 +493,7 @@ function onTickTap(gid, e) {
   }
 }
 
-// Draw 9 dots dividing the arc between the two ticks into 10 equal parts
+// Draw 14 dots dividing the arc between the two ticks into 15 equal parts
 function drawSubdivisions(gid, rect) {
   const st = _tickState[gid];
   const wrap = document.getElementById(`tick-wrap-${gid}`);
@@ -503,8 +503,8 @@ function drawSubdivisions(gid, rect) {
   const d01 = cwDist(a0, a1), d0n = cwDist(a0, an);
   const clockwise = d01 > 0.5 && d0n <= d01;
   const span = clockwise ? d01 : -cwDist(a1, a0);
-  for (let k = 1; k < 10; k++) {
-    let ak = (((a0 + span * k / 10) % 360) + 360) % 360;
+  for (let k = 1; k < 15; k++) {
+    let ak = (((a0 + span * k / 15) % 360) + 360) % 360;
     const rad = ak * Math.PI / 180;
     const x = cx + radius * Math.sin(rad);
     const y = cy - radius * Math.cos(rad);
@@ -539,8 +539,8 @@ function calcTicks(gid) {
   }
   if (frac < 0) frac = 0;
   if (frac > 1) frac = 1;
-  // Snap to nearest 1/10th of the tick interval for a clean reading
-  const step = (v1 - v0) / 10;
+  // Snap to nearest 1/15th of the tick interval for a clean reading
+  const step = (v1 - v0) / 15;
   let value = v0 + (v1 - v0) * frac;
   value = Math.round(value / step) * step;
   value = Math.round(value * 1000) / 1000;
