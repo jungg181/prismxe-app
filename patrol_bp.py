@@ -38,16 +38,16 @@ ADMIN_PASSWORD_HASH = os.environ.get(
 # sheets_apps_script_patrol.js). Every meaningful DB change is POSTed there
 # asynchronously, and a fresh server restores from it on startup — so a
 # Render redeploy (ephemeral disk) can no longer wipe workers/punches.
-SHEETS_URL = os.environ.get('SHEETS_URL', '')
+PATROL_SHEETS_URL = os.environ.get('PATROL_SHEETS_URL', '')
 
 
 def sheets_post(payload, timeout=12):
     """Best-effort POST to the Google Sheets webhook. Never raises."""
-    if not SHEETS_URL:
+    if not PATROL_SHEETS_URL:
         return None
     try:
         req = urllib.request.Request(
-            SHEETS_URL, data=json.dumps(payload).encode("utf-8"),
+            PATROL_SHEETS_URL, data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -58,10 +58,10 @@ def sheets_post(payload, timeout=12):
 
 def sheets_get_data(timeout=15):
     """Fetch the persisted patrol DB from Google Sheets. Returns dict or None."""
-    if not SHEETS_URL:
+    if not PATROL_SHEETS_URL:
         return None
     try:
-        with urllib.request.urlopen(SHEETS_URL + "?action=getData",
+        with urllib.request.urlopen(PATROL_SHEETS_URL + "?action=getData",
                                     timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8")).get("data")
     except Exception as e:  # noqa: BLE001
@@ -70,13 +70,13 @@ def sheets_get_data(timeout=15):
 
 
 def sheets_post_async(payload):
-    if SHEETS_URL:
+    if PATROL_SHEETS_URL:
         threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
 
 
 def sync_data_to_sheets():
     """Best-effort async backup of the full patrol DB to Google Sheets."""
-    if SHEETS_URL:
+    if PATROL_SHEETS_URL:
         sheets_post_async({"action": "saveData", "data": DB})
 
 
