@@ -80,13 +80,12 @@ async function openQr(){
   openModal(`<h3>Temporary Attendance QR</h3>
     <p class="muted small">Choose the jobsite, then show this code to the worker. The code decides which site gets the timecard. Valid for <b>10 minutes</b>.</p>
     <label>Jobsite <select id="qr-site">${opts}</select></label>
-    <label>Action <select id="qr-action"><option value="clock_in">Clock in</option><option value="clock_out">Clock out</option></select></label>
     <div id="qr-out" style="text-align:center;margin:12px 0"></div>
     <button class="btn primary" onclick="makeQr()">Create temporary QR</button>`);
 }
 async function makeQr(){
   const r = await fetch('/cm/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({site_id: document.getElementById('qr-site').value, action: document.getElementById('qr-action').value})});
+    body: JSON.stringify({site_id: document.getElementById('qr-site').value})});
   const d = await r.json();
   document.getElementById('qr-out').innerHTML = `<img src="/cm/qr/${d.token}.png" style="width:220px;height:220px"><p class="muted small">Expires ${d.expires_at}</p>`;
 }

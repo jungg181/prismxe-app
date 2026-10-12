@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clock {{ rec.action.replace('_',' ') if rec }} · Construction Manager</title>
+<title>Clock In / Out · Construction Manager</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 </head>
 <body>
@@ -15,7 +15,7 @@
   </div></div>
 {% else %}
   <div class="card"><div class="card-body" style="text-align:center">
-    <h2>⏱️ {{ 'Clock In' if rec.action == 'clock_in' else 'Clock Out' }}</h2>
+    <h2>⏱️ {{ 'Clock In' if rec.action == 'clock_in' else ('Clock Out' if rec.action == 'clock_out' else 'Clock In / Out') }}</h2>
     <p class="muted">{{ site.name if site else 'Unknown site' }}</p>
     <form method="post" action="{{ url_for('.clock_confirm', token=rec.token) }}" id="clock-form">
       <div class="card" style="background:#eff6ff;border:2px solid var(--blue);margin:0 0 12px"><div class="card-body" style="text-align:left">
@@ -38,7 +38,7 @@
       </div>
       <input type="hidden" name="lat" id="lat"><input type="hidden" name="lng" id="lng">
       <p class="muted small" id="geo-status">Getting your location...</p>
-      <button class="btn primary big" type="submit" id="confirm-btn" disabled>Confirm {{ 'Clock In' if rec.action == 'clock_in' else 'Clock Out' }}</button>
+      <button class="btn primary big" type="submit" id="confirm-btn" disabled>Confirm {{ 'Clock In' if rec.action == 'clock_in' else ('Clock Out' if rec.action == 'clock_out' else 'Clock In / Out') }}</button>
     </form>
 <script>
 const lookupQ = document.getElementById('lookup-q');

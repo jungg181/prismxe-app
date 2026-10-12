@@ -637,7 +637,7 @@ def api_qr_create():
     d = request.get_json(force=True)
     token = uuid.uuid4().hex
     rec = {'token': token, 'site_id': d.get('site_id'),
-           'action': d.get('action', 'clock_in'),
+           'action': 'toggle',
            'created_at': now_iso(),
            'expires_at': (datetime.now() + timedelta(minutes=10)).isoformat(timespec='seconds'),
            'clock_url': BASE_URL.rstrip('/') + '/cm/clock/' + token}
@@ -748,9 +748,13 @@ def clock_confirm(token):
     if not w:
         flash('Worker not found.')
         return redirect(url_for('cm.clock_page', token=token))
-    ok, info = _perform_clock(rec['site_id'], rec['action'], worker_id, lat, lng)
+    # Toggle mode: clock out if worker has an open timecard, else clock in
+    action = rec['action']
+    if action == 'toggle':
+        action = 'clock_out' if open_timecard(worker_id) else 'clock_in'
+    ok, info = _perform_clock(rec['site_id'], action, worker_id, lat, lng)
     if ok:
-        if rec['action'] == 'clock_in':
+        if action == 'clock_in':
             return render_template('cm/clock_done.html',
                                    message=f"{w['name']} clocked in at {site_name(rec['site_id'])}.",
                                    site=site_name(rec['site_id']))
