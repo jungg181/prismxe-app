@@ -173,11 +173,12 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             for c in COLLECTIONS:
                 db.setdefault(c, [])
             db.setdefault('config', {'zipcode': ''})
-        if seeded:
-            # Fresh server (e.g. Render redeploy wiped the disk): restore the
-            # last backup from Google Sheets instead of starting empty.
+        # Restore from Google Sheets when the local DB is empty but Sheets
+        # has data. (The DB file is bundled in deploys, so "seeded" is not
+        # a reliable signal for a wiped disk.)
+        if not db.get('workers'):
             remote = sheets_get_data()
-            if isinstance(remote, dict) and remote.get('workers') is not None:
+            if isinstance(remote, dict) and remote.get('workers'):
                 print(f"patrol[{company_id}]: restored DB from Google Sheets", flush=True)
                 db = remote
                 with open(DB_PATH, 'w') as f:
