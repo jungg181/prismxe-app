@@ -1,10 +1,11 @@
-"""PrismXE merged app: boiler gauge + construction manager + patrol board.
+"""PrismXE merged app: boiler gauge + construction manager + patrol board + burner guide.
 
 Single Flask app served by gunicorn (gunicorn app:app).
 - GET /            portal with links to the three apps
 - /gauge/*         boiler gauge inspection app
 - /cm/*            construction manager (+ /cm/onsite worker app)
 - /patrol/*        equipment patrol timetable board
+- /burner/*        burner turn-on / shut-off guided procedure
 
 Env vars:
   BASE_URL    public base URL used in generated QR codes
@@ -38,11 +39,13 @@ def save_portal_config(cfg):
 from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
 from patrol_bp import bp as patrol_bp, patrol_coa_bp
+from burner_bp import bp as burner_bp
 
 app.register_blueprint(gauge_bp)
 app.register_blueprint(cm_bp)
 app.register_blueprint(patrol_bp)
 app.register_blueprint(patrol_coa_bp)
+app.register_blueprint(burner_bp)
 register_cm_jinja(app)
 
 

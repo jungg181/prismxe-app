@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>{{ flow_name }} — Burner Guide</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+    margin: 0; background: #f1f5f9; color: #0f172a; min-height: 100vh;
+  }
+  header { background: #1976d2; color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 5; }
+  header .row { display: flex; align-items: center; gap: 10px; max-width: 640px; margin: 0 auto; }
+  header a.home { color: #fff; text-decoration: none; font-size: 22px; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; flex: 1; }
+  header .cnt { font-size: 14px; font-weight: 600; opacity: .95; white-space: nowrap; }
+  .pbar { height: 6px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 10px; max-width: 640px; margin-left: auto; margin-right: auto; }
+  .pbar > div { height: 100%; background: #fff; border-radius: 3px; transition: width .3s; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0 14px; }
+  .dots button {
+    width: 30px; height: 30px; border-radius: 50%; border: 2px solid #cbd5e1;
+    background: #fff; color: #94a3b8; font-size: 13px; font-weight: 700; cursor: pointer; padding: 0;
+  }
+  .dots button.cur { border-color: #1976d2; color: #1976d2; }
+  .dots button.done { background: #1976d2; border-color: #1976d2; color: #fff; }
+  .dots button:disabled { cursor: default; opacity: .6; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px 20px; margin-bottom: 14px; }
+  .stepnum {
+    display: inline-block; background: #1976d2; color: #fff; font-weight: 800;
+    font-size: 15px; border-radius: 999px; padding: 5px 16px; margin-bottom: 12px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; line-height: 1.25; }
+  .card h3 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #334155; line-height: 1.35; }
+  .card p.en { font-size: 17px; line-height: 1.6; margin: 0 0 10px; }
+  .card p.ko { font-size: 16px; line-height: 1.65; margin: 0; color: #475569; }
+  .timerbox {
+    background: #0f172a; color: #fff; border-radius: 16px; padding: 22px 20px;
+    text-align: center; margin-bottom: 14px;
+  }
+  .timerbox .tdisp { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 2px; }
+  .timerbox .tbtns { display: flex; gap: 10px; margin-top: 14px; }
+  .timerbox .tbtns button {
+    flex: 1; padding: 14px; font-size: 17px; font-weight: 700; border: none;
+    border-radius: 10px; cursor: pointer;
+  }
+  .tstart { background: #2e7d32; color: #fff; }
+  .tpause { background: #f59e0b; color: #fff; }
+  .treset { background: #475569; color: #fff; }
+  .timenote { font-size: 13px; color: #94a3b8; margin-top: 12px; line-height: 1.5; }
+  .skiptimer { display: block; text-align: center; margin-top: 10px; color: #94a3b8; font-size: 14px; background: none; border: none; cursor: pointer; width: 100%; }
+  .nav { display: flex; gap: 10px; }
+  .nav button {
+    flex: 1; padding: 18px; font-size: 19px; font-weight: 800; border: none;
+    border-radius: 12px; cursor: pointer;
+  }
+  .back { background: #e2e8f0; color: #334155; }
+  .next { background: #1976d2; color: #fff; }
+  .finish { background: #2e7d32; color: #fff; }
+  .nav button:disabled { opacity: .35; cursor: default; }
+  .donescreen { text-align: center; padding: 40px 20px; }
+  .donescreen .big { font-size: 64px; }
+  .donescreen h2 { font-size: 26px; margin: 12px 0 6px; }
+  .donescreen p { color: #64748b; font-size: 16px; }
+  .donescreen a {
+    display: inline-block; margin-top: 18px; background: #1976d2; color: #fff;
+    text-decoration: none; font-weight: 700; font-size: 18px; padding: 16px 40px; border-radius: 12px;
+  }
+  #alarm {
+    display: none; position: fixed; inset: 0; z-index: 50; background: #c62828;
+    color: #fff; text-align: center; padding: 60px 24px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100% { background: #c62828; } 50% { background: #e53935; } }
+  #alarm .bell { font-size: 72px; }
+  #alarm h2 { font-size: 34px; margin: 16px 0 8px; font-weight: 800; }
+  #alarm p.en { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+  #alarm p.ko { font-size: 19px; margin: 0 0 30px; opacity: .95; }
+  #alarm button {
+    background: #fff; color: #c62828; border: none; border-radius: 14px;
+    font-size: 22px; font-weight: 800; padding: 20px 60px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <a class="home" href="/burner/">‹</a>
+    <h1>{{ flow_name }}<br><span style="font-size:13px;font-weight:600;opacity:.9">{{ flow_name_ko }}</span></h1>
+    <div class="cnt" id="counter"></div>
+  </div>
+  <div class="pbar"><div id="pfill" style="width:0%"></div></div>
+</header>
+<main id="main"></main>
+
+<div id="alarm">
+  <div class="bell">⏰</div>
+  <h2>TIME'S UP</h2>
+  <p class="en" id="alarmEn"></p>
+  <p class="ko" id="alarmKo"></p>
+  <button id="alarmOk">Continue / 계속</button>
+</div>
+
+<script>
+const STEPS = {{ steps_json | safe }};
+const N = STEPS.length;
+let idx = 0;
+let visited = 0;
+
+// ---- timer state ----
+const TIMER_SECONDS = 30 * 60;
+let tRemain = TIMER_SECONDS, tId = null, tRunning = false;
+let wakeLock = null;
+let audioCtx = null, alarmOsc = null, alarmGain = null, alarmTimer = null, vibTimer = null;
+
+const main = document.getElementById('main');
+const counter = document.getElementById('counter');
+const pfill = document.getElementById('pfill');
+
+function fmt(s) {
+  s = Math.max(0, s);
+  const m = Math.floor(s / 60), ss = s % 60;
+  return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+}
+
+function render() {
+  stopTimer(false);
+  counter.textContent = 'Step ' + (idx + 1) + ' / ' + N;
+  pfill.style.width = ((idx + 1) / N * 100) + '%';
+  const st = STEPS[idx];
+
+  let dots = '<div class="dots">';
+  for (let i = 0; i < N; i++) {
+    const cls = i === idx ? 'cur' : (i <= visited ? 'done' : '');
+    const dis = i <= visited ? '' : 'disabled';
+    dots += '<button class="' + cls + '" ' + dis + ' onclick="goto(' + i + ')">' + (i + 1) + '</button>';
+  }
+  dots += '</div>';
+
+  let html = dots +
+    '<div class="card"><span class="stepnum">STEP ' + (idx + 1) + '</span>' +
+    '<h2>' + esc(st.title_en) + '</h2><h3>' + esc(st.title_ko) + '</h3>' +
+    '<p class="en">' + esc(st.body_en) + '</p><p class="ko">' + esc(st.body_ko) + '</p></div>';
+
+  if (st.kind === 'timer') {
+    tRemain = st.minutes * 60;
+    html += '<div class="timerbox"><div class="tdisp" id="tdisp">' + fmt(tRemain) + '</div>' +
+      '<div class="tbtns">' +
+      '<button class="tstart" id="tStart" onclick="timerStart()">▶ Start ' + st.minutes + ':00 Timer</button>' +
+      '<button class="tpause" id="tPause" onclick="timerPause()" style="display:none">⏸ Pause</button>' +
+      '<button class="treset" onclick="timerReset()">↺ Reset</button>' +
+      '</div>' +
+      '<div class="timenote">⏳ Keep this page open during the wait — the alarm needs the page open.<br>대기 중에는 이 페이지를 열어 두세요.</div></div>' +
+      '<button class="skiptimer" onclick="next()">Skip timer →</button>';
+  }
+
+  const isLast = idx === N - 1;
+  html += '<div class="nav" style="margin-top:14px">' +
+    '<button class="back" onclick="back()"' + (idx === 0 ? ' disabled' : '') + '>‹ Back<br><span style="font-size:13px">이전</span></button>';
+  if (st.kind === 'timer') {
+    html += '<button class="next" disabled>Next →<br><span style="font-size:13px">타이머 완료 후</span></button>';
+  } else if (isLast) {
+    html += '<button class="finish" onclick="finish()">✓ Done<br><span style="font-size:13px">완료</span></button>';
+  } else {
+    html += '<button class="next" onclick="next()">Next →<br><span style="font-size:13px">다음</span></button>';
+  }
+  html += '</div>';
+  main.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function goto(i) { if (i <= visited) { idx = i; render(); } }
+function back() { if (idx > 0) { idx--; render(); } }
+function next() {
+  stopTimer(false);
+  if (idx < N - 1) { idx++; visited = Math.max(visited, idx); render(); }
+}
+function finish() {
+  main.innerHTML = '<div class="card donescreen"><div class="big">✅</div>' +
+    '<h2>Procedure Complete</h2><h3 style="color:#475569">절차 완료</h3>' +
+    '<p>{{ flow_name }} finished.</p>' +
+    '<a href="/burner/">Back to Home / 처음으로</a></div>';
+  counter.textContent = 'Done';
+  pfill.style.width = '100%';
+  window.scrollTo(0, 0);
+}
+
+// ---- timer ----
+async function lockScreen() {
+  try {
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) { /* not supported — fine */ }
+}
+function unlockScreen() {
+  try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+
+function timerStart() {
+  if (tRunning || tRemain <= 0) return;
+  tRunning = true;
+  lockScreen();
+  document.getElementById('tStart').style.display = 'none';
+  document.getElementById('tPause').style.display = '';
+  tId = setInterval(() => {
+    tRemain--;
+    const d = document.getElementById('tdisp');
+    if (d) d.textContent = fmt(tRemain);
+    if (tRemain <= 0) timerDone();
+  }, 1000);
+}
+function timerPause() {
+  tRunning = false;
+  clearInterval(tId); tId = null;
+  unlockScreen();
+  document.getElementById('tStart').style.display = '';
+  document.getElementById('tStart').textContent = '▶ Resume ' + fmt(tRemain);
+  document.getElementById('tPause').style.display = 'none';
+}
+function timerReset() {
+  stopTimer(true);
+  tRemain = STEPS[idx].minutes * 60;
+  const d = document.getElementById('tdisp');
+  if (d) d.textContent = fmt(tRemain);
+  const s = document.getElementById('tStart');
+  if (s) { s.style.display = ''; s.textContent = '▶ Start ' + STEPS[idx].minutes + ':00 Timer'; }
+  const p = document.getElementById('tPause');
+  if (p) p.style.display = 'none';
+}
+function stopTimer(resetUI) {
+  tRunning = false;
+  if (tId) { clearInterval(tId); tId = null; }
+  unlockScreen();
+}
+
+function timerDone() {
+  stopTimer(false);
+  const st = STEPS[idx];
+  document.getElementById('alarmEn').textContent = st.done_en || "TIME'S UP";
+  document.getElementById('alarmKo').textContent = st.done_ko || '';
+  document.getElementById('alarm').style.display = 'block';
+  startAlarm();
+  if ('vibrate' in navigator) {
+    navigator.vibrate([500, 250, 500, 250, 500]);
+    vibTimer = setInterval(() => navigator.vibrate([500, 250, 500, 250, 500]), 3000);
+  }
+}
+
+function startAlarm() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    alarmOsc = audioCtx.createOscillator();
+    alarmGain = audioCtx.createGain();
+    alarmOsc.connect(alarmGain);
+    alarmGain.connect(audioCtx.destination);
+    alarmOsc.frequency.value = 880;
+    alarmOsc.type = 'square';
+    let on = true;
+    alarmGain.gain.value = 0.25;
+    alarmOsc.start();
+    alarmTimer = setInterval(() => {
+      on = !on;
+      alarmGain.gain.value = on ? 0.25 : 0.0;
+    }, 500);
+  } catch (e) { /* audio unavailable */ }
+}
+function stopAlarm() {
+  if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null; }
+  if (vibTimer) { clearInterval(vibTimer); vibTimer = null; }
+  try {
+    if (alarmOsc) { alarmOsc.stop(); alarmOsc.disconnect(); alarmOsc = null; }
+    if (alarmGain) { alarmGain.disconnect(); alarmGain = null; }
+  } catch (e) {}
+  if ('vibrate' in navigator) navigator.vibrate(0);
+}
+
+document.getElementById('alarmOk').addEventListener('click', () => {
+  stopAlarm();
+  document.getElementById('alarm').style.display = 'none';
+  next(); // auto-advance after timer completes
+});
+
+render();
+</script>
+</body>
+</html>
