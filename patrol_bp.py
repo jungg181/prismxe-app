@@ -9,7 +9,9 @@ import json
 import uuid
 import csv
 import hashlib
+import hmac
 import threading
+import time
 import urllib.request
 from functools import wraps
 from datetime import datetime, date
@@ -103,6 +105,77 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 return redirect(url_for(BP + '.login', next=request.path))
             return fn(*a, **k)
         return wrapper
+
+    # ---- Per-visit password gate for Timecard / Settings ----
+    # When the PATROL_ADMIN_PASSWORD env var is set, every visit (GET) of
+    # /timecard or /settings shows a password form — even with an existing
+    # login session. POSTing the correct password unlocks just that page
+    # view; a short-lived session flag authorizes the page's own action
+    # POSTs (edits, saves). When the env var is unset, behavior is
+    # unchanged (session login only).
+    PAGE_PASSWORD = os.environ.get('PATROL_ADMIN_PASSWORD', '')
+    VISIT_AUTH_KEY = f'patrol_{company_id}_visit_auth'
+    VISIT_AUTH_TTL = 1800  # seconds an unlocked page view stays usable
+
+    def _visit_authed(page):
+        if not PAGE_PASSWORD:
+            return bool(session.get(ADMIN_SESSION_KEY))
+        auth = session.get(VISIT_AUTH_KEY) or {}
+        ts = auth.get(page)
+        return bool(ts) and (time.time() - ts < VISIT_AUTH_TTL)
+
+    def _clear_visit_auth(page):
+        auth = session.get(VISIT_AUTH_KEY) or {}
+        auth.pop(page, None)
+        session[VISIT_AUTH_KEY] = auth
+
+    def _mark_visit_authed(page):
+        auth = session.get(VISIT_AUTH_KEY) or {}
+        auth[page] = time.time()
+        session[VISIT_AUTH_KEY] = auth
+
+    def visit_gate(page, page_title):
+        """Wrap a page route: every GET starts locked behind a password
+        form; a POST carrying the correct page_password unlocks one view."""
+        def deco(fn):
+            @wraps(fn)
+            def wrapper(*a, **k):
+                if not PAGE_PASSWORD:
+                    return login_required(fn)(*a, **k)
+                if not session.get(ADMIN_SESSION_KEY):
+                    return redirect(url_for(BP + '.login',
+                                            next=request.path))
+                if (request.method == 'POST' and
+                        request.form.get('page_password') is not None):
+                    if hmac.compare_digest(
+                            request.form.get('page_password') or '',
+                            PAGE_PASSWORD):
+                        _mark_visit_authed(page)
+                        return fn(*a, **k)
+                    flash('Wrong password.')
+                else:
+                    _clear_visit_auth(page)
+                return render_template('patrol/page_password.html',
+                                       page_title=page_title,
+                                       action=url_for(BP + '.' + page))
+            return wrapper
+        return deco
+
+    def visit_action_required(page):
+        """Guard a page's action routes (edits, saves, exports): they work
+        only within an unlocked page view (or the plain login session when
+        the per-visit gate is disabled)."""
+        def deco(fn):
+            @wraps(fn)
+            def wrapper(*a, **k):
+                if not _visit_authed(page):
+                    if request.is_json:
+                        return jsonify({'ok': False,
+                                        'error': 'Password required.'}), 403
+                    return redirect(url_for(BP + '.' + page))
+                return fn(*a, **k)
+            return wrapper
+        return deco
 
     COLLECTIONS = ['slots', 'equipment', 'shifts', 'workers', 'punches']
 
@@ -389,8 +462,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     # ================= SETTINGS =================
 
-    @bp.route('/settings')
-    @login_required
+    @bp.route('/settings', methods=['GET', 'POST'])
+    @visit_gate('settings', 'Settings')
     def settings():
         cfg = DB.get('config', {})
         # Effective app version/URL: app_version.json (auto-updated by builds) wins.
@@ -422,6 +495,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/display/save', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_display_save():
         data = request.get_json(force=True)
         zipcode = (data.get('zipcode') or '').strip()
@@ -476,6 +550,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/equipment/save', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_equipment_save():
         data = request.get_json(force=True)
         for item in data.get('equipment', []):
@@ -494,6 +569,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/equipment/add', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_equipment_add():
         name = (request.form.get('name') or '').strip() or 'New Equipment'
         DB['equipment'].append({"id": new_id(), "name": name, "note": "",
@@ -504,6 +580,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/equipment/<eid>/delete', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_equipment_delete(eid):
         DB['equipment'] = [e for e in DB['equipment'] if e['id'] != eid]
         save_db()
@@ -512,6 +589,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/check', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_check():
         d = request.get_json(force=True)
         e = find('equipment', d.get('equipment_id'))
@@ -530,6 +608,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/slots/save', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_slots_save():
         data = request.get_json(force=True)
         for i, s in enumerate(data.get('slots', [])):
@@ -542,6 +621,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/shifts/save', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_shifts_save():
         data = request.get_json(force=True)
         DB['shifts'] = data.get('shifts', DB['shifts'])
@@ -553,6 +633,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/workers/add', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_worker_add():
         name = (request.form.get('name') or '').strip() or 'New Worker'
         email = (request.form.get('email') or '').strip()
@@ -564,6 +645,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/workers/<wid>/delete', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_worker_delete(wid):
         DB['workers'] = [w for w in DB['workers'] if w['id'] != wid]
         save_db()
@@ -572,6 +654,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/workers/save', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_workers_save():
         data = request.get_json(force=True)
         for item in data.get('workers', []):
@@ -587,6 +670,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/settings/reset', methods=['POST'])
     @login_required
+    @visit_action_required('settings')
     def settings_reset():
         fresh = seed()
         # keep workers, punches, and shift assignment edits
@@ -607,8 +691,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     # ================= TIMECARD =================
 
-    @bp.route('/timecard')
-    @login_required
+    @bp.route('/timecard', methods=['GET', 'POST'])
+    @visit_gate('timecard', 'Timecard')
     def timecard():
         workers = sorted(DB['workers'], key=lambda w: w.get('name', ''))
         status = []
@@ -626,6 +710,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/timecard/clock', methods=['POST'])
     @login_required
+    @visit_action_required('timecard')
     def timecard_clock():
         d = request.get_json(force=True)
         w = find('workers', d.get('worker_id'))
@@ -648,6 +733,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/timecard/punch/edit', methods=['POST'])
     @login_required
+    @visit_action_required('timecard')
     def timecard_punch_edit():
         """Manually fix a paired timecard record (in/out timestamps)."""
         d = request.get_json(force=True)
@@ -697,6 +783,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/timecard/punch/delete', methods=['POST'])
     @login_required
+    @visit_action_required('timecard')
     def timecard_punch_delete():
         """Delete a paired timecard record (its in/out punches)."""
         d = request.get_json(force=True)
@@ -716,6 +803,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     @bp.route('/timecard/export')
     @login_required
+    @visit_action_required('timecard')
     def timecard_export():
         buf = io.StringIO()
         w = csv.writer(buf)
