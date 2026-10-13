@@ -116,16 +116,38 @@ def api_drive_upload():
 
 @bp.route("/api/drive-photos", methods=["GET"])
 def api_drive_photos():
-    """List photos in the Drive folder (for agent review). Returns id, name, createdTime."""
+    """List photos in the Drive folder and its date subfolders (for agent review).
+    Returns id, name, createdTime, and folder path."""
     svc = drive_service()
     if not svc or not DRIVE_FOLDER_ID:
         return jsonify({"ok": False, "error": "Drive not configured"}), 500
     try:
-        res = svc.files().list(
-            q=f"'{DRIVE_FOLDER_ID}' in parents and trashed=false",
-            fields="files(id,name,createdTime)", orderBy="createdTime",
-            pageSize=100).execute()
-        return jsonify({"ok": True, "files": res.get("files", [])})
+        files = []
+
+        def list_children(parent_id, prefix=""):
+            page_token = None
+            while True:
+                res = svc.files().list(
+                    q=f"'{parent_id}' in parents and trashed=false",
+                    fields="files(id,name,createdTime,mimeType),nextPageToken",
+                    orderBy="createdTime", pageSize=100,
+                    pageToken=page_token).execute()
+                for f in res.get("files", []):
+                    if f["mimeType"] == "application/vnd.google-apps.folder":
+                        list_children(f["id"], prefix + f["name"] + "/")
+                    else:
+                        files.append({
+                            "id": f["id"], "name": f["name"],
+                            "createdTime": f.get("createdTime"),
+                            "path": prefix + f["name"],
+                        })
+                page_token = res.get("nextPageToken")
+                if not page_token:
+                    break
+
+        list_children(DRIVE_FOLDER_ID)
+        files.sort(key=lambda f: f.get("createdTime") or "")
+        return jsonify({"ok": True, "files": files})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
