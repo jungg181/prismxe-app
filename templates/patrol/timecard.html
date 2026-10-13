@@ -24,21 +24,81 @@
 <div class="card">
   <h2>Records <a class="btn small" href="{{ url_for('.timecard_export') }}" style="float:right">⬇ Export CSV</a></h2>
   <table>
-    <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th></tr>
+    <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th></th></tr>
     {% for r in records %}
     <tr>
       <td>{{ (r.clock_in or '')[:10] }}</td><td>{{ r.name }}</td>
       <td>{{ (r.clock_in or '')[11:16] }}</td><td>{{ (r.clock_out or '')[11:16] if r.clock_out else '<span class="muted">—</span>'|safe }}</td>
       <td>{{ r.hours if r.hours is not none else '—' }}</td>
+      <td style="white-space:nowrap"><button class="btn small" onclick="openEdit({{ r|tojson|forceescape }})">✏️ Edit</button></td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="muted">No records yet.</td></tr>
+    <tr><td colspan="6" class="muted">No records yet.</td></tr>
     {% endfor %}
   </table>
+</div>
+<!-- Edit record modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center">
+  <div class="card" style="width:min(420px,92vw);margin:0">
+    <h2 style="margin-top:0">Edit record</h2>
+    <p class="muted small" id="edit-who"></p>
+    <label class="small"><b>Clock in</b><br>
+      <input type="datetime-local" id="edit-in" style="width:100%;padding:.5rem;margin:.25rem 0 1rem" required>
+    </label><br>
+    <label class="small"><b>Clock out</b> <span class="muted">(empty = still clocked in)</span><br>
+      <input type="datetime-local" id="edit-out" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
+    </label>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn" id="edit-delete" style="background:#fee2e2;color:#991b1b;margin-right:auto">🗑 Delete</button>
+      <button class="btn" onclick="closeEdit()">Cancel</button>
+      <button class="btn primary" onclick="saveEdit()">Save</button>
+    </div>
+    <p class="muted small" id="edit-err" style="color:#991b1b"></p>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
+let editRec = null;
+function openEdit(r){
+  editRec = r;
+  document.getElementById('edit-who').textContent = r.name + ' · ' + (r.clock_in||'').slice(0,10);
+  document.getElementById('edit-in').value = (r.clock_in||'').slice(0,16);
+  document.getElementById('edit-out').value = (r.clock_out||'').slice(0,16);
+  document.getElementById('edit-err').textContent = '';
+  const m = document.getElementById('edit-modal');
+  m.style.display = 'flex';
+}
+function closeEdit(){
+  document.getElementById('edit-modal').style.display = 'none';
+  editRec = null;
+}
+document.getElementById('edit-modal').addEventListener('click', function(e){
+  if(e.target === this) closeEdit();
+});
+async function saveEdit(){
+  const cin = document.getElementById('edit-in').value;
+  const cout = document.getElementById('edit-out').value;
+  const err = document.getElementById('edit-err');
+  if(!cin){ err.textContent = 'Clock-in time is required.'; return; }
+  if(cout && cout <= cin){ err.textContent = 'Clock-out must be after clock-in.'; return; }
+  const r = await fetch("{{ url_for('.timecard_punch_edit') }}", {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({in_id: editRec.in_id, out_id: editRec.out_id,
+                          clock_in: cin, clock_out: cout || null})});
+  const j = await r.json();
+  if(!j.ok){ err.textContent = j.error || 'Failed'; return; }
+  location.reload();
+}
+document.getElementById('edit-delete').addEventListener('click', async function(){
+  if(!confirm('Delete this record? This cannot be undone.')) return;
+  const r = await fetch("{{ url_for('.timecard_punch_delete') }}", {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({in_id: editRec.in_id, out_id: editRec.out_id})});
+  const j = await r.json();
+  if(!j.ok){ document.getElementById('edit-err').textContent = j.error || 'Failed'; return; }
+  location.reload();
+});
 async function clockIt(wid, action){
   const r = await fetch("{{ url_for('.timecard_clock') }}", {method:'POST',
     headers:{'Content-Type':'application/json'},

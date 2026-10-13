@@ -289,11 +289,14 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             i = 0
             while i < len(ps):
                 if ps[i].get('action') == 'in':
+                    in_id = ps[i].get('id')
                     cin = ps[i].get('ts')
                     cout = None
                     hours = None
+                    out_id = None
                     if i + 1 < len(ps) and ps[i + 1].get('action') == 'out':
                         cout = ps[i + 1].get('ts')
+                        out_id = ps[i + 1].get('id')
                         try:
                             dt_in = datetime.fromisoformat(cin)
                             dt_out = datetime.fromisoformat(cout)
@@ -306,7 +309,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     rows.append({"email": ps[i - 1].get('email'),
                                  "name": ps[i - 1].get('name'),
                                  "clock_in": cin, "clock_out": cout,
-                                 "hours": hours})
+                                 "hours": hours,
+                                 "in_id": in_id, "out_id": out_id})
                 else:
                     i += 1
         rows.sort(key=lambda r: r['clock_in'] or '', reverse=True)
@@ -640,6 +644,74 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         save_db()
         sheets_post_async({"action": "punch", "punch": DB['punches'][-1]})
         return jsonify({'ok': True})
+
+
+    @bp.route('/timecard/punch/edit', methods=['POST'])
+    @login_required
+    def timecard_punch_edit():
+        """Manually fix a paired timecard record (in/out timestamps)."""
+        d = request.get_json(force=True)
+        in_p = find('punches', d.get('in_id'))
+        if not in_p or in_p.get('action') != 'in':
+            return jsonify({'ok': False, 'error': 'Record not found.'}), 404
+        out_p = find('punches', d.get('out_id')) if d.get('out_id') else None
+        if out_p and out_p.get('action') != 'out':
+            out_p = None
+
+        def parse_ts(v):
+            if not v:
+                return None
+            try:
+                return datetime.fromisoformat(v).replace(
+                    tzinfo=None).isoformat(timespec='seconds')
+            except (ValueError, TypeError):
+                return None
+
+        new_in = parse_ts(d.get('clock_in'))
+        if not new_in:
+            return jsonify({'ok': False, 'error': 'Invalid clock-in time.'}), 400
+        new_out = parse_ts(d.get('clock_out'))
+        if new_out and new_out <= new_in:
+            return jsonify({'ok': False,
+                            'error': 'Clock-out must be after clock-in.'}), 400
+
+        in_p['ts'] = new_in
+        in_p['source'] = 'manual-edit'
+        if out_p:
+            if new_out:
+                out_p['ts'] = new_out
+                out_p['source'] = 'manual-edit'
+            else:
+                # out time cleared -> make it an open record
+                DB['punches'].remove(out_p)
+        elif new_out:
+            # no out punch yet -> create one
+            DB['punches'].append({"id": new_id(),
+                                  "email": in_p.get('email'),
+                                  "name": in_p.get('name'),
+                                  "action": 'out', "ts": new_out,
+                                  "source": 'manual-edit'})
+        save_db()  # full DB sync to Sheets (Durability layer)
+        return jsonify({'ok': True})
+
+
+    @bp.route('/timecard/punch/delete', methods=['POST'])
+    @login_required
+    def timecard_punch_delete():
+        """Delete a paired timecard record (its in/out punches)."""
+        d = request.get_json(force=True)
+        removed = 0
+        for pid in (d.get('in_id'), d.get('out_id')):
+            if not pid:
+                continue
+            p = find('punches', pid)
+            if p:
+                DB['punches'].remove(p)
+                removed += 1
+        if not removed:
+            return jsonify({'ok': False, 'error': 'Record not found.'}), 404
+        save_db()  # full DB sync to Sheets (durability layer)
+        return jsonify({'ok': True, 'removed': removed})
 
 
     @bp.route('/timecard/export')
