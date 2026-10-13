@@ -203,7 +203,17 @@ def sheets_get_config(timeout=15):
 def sheets_post_async(payload):
     threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
 
-_gauge_data = json.loads((BASE / "data_gauge.json").read_text())
+_gauge_file = BASE / "data_gauge.json"
+if _gauge_file.exists():
+    _gauge_data = json.loads(_gauge_file.read_text())
+else:
+    # Fresh deploy (file is gitignored / ephemeral): restore config from
+    # Google Sheets, else start with empty equipment/calibration.
+    _restored = sheets_get_config()
+    _gauge_data = _restored if isinstance(_restored, dict) and "equipment" in _restored \
+        else {"equipment": [], "calibration": {}}
+    if _restored:
+        print("gauge: restored config from Google Sheets", flush=True)
 EQUIPMENT = _gauge_data["equipment"]
 CALIB = _gauge_data["calibration"]
 LOG_CSV = BASE / "data" / "gauge_readings.csv"
