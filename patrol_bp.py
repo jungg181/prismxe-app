@@ -20,6 +20,29 @@ from zoneinfo import ZoneInfo
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    jsonify, send_file, abort, flash, session, make_response)
 
+# Stable per-worker colors: hash the worker's email to pick from this palette.
+# Same worker always gets the same color; distinct workers get distinct colors.
+WORKER_COLORS = [
+    '#2563eb',  # blue
+    '#dc2626',  # red
+    '#0d9488',  # teal
+    '#d97706',  # amber
+    '#7c3aed',  # violet
+    '#db2777',  # pink
+    '#0891b2',  # cyan
+    '#65a30d',  # lime
+    '#c026d3',  # fuchsia
+    '#ea580c',  # orange
+]
+
+def worker_color(key):
+    """Return a stable hex color for a worker identifier (email or name)."""
+    k = (key or '').strip().lower()
+    if not k:
+        return WORKER_COLORS[0]
+    h = int(hashlib.md5(k.encode('utf-8')).hexdigest(), 16)
+    return WORKER_COLORS[h % len(WORKER_COLORS)]
+
 def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                sheets_env_var, app_version_filename,
                                blueprint_name, company_display_name):
@@ -347,6 +370,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         out = []
         for em, p in seen.items():
             if p.get('action') == 'in':
+                p = dict(p)
+                p['color'] = worker_color(em)
                 out.append(p)
         out.sort(key=lambda p: p.get('ts') or '')
         return out
@@ -431,6 +456,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         slot_counts = [len(patrols_at(i)) for i in range(24)]
         located = [{"name": w.get("name", ""),
                     "lat": w["last_lat"], "lng": w["last_lng"],
+                    "color": worker_color(w.get("email") or w.get("name", "")),
                     "ts": (w.get("last_loc_ts") or "")[:16].replace("T", " ")}
                    for w in DB.get('workers', [])
                    if w.get('last_lat') is not None and w.get('last_lng') is not None]
