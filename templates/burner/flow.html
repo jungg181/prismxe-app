@@ -35,6 +35,10 @@
   .card h3 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #334155; line-height: 1.35; }
   .card p.en { font-size: 17px; line-height: 1.6; margin: 0 0 10px; }
   .card p.ko { font-size: 16px; line-height: 1.65; margin: 0; color: #475569; }
+  .stepimg { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; margin-bottom: 14px; }
+  .stepimg img { width: 100%; border-radius: 10px; display: block; }
+  .stepimg .cap { font-size: 14px; font-weight: 700; color: #1976d2; margin: 10px 4px 2px; line-height: 1.5; }
+  .stepimg .capko { font-size: 13px; color: #64748b; margin: 0 4px 4px; line-height: 1.5; }
   .timerbox {
     background: #0f172a; color: #fff; border-radius: 16px; padding: 22px 20px;
     text-align: center; margin-bottom: 14px;
@@ -142,6 +146,12 @@ function render() {
     '<div class="card"><span class="stepnum">STEP ' + (idx + 1) + '</span>' +
     '<h2>' + esc(st.title_en) + '</h2><h3>' + esc(st.title_ko) + '</h3>' +
     '<p class="en">' + esc(st.body_en) + '</p><p class="ko">' + esc(st.body_ko) + '</p></div>';
+
+  if (st.image) {
+    html += '<div class="stepimg"><img src="' + esc(st.image) + '" alt="control panel" loading="lazy">' +
+      '<div class="cap">📍 ' + esc(st.image_en || '') + '</div>' +
+      '<div class="capko">' + esc(st.image_ko || '') + '</div></div>';
+  }
 
   if (st.kind === 'timer') {
     tRemain = st.minutes * 60;
