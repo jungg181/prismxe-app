@@ -288,6 +288,23 @@ def health():
     return {"ok": True}
 
 
+@bp.get("/api/checklist")
+def api_checklist():
+    """Simple equipment+gauge list for the native Gauge Check app."""
+    systems = []
+    for s in EQUIPMENT.get("systems", []):
+        items = []
+        for dev in s.get("boilers", []) + s.get("pumps", []):
+            items.append({
+                "id": dev["id"], "name": dev["name"],
+                "kind": "pump" if dev in s.get("pumps", []) else "boiler",
+                "gauges": [{"id": g["id"], "name": g["name"],
+                            "unit": g.get("unit", "")} for g in dev.get("gauges", [])],
+            })
+        systems.append({"id": s.get("id", ""), "name": s.get("name", ""), "equipment": items})
+    return jsonify({"systems": systems})
+
+
 @bp.get("/")
 def index():
     items = []
