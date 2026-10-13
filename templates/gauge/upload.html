@@ -31,6 +31,12 @@
     <h2>📤 Upload Photos</h2>
     <div class="muted">Photos saved on this phone. Upload sends them to Google Drive — no sign-in needed.</div>
     <div class="muted" style="margin-top:4px"><span id="pendingCount">0</span> photos pending</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn" id="cameraBtn" style="flex:1">📷 Camera</button>
+      <button class="btn" id="galleryBtn" style="flex:1;background:#43a047">🖼️ Choose Photos</button>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="galleryInput" accept="image/*" multiple style="display:none">
   </div>
   <div class="card">
     <div id="pendingList"></div>
@@ -133,6 +139,35 @@ document.getElementById("driveUploadBtn").onclick = async () => {
 hcDbOpen().then(renderPending).catch(() => {
   document.getElementById("pendingList").innerHTML = "<div class='muted'>Phone storage unavailable.</div>";
 });
+
+// Camera / gallery pickers -> save into IndexedDB pending list
+function hcDbAdd(blob, filename) {
+  return new Promise((resolve, reject) => {
+    const rec = { blob: blob, filename: filename, ts: new Date().toISOString(), gaugeName: "" };
+    const r = hcDbStore("readwrite").add(rec);
+    r.onsuccess = () => resolve();
+    r.onerror = () => reject(r.error);
+  });
+}
+function handlePickedFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  (async () => {
+    let added = 0;
+    for (const f of fileList) {
+      try {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+        const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+        await hcDbAdd(f, stamp + "." + ext);
+        added++;
+      } catch (e) { /* skip */ }
+    }
+    if (added) { renderPending(); toast(added + " photo(s) added — tap Upload to send to Drive"); }
+  })();
+}
+document.getElementById("cameraBtn").onclick = () => document.getElementById("cameraInput").click();
+document.getElementById("galleryBtn").onclick = () => document.getElementById("galleryInput").click();
+document.getElementById("cameraInput").onchange = (e) => { handlePickedFiles(e.target.files); e.target.value = ""; };
+document.getElementById("galleryInput").onchange = (e) => { handlePickedFiles(e.target.files); e.target.value = ""; };
 </script>
 </body>
 </html>
