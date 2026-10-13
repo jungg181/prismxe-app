@@ -43,6 +43,7 @@ table.grid td.cell{cursor:pointer;user-select:none;min-width:44px;height:38px}
 .dot{display:inline-block;width:20px;height:20px;border-radius:50%;vertical-align:middle;flex:none}
 .dot.hollow{border:3px solid #0f172a;background:transparent}
 .dot.solid{background:#dc2626}
+.wpers{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;font-size:18px;line-height:1;flex:none;box-shadow:0 0 0 2px rgba(0,0,0,.08)}
 .wdot{display:inline-block;width:16px;height:16px;border-radius:50%;vertical-align:middle;flex:none;box-shadow:0 0 0 2px rgba(0,0,0,.08)}
 .wmarker{background:transparent;border:none}
 tr.dim{opacity:.55}

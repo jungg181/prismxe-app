@@ -64,7 +64,7 @@
     {% if on_patrol %}
       {% for p in on_patrol %}
       <div class="rowline">
-        <span class="wdot" style="background:{{ p.color|default('#2563eb') }}"></span>
+        <span class="wpers" style="background:{{ p.color|default('#dc2626') }}">👷</span>
         <div class="grow"><b>{{ p.name }}</b></div>
         <span class="muted small elapsed" data-in="{{ p.ts }}">in --:--:--</span>
       </div>
@@ -272,10 +272,11 @@ moveNowLine(); setInterval(moveNowLine, 30000);
   pts.forEach(function(w){
     var icon = L.divIcon({
       className: 'wmarker',
-      html: '<div style="background:' + (w.color || '#2563eb') + ';width:22px;height:22px;' +
-        'border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>',
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
+      html: '<div style="background:' + (w.color || '#dc2626') + ';width:30px;height:30px;' +
+        'border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);' +
+        'display:flex;align-items:center;justify-content:center;font-size:17px">👷</div>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
     });
     L.marker([w.lat, w.lng], {icon: icon}).addTo(map)
       .bindPopup('<b>' + w.name + '</b><br><span style="color:#64748b;font-size:.85rem">' + w.ts + '</span>');

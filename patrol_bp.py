@@ -23,16 +23,13 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 # Stable per-worker colors: hash the worker's email to pick from this palette.
 # Same worker always gets the same color; distinct workers get distinct colors.
 WORKER_COLORS = [
-    '#2563eb',  # blue
-    '#dc2626',  # red
+    '#dc2626',  # strong red
+    '#2563eb',  # strong blue
+    '#16a34a',  # strong green
+    '#ea580c',  # vivid orange
+    '#7c3aed',  # vivid purple
     '#0d9488',  # teal
-    '#d97706',  # amber
-    '#7c3aed',  # violet
-    '#db2777',  # pink
-    '#0891b2',  # cyan
-    '#65a30d',  # lime
-    '#c026d3',  # fuchsia
-    '#ea580c',  # orange
+    '#92400e',  # brown
 ]
 
 def worker_color(key):
