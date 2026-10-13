@@ -108,13 +108,33 @@
 
 <script>
 const STEPS = {{ steps_json | safe }};
+const FLOW_ID = "{{ flow_id }}";
 const N = STEPS.length;
 let idx = 0;
 let visited = 0;
 
+// ---- timer persistence (localStorage) ----
+function timerKey(i) { return 'burner_timer_' + FLOW_ID + '_' + (i === undefined ? idx : i); }
+function saveTimerState() {
+  try { localStorage.setItem(timerKey(), JSON.stringify({ end: Date.now() + tRemain * 1000, paused: false, remain: tRemain })); } catch (e) {}
+}
+function saveTimerPaused() {
+  try { localStorage.setItem(timerKey(), JSON.stringify({ end: 0, paused: true, remain: tRemain })); } catch (e) {}
+}
+function clearTimerState(i) {
+  try { localStorage.removeItem(timerKey(i)); } catch (e) {}
+}
+function loadTimerState(i) {
+  try {
+    const raw = localStorage.getItem(timerKey(i));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 // ---- timer state ----
 const TIMER_SECONDS = 30 * 60;
 let tRemain = TIMER_SECONDS, tId = null, tRunning = false;
+let pendingTMode = 'fresh'; // set by render() for timer steps: fresh|paused|running|expired
 let wakeLock = null;
 let audioCtx = null, alarmOsc = null, alarmGain = null, alarmTimer = null, vibTimer = null;
 
@@ -154,15 +174,38 @@ function render() {
   }
 
   if (st.kind === 'timer') {
-    tRemain = st.minutes * 60;
+    // Check for a persisted timer (survives back/forward navigation & reloads)
+    const saved = loadTimerState();
+    let tMode = 'fresh'; // fresh | paused | running | expired
+    if (saved) {
+      if (saved.paused && saved.remain > 0) {
+        tRemain = saved.remain;
+        tMode = 'paused';
+      } else if (!saved.paused && saved.end > Date.now()) {
+        tRemain = Math.ceil((saved.end - Date.now()) / 1000);
+        tMode = 'running';
+      } else if (!saved.paused && saved.end > 0) {
+        tRemain = 0;
+        tMode = 'expired';
+      } else {
+        tRemain = st.minutes * 60;
+      }
+    } else {
+      tRemain = st.minutes * 60;
+    }
+    const startLabel = tMode === 'paused'
+      ? '▶ Resume ' + fmt(tRemain)
+      : '▶ Start ' + st.minutes + ':00 Timer';
     html += '<div class="timerbox"><div class="tdisp" id="tdisp">' + fmt(tRemain) + '</div>' +
       '<div class="tbtns">' +
-      '<button class="tstart" id="tStart" onclick="timerStart()">▶ Start ' + st.minutes + ':00 Timer</button>' +
+      '<button class="tstart" id="tStart" onclick="timerStart()">' + esc(startLabel) + '</button>' +
       '<button class="tpause" id="tPause" onclick="timerPause()" style="display:none">⏸ Pause</button>' +
       '<button class="treset" onclick="timerReset()">↺ Reset</button>' +
       '</div>' +
       '<div class="timenote">⏳ Keep this page open during the wait — the alarm needs the page open.<br>대기 중에는 이 페이지를 열어 두세요.</div></div>' +
-      '<button class="skiptimer" onclick="next()">Skip timer →</button>';
+      '<button class="skiptimer" onclick="skipTimer()">Skip timer →</button>';
+    // stash the resume mode for after innerHTML is set
+    pendingTMode = tMode;
   }
 
   const isLast = idx === N - 1;
@@ -177,6 +220,16 @@ function render() {
   }
   html += '</div>';
   main.innerHTML = html;
+  // Resume a persisted timer after navigation/reload
+  if (STEPS[idx].kind === 'timer') {
+    if (pendingTMode === 'running') {
+      timerStart(); // resumes countdown from remaining time, re-saves end-time
+    } else if (pendingTMode === 'expired') {
+      timerDone(); // end-time already passed — ring the alarm immediately
+    }
+    // 'paused' and 'fresh' need no action: UI already shows correct state
+  }
+  pendingTMode = 'fresh';
   window.scrollTo(0, 0);
 }
 
@@ -213,6 +266,7 @@ function unlockScreen() {
 function timerStart() {
   if (tRunning || tRemain <= 0) return;
   tRunning = true;
+  saveTimerState(); // persist end-time so back/forward navigation resumes
   lockScreen();
   document.getElementById('tStart').style.display = 'none';
   document.getElementById('tPause').style.display = '';
@@ -226,6 +280,7 @@ function timerStart() {
 function timerPause() {
   tRunning = false;
   clearInterval(tId); tId = null;
+  saveTimerPaused(); // remember remaining time across navigation
   unlockScreen();
   document.getElementById('tStart').style.display = '';
   document.getElementById('tStart').textContent = '▶ Resume ' + fmt(tRemain);
@@ -233,6 +288,7 @@ function timerPause() {
 }
 function timerReset() {
   stopTimer(true);
+  clearTimerState(); // user cancelled — drop the persisted timer
   tRemain = STEPS[idx].minutes * 60;
   const d = document.getElementById('tdisp');
   if (d) d.textContent = fmt(tRemain);
@@ -240,6 +296,10 @@ function timerReset() {
   if (s) { s.style.display = ''; s.textContent = '▶ Start ' + STEPS[idx].minutes + ':00 Timer'; }
   const p = document.getElementById('tPause');
   if (p) p.style.display = 'none';
+}
+function skipTimer() {
+  clearTimerState(); // user skipped — drop the persisted timer
+  next();
 }
 function stopTimer(resetUI) {
   tRunning = false;
@@ -249,6 +309,7 @@ function stopTimer(resetUI) {
 
 function timerDone() {
   stopTimer(false);
+  clearTimerState(); // timer finished — drop the persisted timer
   const st = STEPS[idx];
   document.getElementById('alarmEn').textContent = st.done_en || "TIME'S UP";
   document.getElementById('alarmKo').textContent = st.done_ko || '';
