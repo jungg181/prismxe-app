@@ -1,0 +1,587 @@
+{
+  "slots": [
+    {
+      "label": "7:00",
+      "shift": "A"
+    },
+    {
+      "label": "8:00",
+      "shift": "A"
+    },
+    {
+      "label": "9:00",
+      "shift": "A"
+    },
+    {
+      "label": "10:00",
+      "shift": "A"
+    },
+    {
+      "label": "11:00",
+      "shift": "A"
+    },
+    {
+      "label": "12:00",
+      "shift": "B"
+    },
+    {
+      "label": "13:00",
+      "shift": "B"
+    },
+    {
+      "label": "14:00",
+      "shift": "B"
+    },
+    {
+      "label": "15:00",
+      "shift": "B"
+    },
+    {
+      "label": "16:00",
+      "shift": "B"
+    },
+    {
+      "label": "17:00",
+      "shift": "B"
+    },
+    {
+      "label": "18:00",
+      "shift": "B"
+    },
+    {
+      "label": "19:00",
+      "shift": "B"
+    },
+    {
+      "label": "20:00",
+      "shift": "C"
+    },
+    {
+      "label": "21:00",
+      "shift": "C"
+    },
+    {
+      "label": "22:00",
+      "shift": "C"
+    },
+    {
+      "label": "23:00",
+      "shift": "C"
+    },
+    {
+      "label": "0:00",
+      "shift": "C"
+    },
+    {
+      "label": "1:00",
+      "shift": "C"
+    },
+    {
+      "label": "2:00",
+      "shift": "C"
+    },
+    {
+      "label": "3:00",
+      "shift": "C"
+    },
+    {
+      "label": "4:00",
+      "shift": "A"
+    },
+    {
+      "label": "5:00",
+      "shift": "A"
+    },
+    {
+      "label": "6:00",
+      "shift": "A"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "01c6d2c0",
+      "name": "HOB",
+      "note": "",
+      "active": true,
+      "checks": {
+        "0": 1,
+        "2": 2,
+        "4": 1,
+        "6": 1,
+        "8": 1,
+        "10": 2,
+        "12": 1,
+        "14": 1,
+        "16": 1,
+        "18": 2,
+        "20": 1,
+        "22": 1
+      }
+    },
+    {
+      "id": "1002655e",
+      "name": "HOB LEAK CHECK",
+      "note": "",
+      "active": true,
+      "checks": {
+        "0": 1,
+        "4": 1,
+        "8": 1,
+        "12": 1,
+        "16": 1,
+        "20": 1
+      }
+    },
+    {
+      "id": "9f4b28e3",
+      "name": "SOLVENT RECOVERY",
+      "note": "",
+      "active": true,
+      "checks": {
+        "1": 2,
+        "5": 1,
+        "9": 2,
+        "13": 1,
+        "17": 2,
+        "21": 1
+      }
+    },
+    {
+      "id": "16ad0ce1",
+      "name": "SRP RO",
+      "note": "",
+      "active": true,
+      "checks": {
+        "3": 1,
+        "7": 2,
+        "11": 1,
+        "15": 2,
+        "19": 1,
+        "23": 2
+      }
+    },
+    {
+      "id": "8f65b6df",
+      "name": "SUPPLY & EXHAUST FAN",
+      "note": "",
+      "active": true,
+      "checks": {
+        "2": 1,
+        "10": 1,
+        "18": 1
+      }
+    },
+    {
+      "id": "07708478",
+      "name": "SOLVENT PURIFICATION",
+      "note": "Scheduled for November",
+      "active": false,
+      "checks": {
+        "1": 1,
+        "5": 1,
+        "9": 1,
+        "13": 1,
+        "17": 1,
+        "21": 1
+      }
+    },
+    {
+      "id": "c2f66f56",
+      "name": "WASTE NMP RECOVERY",
+      "note": "Scheduled for November",
+      "active": false,
+      "checks": {
+        "1": 1,
+        "5": 1,
+        "9": 1,
+        "13": 1,
+        "17": 1,
+        "21": 1
+      }
+    },
+    {
+      "id": "43bb1d98",
+      "name": "COOLING TOWER",
+      "note": "Scheduled for November",
+      "active": false,
+      "checks": {
+        "3": 1,
+        "7": 1,
+        "11": 1,
+        "15": 1,
+        "19": 1,
+        "23": 1
+      }
+    }
+  ],
+  "shifts": [
+    {
+      "id": "A",
+      "name": "A",
+      "color": "#2563eb",
+      "intervals": [
+        {
+          "start": "07:00",
+          "end": "12:00"
+        },
+        {
+          "start": "05:00",
+          "end": "06:00"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "name": "B",
+      "color": "#059669",
+      "intervals": [
+        {
+          "start": "13:00",
+          "end": "20:00"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "name": "C",
+      "color": "#7c3aed",
+      "intervals": [
+        {
+          "start": "21:00",
+          "end": "04:00"
+        }
+      ]
+    }
+  ],
+  "workers": [
+    {
+      "id": "19029db4",
+      "name": "Ji won Jung",
+      "email": "jungg181@gmail.com",
+      "shift_id": "",
+      "last_lat": 33.2883949,
+      "last_lng": -111.5610275,
+      "last_loc_ts": "2026-10-14T10:04:07"
+    },
+    {
+      "id": "bb59edab",
+      "name": "test12345678@c.us",
+      "email": "test12345678@c.us",
+      "shift_id": ""
+    },
+    {
+      "id": "405d7694",
+      "name": "Kyunhyeok Bang",
+      "email": "kyunhyeokbang@gmail.com",
+      "shift_id": "",
+      "last_lat": 33.2884021,
+      "last_lng": -111.5610184,
+      "last_loc_ts": "2026-10-14T09:48:09"
+    },
+    {
+      "id": "da2180d1",
+      "name": "Moises Ramirez",
+      "email": "moisesramirez1027@gmail.com",
+      "shift_id": "",
+      "last_lat": 33.2884116,
+      "last_lng": -111.561008,
+      "last_loc_ts": "2026-10-14T09:54:18"
+    },
+    {
+      "id": "2962057c",
+      "name": "Oscar melo",
+      "email": "oscarmelo812@gmail.com",
+      "shift_id": "",
+      "last_lat": 33.291208870232424,
+      "last_lng": -111.55794619064717,
+      "last_loc_ts": "2026-10-14T09:54:36"
+    }
+  ],
+  "punches": [
+    {
+      "id": "01c59c3f",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-11T11:15:36",
+      "source": "qr"
+    },
+    {
+      "id": "f4b44082",
+      "email": "test12345678@c.us",
+      "name": "test12345678@c.us",
+      "action": "in",
+      "ts": "2026-10-11T11:24:47",
+      "source": "qr"
+    },
+    {
+      "id": "a5ce75ef",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-11T11:41:02",
+      "source": "qr"
+    },
+    {
+      "id": "a699360c",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-11T11:45:16",
+      "source": "qr"
+    },
+    {
+      "id": "b10acd48",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-11T11:54:24",
+      "source": "qr"
+    },
+    {
+      "id": "49cd10de",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-11T11:54:33",
+      "source": "qr"
+    },
+    {
+      "id": "d8300fc7",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-11T11:56:19",
+      "source": "qr"
+    },
+    {
+      "id": "7f9350a5",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-11T12:05:29",
+      "source": "qr"
+    },
+    {
+      "id": "6ba13138",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-11T12:21:04",
+      "source": "qr"
+    },
+    {
+      "id": "37fd5e1e",
+      "email": "jungg181@gmail.com",
+      "name": "ji won",
+      "action": "in",
+      "ts": "2026-10-11T12:37:55",
+      "source": "qr"
+    },
+    {
+      "id": "87d6afde",
+      "email": "jungg181@gmail.com",
+      "name": "ji won",
+      "action": "out",
+      "ts": "2026-10-11T12:39:20",
+      "source": "qr"
+    },
+    {
+      "id": "88c28e4a",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-11T12:39:44",
+      "source": "manual"
+    },
+    {
+      "id": "325d50cd",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-11T12:39:56",
+      "source": "manual"
+    },
+    {
+      "id": "d0c6d4f7",
+      "email": "jungg181@gmail.com",
+      "name": "ji won",
+      "action": "in",
+      "ts": "2026-10-11T12:40:24",
+      "source": "qr"
+    },
+    {
+      "id": "e5ce5bb7",
+      "email": "jungg181@gmail.com",
+      "name": "ji won",
+      "action": "out",
+      "ts": "2026-10-11T12:42:52",
+      "source": "qr"
+    },
+    {
+      "id": "605c4325",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "in",
+      "ts": "2026-10-11T12:44:14",
+      "source": "qr"
+    },
+    {
+      "id": "87e50658",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "out",
+      "ts": "2026-10-11T12:53:43",
+      "source": "qr"
+    },
+    {
+      "id": "07ac6c24",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "in",
+      "ts": "2026-10-11T12:53:50",
+      "source": "qr"
+    },
+    {
+      "id": "3b1c2b17",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "out",
+      "ts": "2026-10-11T13:27:42",
+      "source": "qr"
+    },
+    {
+      "id": "38efc41c",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "in",
+      "ts": "2026-10-11T13:28:03",
+      "source": "qr"
+    },
+    {
+      "id": "5ee8ae24",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "out",
+      "ts": "2026-10-11T13:28:17",
+      "source": "qr"
+    },
+    {
+      "id": "6c3c5597",
+      "email": "test12345678@c.us",
+      "name": "test12345678@c.us",
+      "action": "out",
+      "ts": "2026-10-11T13:28:43",
+      "source": "manual"
+    },
+    {
+      "id": "1bbf9686",
+      "email": "test12345678@c.us",
+      "name": "test12345678@c.us",
+      "action": "out",
+      "ts": "2026-10-11T13:28:43",
+      "source": "manual"
+    },
+    {
+      "id": "882bbe96",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "in",
+      "ts": "2026-10-11T13:29:16",
+      "source": "qr"
+    },
+    {
+      "id": "40d06247",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-12T18:14:01",
+      "source": "manual"
+    },
+    {
+      "id": "b36c897c",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "in",
+      "ts": "2026-10-12T18:19:17",
+      "source": "qr"
+    },
+    {
+      "id": "a4c7108a",
+      "email": "test12345678@c.us",
+      "name": "test12345678@c.us",
+      "action": "in",
+      "ts": "2026-10-13T09:59:08",
+      "source": "manual"
+    },
+    {
+      "id": "c4d1b467",
+      "email": "test12345678@c.us",
+      "name": "test12345678@c.us",
+      "action": "out",
+      "ts": "2026-10-13T09:59:13",
+      "source": "manual"
+    },
+    {
+      "id": "e8531845",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-13T11:34:23",
+      "source": "qr"
+    },
+    {
+      "id": "620f0905",
+      "email": "kyunhyeokbang@gmail.com",
+      "name": "Kyunhyeok Bang",
+      "action": "in",
+      "ts": "2026-10-13T11:35:23",
+      "source": "qr"
+    },
+    {
+      "id": "0e0eeda8",
+      "email": "jungg181@gmail.com",
+      "name": "ji won jung",
+      "action": "in",
+      "ts": "2026-10-13T12:42:15",
+      "source": "qr"
+    },
+    {
+      "id": "a84f98c4",
+      "email": "kyunhyeokbang@gmail.com",
+      "name": "Kyunhyeok Bang",
+      "action": "out",
+      "ts": "2026-10-14T09:48:09",
+      "source": "qr"
+    },
+    {
+      "id": "68eb49aa",
+      "email": "jungg181@gmail.com",
+      "name": "Ji won Jung",
+      "action": "out",
+      "ts": "2026-10-14T09:48:41",
+      "source": "qr"
+    },
+    {
+      "id": "e5c0ffa7",
+      "email": "moisesramirez1027@gmail.com",
+      "name": "Moises Ramirez",
+      "action": "in",
+      "ts": "2026-10-14T04:00:00",
+      "source": "manual-edit"
+    },
+    {
+      "id": "c24788dd",
+      "email": "oscarmelo812@gmail.com",
+      "name": "Oscar melo",
+      "action": "in",
+      "ts": "2026-10-14T04:00:00",
+      "source": "manual-edit"
+    }
+  ],
+  "config": {
+    "zipcode": "",
+    "app_version": 8,
+    "apk_url": "https://github.com/jungg181/prismxe-app/releases/download/patrol-app-v1.7/PrismPatrol-v1.7.apk"
+  }
+}
