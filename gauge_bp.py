@@ -75,6 +75,8 @@ def api_drive_upload():
     """Upload a gauge photo to Google Drive (as the user via OAuth).
 
     Expects multipart form: photo=<file>, filename=<name>.
+    Optional: gauge_id, equip_id, unit, value — if value is present, the
+    reading is also logged to the Sheet (same as /api/log).
     Auto-creates a YYYY-MM-DD subfolder inside DRIVE_FOLDER_ID.
     """
     svc = drive_service()
@@ -108,10 +110,56 @@ def api_drive_upload():
         media = MediaIoBaseUpload(io.BytesIO(data), mimetype="image/jpeg", resumable=False)
         meta = {"name": filename, "parents": [folder_id]}
         result = svc.files().create(body=meta, media_body=media, fields="id,name").execute()
+        # If a reading value was sent, log it to the Sheet too
+        value = (request.form.get("value") or "").strip()
+        logged = False
+        if value:
+            try:
+                log_reading(
+                    equip_id=request.form.get("equip_id", ""),
+                    gauge_id=request.form.get("gauge_id", ""),
+                    value=value,
+                    unit=request.form.get("unit", ""),
+                    photo=filename,
+                )
+                logged = True
+            except Exception:
+                pass
         return jsonify({"ok": True, "id": result.get("id"), "name": result.get("name"),
-                        "folder": date_str})
+                        "folder": date_str, "logged": logged})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
+
+
+def log_reading(equip_id="", gauge_id="", value="", unit="", photo="", state="", worker="", manual=True):
+    """Shared reading logger used by /api/log and /api/drive-upload."""
+    sys, dev = find_equipment(equip_id)
+    gauge = next((g for g in (dev["gauges"] if dev else [])
+                  if g["id"] == gauge_id), None)
+    row = {
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "system": sys["name"] if sys else "",
+        "equip_id": equip_id,
+        "equip_name": dev["name"] if dev else "",
+        "gauge_id": gauge_id,
+        "gauge_name": gauge["name"] if gauge else "",
+        "state": state,
+        "value": value,
+        "unit": unit,
+        "angle_deg": "",
+        "manual": "Y" if manual else "",
+        "worker": worker,
+        "photo": photo,
+    }
+    new_file = not LOG_CSV.exists()
+    with open(LOG_CSV, "a", newline="", encoding="utf-8-sig") as fo:
+        w = csv.DictWriter(fo, fieldnames=LOG_FIELDS)
+        if new_file:
+            w.writeheader()
+        w.writerow(row)
+    # persist to Google Sheets (best-effort, background)
+    sheets_post_async({"action": "reading", "reading": row})
+    return row
 
 
 @bp.route("/api/drive-photos", methods=["GET"])
@@ -432,32 +480,16 @@ def api_read():
 @bp.post("/api/log")
 def api_log():
     body = request.get_json(force=True)
-    sys, dev = find_equipment(body.get("equip_id", ""))
-    gauge = next((g for g in (dev["gauges"] if dev else [])
-                  if g["id"] == body.get("gauge_id")), None)
-    row = {
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "system": sys["name"] if sys else "",
-        "equip_id": body.get("equip_id", ""),
-        "equip_name": dev["name"] if dev else "",
-        "gauge_id": body.get("gauge_id", ""),
-        "gauge_name": gauge["name"] if gauge else "",
-        "state": body.get("state", ""),
-        "value": body.get("value", ""),
-        "unit": body.get("unit", ""),
-        "angle_deg": body.get("angle_deg", ""),
-        "manual": "Y" if body.get("manual") else "",
-        "worker": body.get("worker", ""),
-        "photo": body.get("photo", ""),
-    }
-    new_file = not LOG_CSV.exists()
-    with open(LOG_CSV, "a", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=LOG_FIELDS)
-        if new_file:
-            w.writeheader()
-        w.writerow(row)
-    # persist to Google Sheets (best-effort, background)
-    sheets_post_async({"action": "reading", "reading": row})
+    log_reading(
+        equip_id=body.get("equip_id", ""),
+        gauge_id=body.get("gauge_id", ""),
+        value=body.get("value", ""),
+        unit=body.get("unit", ""),
+        photo=body.get("photo", ""),
+        state=body.get("state", ""),
+        worker=body.get("worker", ""),
+        manual=bool(body.get("manual")),
+    )
     return jsonify({"ok": True})
 
 
