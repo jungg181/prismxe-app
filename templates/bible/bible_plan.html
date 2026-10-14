@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경일독 — 1년 계획</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
+  .topbar { background: #6b4f2a; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .topbar a { color: #fff; text-decoration: none; font-size: 1.3rem; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+  .card { background: #fff; border-radius: 14px; padding: 20px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .day-hero { text-align: center; padding: 10px 0; }
+  .day-hero .d { font-size: 2.2rem; font-weight: 800; color: #6b4f2a; }
+  .day-hero .s { color: #8a7a5c; margin-top: 4px; }
+  .item { display: flex; justify-content: space-between; align-items: center; padding: 13px 4px; border-bottom: 1px solid #f0e9d6; }
+  .item:last-child { border: none; }
+  .item a { color: #2c2c2c; font-weight: 700; text-decoration: none; font-size: 1.05rem; }
+  .item .go { color: #6b4f2a; font-weight: 700; }
+  .item.read { opacity: .55; }
+  .item.read .go { color: #5a8a4a; }
+  .muted { color: #8a7a5c; font-size: .9rem; }
+  .nav { display: flex; gap: 8px; margin-top: 14px; }
+  .nav button { flex: 1; padding: 12px; border: 1px solid #e0d6ba; background: #fff; border-radius: 10px; font-weight: 700; color: #6b4f2a; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="topbar"><a href="/bible/">‹</a><h2 style="font-size:1.1rem;">1년 일독 계획</h2></div>
+<div class="wrap">
+  <div class="card">
+    <div class="day-hero">
+      <div class="d" id="dayNum">Day -</div>
+      <div class="s" id="daySub"></div>
+    </div>
+    <div class="nav">
+      <button id="prevDay">‹ 어제</button>
+      <button id="todayBtn">오늘</button>
+      <button id="nextDay">내일 ›</button>
+    </div>
+  </div>
+  <div class="card" id="list"><p class="muted">불러오는 중...</p></div>
+  <p class="muted" style="text-align:center; margin-top:16px;">하루 3~4장씩, 365일이면 성경 66권을 다 읽어요.<br>시작일은 등록한 날부터 계산돼요.</p>
+</div>
+<script>
+let BOOKS = [], READ = {}, offset = 0;
+const TOTAL = 1189, PER = TOTAL / 365;
+
+async function init() {
+  BOOKS = await fetch('/bible/api/books').then(r=>r.json());
+  try {
+    const p = await fetch('/bible/api/progress').then(r=>r.json());
+    READ = p.read || {};
+  } catch(e) {}
+  // flat chapter list
+  window.FLAT = [];
+  BOOKS.forEach(b => { for (let c=1;c<=b.chapters;c++) FLAT.push({book:b.n, name:b.name, chapter:c}); });
+  const t = await fetch('/bible/api/plan/today').then(r=>r.json());
+  window.BASE_DAY = t.day; // 1-based
+  render();
+}
+
+function portionFor(dayIdx) { // 0-based
+  const s = Math.floor(dayIdx * PER), e = Math.floor((dayIdx+1) * PER);
+  return FLAT.slice(s, Math.max(e, s+1));
+}
+
+function render() {
+  const dayIdx = Math.max(0, (window.BASE_DAY - 1) + offset);
+  const items = portionFor(dayIdx);
+  document.getElementById('dayNum').textContent = 'Day ' + (dayIdx+1);
+  const labels = offset===0 ? '오늘의 분량' : (offset<0 ? `${-offset}일 전` : `${offset}일 후`);
+  document.getElementById('daySub').textContent = labels + ` · ${items.length}장`;
+  const box = document.getElementById('list');
+  box.innerHTML = items.map(it => {
+    const read = (READ[String(it.book)]||[]).includes(it.chapter);
+    return `<div class="item ${read?'read':''}">
+      <a href="/bible/read/${it.book}/${it.chapter}">${it.name} ${it.chapter}장</a>
+      <span class="go">${read ? '✓ 읽음' : '읽기 →'}</span></div>`;
+  }).join('');
+}
+document.getElementById('prevDay').onclick = () => { offset--; render(); };
+document.getElementById('nextDay').onclick = () => { offset++; render(); };
+document.getElementById('todayBtn').onclick = () => { offset = 0; render(); };
+init();
+</script>
+</body>
+</html>
