@@ -78,6 +78,12 @@
         </select>
       </div>
     </div>
+    <div class="row" style="margin-top:8px">
+      <div class="speed">목소리
+        <select id="ttsVoice" style="max-width:220px"></select>
+      </div>
+    </div>
+    <div id="voiceHint" class="hidden" style="font-size:.82rem;color:#a08c5f;margin-top:6px;line-height:1.5"></div>
   </div>
   <div class="panel hidden" id="voicePanel">
     <h3>🎤 따라읽기 — 소리 내어 읽으면 색칠돼요</h3>
@@ -161,10 +167,74 @@ document.getElementById('micBtn').onclick = () => {
 
 // ---------- TTS ----------
 let ttsIdx = 0, ttsPlaying = false;
-function koVoice() {
-  const vs = speechSynthesis.getVoices();
-  return vs.find(v=>v.lang==='ko-KR') || vs.find(v=>v.lang.startsWith('ko')) || null;
+const VOICE_KEY = 'bible_tts_voice';
+
+function koVoices() {
+  return speechSynthesis.getVoices().filter(v => v.lang === 'ko-KR' || (v.lang||'').toLowerCase().startsWith('ko'));
 }
+
+// 스마트 기본 목소리: Google 한국어(신경망) > Samsung 한국어 > Microsoft 자연스러운 한국어 > 아무 ko-KR > 기본값
+function pickBestVoice() {
+  const vs = koVoices();
+  if (!vs.length) return null;
+  const saved = localStorage.getItem(VOICE_KEY);
+  if (saved) {
+    const found = vs.find(v => v.name === saved);
+    if (found) return found;
+  }
+  const byName = (re) => vs.find(v => re.test(v.name));
+  return byName(/google/i)
+      || byName(/samsung/i)
+      || byName(/microsoft.*(sunhi|injoon|seoyeon|korean|한국)/i)
+      || vs.find(v => v.lang === 'ko-KR')
+      || vs[0];
+}
+
+function currentVoice() {
+  const sel = document.getElementById('ttsVoice');
+  const vs = speechSynthesis.getVoices();
+  const named = sel && sel.value ? vs.find(v => v.name === sel.value) : null;
+  return named || pickBestVoice();
+}
+
+function showVoiceHint(show) {
+  const h = document.getElementById('voiceHint');
+  if (!h) return;
+  if (show) {
+    h.classList.remove('hidden');
+    h.textContent = '💡 이 기기에는 기본 목소리만 있어요. 휴대폰에서 열면 더 자연스러운 한국어 목소리(Google 한국어 등)를 쓸 수 있어요.';
+  } else {
+    h.classList.add('hidden');
+  }
+}
+
+function refreshVoiceList() {
+  const sel = document.getElementById('ttsVoice');
+  if (!sel) return;
+  const vs = koVoices();
+  const curVal = sel.value;
+  sel.innerHTML = '';
+  if (!vs.length) {
+    const o = document.createElement('option');
+    o.textContent = '한국어 목소리 없음'; o.value = '';
+    sel.appendChild(o);
+    sel.disabled = true;
+    showVoiceHint(true);
+    return;
+  }
+  sel.disabled = false;
+  vs.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name;
+    o.textContent = v.name;
+    sel.appendChild(o);
+  });
+  const pick = vs.find(v => v.name === curVal) || pickBestVoice();
+  if (pick) sel.value = pick.name;
+  const hasNatural = vs.some(v => /google|samsung|microsoft/i.test(v.name));
+  showVoiceHint(!hasNatural);
+}
+
 function speakVerse(i) {
   if (i >= VERSES.length) { stopTTS(); return; }
   ttsIdx = i;
@@ -173,8 +243,9 @@ function speakVerse(i) {
   if (el) { el.classList.add('tts-active'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
   const u = new SpeechSynthesisUtterance(VERSES[i].t);
   u.lang = 'ko-KR';
-  const v = koVoice(); if (v) u.voice = v;
+  const v = currentVoice(); if (v) u.voice = v;
   u.rate = parseFloat(document.getElementById('ttsRate').value);
+  u.pitch = 1.0;
   u.onend = () => { if (ttsPlaying) speakVerse(i+1); };
   u.onerror = () => { if (ttsPlaying) speakVerse(i+1); };
   speechSynthesis.speak(u);
@@ -200,7 +271,14 @@ document.getElementById('ttsPlay').onclick = () => {
   } else startTTS();
 };
 document.getElementById('ttsStop').onclick = stopTTS;
-if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+if ('speechSynthesis' in window) {
+  speechSynthesis.onvoiceschanged = refreshVoiceList;
+  refreshVoiceList();
+  const vsel = document.getElementById('ttsVoice');
+  if (vsel) vsel.onchange = (e) => {
+    try { localStorage.setItem(VOICE_KEY, e.target.value); } catch(_){}
+  };
+}
 
 // ---------- Voice follow-along ----------
 let rec = null, recOn = false, spokenNorm = '', verseDone = [];
