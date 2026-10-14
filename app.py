@@ -40,12 +40,14 @@ from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
 from patrol_bp import bp as patrol_bp, patrol_coa_bp
 from burner_bp import bp as burner_bp
+from bible_bp import bp as bible_bp
 
 app.register_blueprint(gauge_bp)
 app.register_blueprint(cm_bp)
 app.register_blueprint(patrol_bp)
 app.register_blueprint(patrol_coa_bp)
 app.register_blueprint(burner_bp)
+app.register_blueprint(bible_bp)
 register_cm_jinja(app)
 
 

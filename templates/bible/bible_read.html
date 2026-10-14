@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경일독 — 읽기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", serif; background: #faf7ef; color: #2c2c2c; }
+  .topbar { position: sticky; top: 0; z-index: 10; background: #6b4f2a; color: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar a { color: #fff; text-decoration: none; font-size: 1.3rem; }
+  .topbar h2 { font-size: 1.1rem; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 16px 16px 120px; }
+  .verse { padding: 12px 10px; border-radius: 10px; line-height: 2; font-size: 1.15rem; margin-bottom: 4px; }
+  .verse .vn { display: inline-block; min-width: 2em; font-size: .8em; color: #a08c5f; font-weight: 700; vertical-align: top; margin-right: 6px; }
+  .verse.tts-active { background: #fff3d6; box-shadow: inset 4px 0 0 #d4a017; }
+  .verse.voice-done { background: #e8f5e0; }
+  .verse.voice-done .vn { color: #5a8a4a; }
+  .verse.voice-current { background: #fff3d6; box-shadow: inset 4px 0 0 #d4a017; }
+  .controls { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5dcc3; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); z-index: 20; }
+  .controls .row { display: flex; gap: 8px; align-items: center; justify-content: center; max-width: 680px; margin: 0 auto; }
+  .cbtn { flex: 1; padding: 12px 6px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; background: #efe8d8; color: #6b4f2a; }
+  .cbtn.on { background: #6b4f2a; color: #fff; }
+  .cbtn:disabled { opacity: .4; }
+  .cbtn.mic-on { background: #c0392b; color: #fff; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+  .nav-row { display: flex; gap: 8px; margin: 18px 0; }
+  .nav-row a { flex: 1; text-align: center; padding: 13px; background: #fff; border: 1px solid #e5dcc3; border-radius: 10px; color: #6b4f2a; font-weight: 700; text-decoration: none; }
+  .mark-row { margin: 8px 0 20px; }
+  #markBtn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: #5a8a4a; color: #fff; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+  #markBtn.done { background: #9dc08b; }
+  .speed { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: #8a7a5c; }
+  .speed select { padding: 8px; border-radius: 8px; border: 1px solid #e5dcc3; font-size: .9rem; }
+  .voice-bar { margin-top: 8px; }
+  .voice-bar .track { height: 10px; background: #e8dfc9; border-radius: 5px; overflow: hidden; }
+  .voice-bar .fill { height: 100%; background: linear-gradient(90deg,#9dc08b,#5a8a4a); width: 0%; transition: width .4s; }
+  .voice-bar .lbl { font-size: .82rem; color: #8a7a5c; margin-top: 4px; text-align: center; }
+  #voiceStatus { font-size: .85rem; color: #8a7a5c; text-align: center; margin-top: 6px; min-height: 1.2em; }
+  .hidden { display: none !important; }
+  .panel { background: #fff; border-radius: 12px; padding: 14px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .panel h3 { font-size: 1rem; margin-bottom: 8px; }
+</style>
+</head>
+<body data-book="{{ book }}" data-chapter="{{ chapter }}">
+<div class="topbar">
+  <a href="/bible/">‹</a>
+  <h2 id="chapTitle">불러오는 중...</h2>
+  <a href="/bible/" style="font-size:1rem;">🏠</a>
+</div>
+
+<div class="wrap">
+  <div id="verses"></div>
+  <div class="nav-row">
+    <a id="prevLink" href="#">‹ 이전 장</a>
+    <a id="nextLink" href="#">다음 장 ›</a>
+  </div>
+  <div class="mark-row">
+    <button id="markBtn">✓ 이 장을 읽었어요</button>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="row">
+    <button class="cbtn" id="ttsBtn">🔊 읽어주기</button>
+    <button class="cbtn" id="micBtn">🎤 따라읽기</button>
+  </div>
+  <div class="panel hidden" id="ttsPanel">
+    <h3>🔊 읽어주기</h3>
+    <div class="row">
+      <button class="cbtn" id="ttsPlay">▶ 재생</button>
+      <button class="cbtn" id="ttsStop">⏹ 정지</button>
+      <div class="speed">속도
+        <select id="ttsRate">
+          <option value="0.8">0.8x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.2">1.2x</option>
+          <option value="1.5">1.5x</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="panel hidden" id="voicePanel">
+    <h3>🎤 따라읽기 — 소리 내어 읽으면 색칠돼요</h3>
+    <div class="row">
+      <button class="cbtn" id="micToggle">🎤 시작</button>
+    </div>
+    <div class="voice-bar">
+      <div class="track"><div class="fill" id="voiceFill"></div></div>
+      <div class="lbl" id="voiceLabel">0 / 0 절</div>
+    </div>
+    <div id="voiceStatus"></div>
+  </div>
+</div>
+
+{% raw %}<script>
+const BOOK = parseInt(document.body.dataset.book), CHAPTER = parseInt(document.body.dataset.chapter);
+let VERSES = [], BOOK_NAME = '', NAV = {};
+let ME = null;
+
+// ---------- load ----------
+async function init() {
+  const me = await fetch('/bible/api/me').then(r=>r.json());
+  ME = me.user;
+  const d = await fetch(`/bible/api/chapter/${BOOK}/${CHAPTER}`).then(r=>r.json());
+  if (d.error) { document.getElementById('chapTitle').textContent = '없음'; return; }
+  VERSES = d.verses; BOOK_NAME = d.book_name; NAV = d;
+  document.getElementById('chapTitle').textContent = `${BOOK_NAME} ${CHAPTER}장`;
+  document.title = `성경일독 — ${BOOK_NAME} ${CHAPTER}장`;
+  const box = document.getElementById('verses');
+  box.innerHTML = '';
+  VERSES.forEach(v => {
+    const div = document.createElement('div');
+    div.className = 'verse'; div.id = 'v' + v.n;
+    div.innerHTML = `<span class="vn">${v.n}</span><span class="vt">${v.t}</span>`;
+    box.appendChild(div);
+  });
+  const pl = document.getElementById('prevLink'), nl = document.getElementById('nextLink');
+  if (d.prev) { pl.href = `/bible/read/${d.prev.book}/${d.prev.chapter}`; } else { pl.style.opacity=.4; pl.href='#'; }
+  if (d.next) { nl.href = `/bible/read/${d.next.book}/${d.next.chapter}`; } else { nl.style.opacity=.4; nl.href='#'; }
+  updateMarkBtn();
+  // save last position
+  if (ME) saveProgress({last:{book:BOOK, chapter:CHAPTER}});
+}
+
+async function saveProgress(body) {
+  if (!ME) return;
+  try { await fetch('/bible/api/progress', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}); } catch(e){}
+}
+
+async function updateMarkBtn() {
+  if (!ME) return;
+  const p = await fetch('/bible/api/progress').then(r=>r.json());
+  const read = (p.read||{})[String(BOOK)] || [];
+  const btn = document.getElementById('markBtn');
+  if (read.includes(CHAPTER)) { btn.textContent = '✓ 읽음 완료'; btn.classList.add('done'); }
+}
+document.getElementById('markBtn').onclick = async () => {
+  if (!ME) { alert('이메일로 로그인하면 읽은 기록이 저장돼요.'); location.href='/bible/auth'; return; }
+  await saveProgress({mark_read:{book:BOOK, chapter:CHAPTER}});
+  const btn = document.getElementById('markBtn');
+  btn.textContent = '✓ 읽음 완료'; btn.classList.add('done');
+};
+
+// ---------- panel toggles ----------
+const ttsPanel = document.getElementById('ttsPanel');
+const voicePanel = document.getElementById('voicePanel');
+document.getElementById('ttsBtn').onclick = () => {
+  stopVoice();
+  ttsPanel.classList.toggle('hidden');
+  voicePanel.classList.add('hidden');
+  document.getElementById('ttsBtn').classList.toggle('on', !ttsPanel.classList.contains('hidden'));
+  document.getElementById('micBtn').classList.remove('on');
+};
+document.getElementById('micBtn').onclick = () => {
+  stopTTS();
+  voicePanel.classList.toggle('hidden');
+  ttsPanel.classList.add('hidden');
+  document.getElementById('micBtn').classList.toggle('on', !voicePanel.classList.contains('hidden'));
+  document.getElementById('ttsBtn').classList.remove('on');
+};
+
+// ---------- TTS ----------
+let ttsIdx = 0, ttsPlaying = false;
+function koVoice() {
+  const vs = speechSynthesis.getVoices();
+  return vs.find(v=>v.lang==='ko-KR') || vs.find(v=>v.lang.startsWith('ko')) || null;
+}
+function speakVerse(i) {
+  if (i >= VERSES.length) { stopTTS(); return; }
+  ttsIdx = i;
+  document.querySelectorAll('.verse').forEach(e=>e.classList.remove('tts-active'));
+  const el = document.getElementById('v'+VERSES[i].n);
+  if (el) { el.classList.add('tts-active'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+  const u = new SpeechSynthesisUtterance(VERSES[i].t);
+  u.lang = 'ko-KR';
+  const v = koVoice(); if (v) u.voice = v;
+  u.rate = parseFloat(document.getElementById('ttsRate').value);
+  u.onend = () => { if (ttsPlaying) speakVerse(i+1); };
+  u.onerror = () => { if (ttsPlaying) speakVerse(i+1); };
+  speechSynthesis.speak(u);
+}
+function startTTS() {
+  if (!('speechSynthesis' in window)) { alert('이 브라우저는 읽어주기를 지원하지 않아요.'); return; }
+  speechSynthesis.cancel();
+  ttsPlaying = true;
+  document.getElementById('ttsPlay').textContent = '⏸ 일시정지';
+  speakVerse(0);
+}
+function stopTTS() {
+  ttsPlaying = false;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  document.getElementById('ttsPlay').textContent = '▶ 재생';
+  document.querySelectorAll('.verse').forEach(e=>e.classList.remove('tts-active'));
+}
+document.getElementById('ttsPlay').onclick = () => {
+  if (ttsPlaying && speechSynthesis.speaking && !speechSynthesis.paused) {
+    speechSynthesis.pause(); document.getElementById('ttsPlay').textContent = '▶ 계속';
+  } else if (ttsPlaying && speechSynthesis.paused) {
+    speechSynthesis.resume(); document.getElementById('ttsPlay').textContent = '⏸ 일시정지';
+  } else startTTS();
+};
+document.getElementById('ttsStop').onclick = stopTTS;
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+
+// ---------- Voice follow-along ----------
+let rec = null, recOn = false, spokenNorm = '', verseDone = [];
+const norm = s => (s||'').replace(/[\s.,!?;:'"“”‘’()\[\]…·—-]/g,'').replace(/{{|}}/g,'');
+
+function subseqCoverage(verseNorm, spoken) {
+  // how much of verseNorm appears as subsequence in spoken (in order)
+  let j = 0;
+  for (let i=0;i<spoken.length && j<verseNorm.length;i++) {
+    if (spoken[i] === verseNorm[j]) j++;
+  }
+  return verseNorm.length ? j/verseNorm.length : 0;
+}
+
+function updateVoiceHighlight() {
+  let doneCount = 0;
+  for (let i=0;i<VERSES.length;i++) {
+    const el = document.getElementById('v'+VERSES[i].n);
+    if (verseDone[i]) { doneCount++; continue; }
+    const cov = subseqCoverage(norm(VERSES[i].t), spokenNorm);
+    if (cov >= 0.55) {
+      verseDone[i] = true; doneCount++;
+      el.classList.remove('voice-current'); el.classList.add('voice-done');
+    } else if (i === doneCount) {
+      el.classList.add('voice-current');
+    }
+  }
+  document.querySelectorAll('.verse').forEach((el,i)=>{
+    if (!verseDone[i] && i !== doneCount) el.classList.remove('voice-current');
+  });
+  const pct = VERSES.length ? Math.round(doneCount/VERSES.length*100) : 0;
+  document.getElementById('voiceFill').style.width = pct + '%';
+  document.getElementById('voiceLabel').textContent = `${doneCount} / ${VERSES.length} 절 (${pct}%)`;
+  if (doneCount === VERSES.length) {
+    setStatus('다 읽었어요! 🎉');
+    document.getElementById('markBtn').click();
+  }
+}
+
+function setStatus(t){ document.getElementById('voiceStatus').textContent = t; }
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus('이 브라우저는 음성 인식을 지원하지 않아요. 크롬(Chrome)에서 열어주세요.'); return; }
+  rec = new SR();
+  rec.lang = 'ko-KR';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  verseDone = new Array(VERSES.length).fill(false);
+  spokenNorm = '';
+  document.querySelectorAll('.verse').forEach(e=>e.classList.remove('voice-done','voice-current'));
+
+  rec.onresult = (ev) => {
+    let txt = '';
+    for (let i=ev.resultIndex;i<ev.results.length;i++) txt += ev.results[i][0].transcript;
+    spokenNorm = norm(spokenNorm + ' ' + txt);
+    // cap buffer to keep matching fast (last ~4000 chars)
+    if (spokenNorm.length > 4000) spokenNorm = spokenNorm.slice(-4000);
+    updateVoiceHighlight();
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === 'not-allowed') setStatus('마이크 권한을 허용해 주세요.');
+    else if (ev.error === 'no-speech') setStatus('목소리가 잘 안 들려요. 크게 읽어주세요.');
+    else setStatus('인식 중 문제가 생겼어요. 다시 시작해 주세요.');
+  };
+  rec.onend = () => { if (recOn) { try { rec.start(); } catch(e){} } };
+  try {
+    rec.start();
+    recOn = true;
+    document.getElementById('micToggle').textContent = '⏹ 중지';
+    document.getElementById('micToggle').classList.add('mic-on');
+    setStatus('듣고 있어요... 소리 내어 읽어보세요.');
+  } catch(e) { setStatus('음성 인식을 시작할 수 없어요.'); }
+}
+
+function stopVoice() {
+  recOn = false;
+  if (rec) { try { rec.stop(); } catch(e){} rec = null; }
+  const t = document.getElementById('micToggle');
+  if (t) { t.textContent = '🎤 시작'; t.classList.remove('mic-on'); }
+}
+document.getElementById('micToggle').onclick = () => { recOn ? stopVoice() : startVoice(); };
+
+init();
+</script>{% endraw %}
+</body>
+</html>

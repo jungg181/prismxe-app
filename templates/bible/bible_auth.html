@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경일독 — 시작하기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
+  .wrap { max-width: 420px; margin: 0 auto; padding: 40px 20px; }
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-size: 1.8rem; }
+  header p { color: #8a7a5c; margin-top: 6px; font-size: .9rem; }
+  .tabs { display: flex; background: #efe8d8; border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+  .tabs button { flex: 1; padding: 12px; border: none; background: none; border-radius: 9px; font-size: 1rem; font-weight: 700; color: #8a7a5c; cursor: pointer; }
+  .tabs button.on { background: #fff; color: #6b4f2a; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .card { background: #fff; border-radius: 14px; padding: 24px 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  label { display: block; font-size: .85rem; color: #8a7a5c; margin: 12px 0 6px; font-weight: 700; }
+  input { width: 100%; padding: 13px; border: 1px solid #e0d6ba; border-radius: 10px; font-size: 1rem; }
+  input:focus { outline: none; border-color: #6b4f2a; }
+  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 700; cursor: pointer; background: #6b4f2a; color: #fff; margin-top: 20px; }
+  #err { color: #c0392b; font-size: .9rem; margin-top: 12px; text-align: center; min-height: 1.3em; }
+  .back { display: block; text-align: center; margin-top: 18px; color: #8a7a5c; text-decoration: none; font-size: .9rem; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📖 성경일독</h1>
+    <p>이메일로 등록하면 읽던 곳을 이어서 볼 수 있어요</p>
+  </header>
+  <div class="tabs">
+    <button id="tabLogin" class="on">로그인</button>
+    <button id="tabReg">등록하기</button>
+  </div>
+  <div class="card">
+    <div id="regNameWrap" class="hidden">
+      <label>이름</label>
+      <input id="name" placeholder="홍길동" autocomplete="name">
+    </div>
+    <label>이메일</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+    <label>비밀번호 (4자 이상)</label>
+    <input id="pw" type="password" placeholder="••••" autocomplete="current-password">
+    <div id="err"></div>
+    <button class="btn" id="go">로그인</button>
+  </div>
+  <a class="back" href="/bible/">‹ 홈으로</a>
+</div>
+<script>
+let mode = 'login';
+const tabL = document.getElementById('tabLogin'), tabR = document.getElementById('tabReg');
+function setMode(m) {
+  mode = m;
+  tabL.classList.toggle('on', m==='login');
+  tabR.classList.toggle('on', m==='reg');
+  document.getElementById('regNameWrap').classList.toggle('hidden', m==='login');
+  document.getElementById('go').textContent = m==='login' ? '로그인' : '등록하기';
+  document.getElementById('err').textContent = '';
+}
+tabL.onclick = () => setMode('login');
+tabR.onclick = () => setMode('reg');
+
+async function go() {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  const body = {
+    email: document.getElementById('email').value.trim(),
+    password: document.getElementById('pw').value,
+  };
+  if (mode === 'reg') body.name = document.getElementById('name').value.trim();
+  const url = mode === 'login' ? '/bible/api/login' : '/bible/api/register';
+  try {
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error || '오류가 발생했어요.'; return; }
+    location.href = '/bible/';
+  } catch(e) { err.textContent = '연결에 실패했어요.'; }
+}
+document.getElementById('go').onclick = go;
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key==='Enter') go(); });
+</script>
+</body>
+</html>

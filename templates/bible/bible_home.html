@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경일독</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { text-align: center; padding: 28px 0 18px; }
+  header h1 { font-size: 2rem; letter-spacing: 2px; }
+  header p { color: #8a7a5c; margin-top: 6px; font-size: .95rem; }
+  .card { background: #fff; border-radius: 14px; padding: 20px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn-primary { background: #6b4f2a; color: #fff; }
+  .btn-primary:active { background: #543d20; }
+  .btn-ghost { background: #efe8d8; color: #6b4f2a; margin-top: 10px; }
+  .progress-ring { text-align: center; padding: 10px 0; }
+  .progress-ring .pct { font-size: 2.6rem; font-weight: 800; color: #6b4f2a; }
+  .progress-ring .sub { color: #8a7a5c; margin-top: 4px; }
+  .bar { height: 12px; background: #e8dfc9; border-radius: 6px; overflow: hidden; margin-top: 12px; }
+  .bar > div { height: 100%; background: linear-gradient(90deg, #a8844c, #6b4f2a); border-radius: 6px; transition: width .5s; }
+  .row { display: flex; gap: 10px; }
+  .row .btn { margin-top: 0; }
+  .book-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .book-cell { background: #faf7ef; border: 1px solid #e5dcc3; border-radius: 10px; padding: 10px 6px; text-align: center; font-size: .85rem; cursor: pointer; }
+  .book-cell .n { font-weight: 700; }
+  .book-cell .c { color: #8a7a5c; font-size: .75rem; margin-top: 2px; }
+  .book-cell.done { background: #e6f0e0; border-color: #9dc08b; }
+  .book-cell.partial { background: #fdf3df; border-color: #e0c77e; }
+  .sec-title { font-size: 1.15rem; font-weight: 800; margin: 22px 0 4px; }
+  .muted { color: #8a7a5c; font-size: .9rem; }
+  #userBox { text-align: center; }
+  .hidden { display: none !important; }
+  .plan-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid #f0e9d6; }
+  .plan-item:last-child { border-bottom: none; }
+  .plan-item a { color: #6b4f2a; font-weight: 700; text-decoration: none; }
+  .badge { display: inline-block; background: #6b4f2a; color: #fff; font-size: .72rem; padding: 3px 10px; border-radius: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📖 성경일독</h1>
+    <p>매일 읽고, 듣고, 따라 읽어요</p>
+  </header>
+
+  <div class="card" id="userBox">
+    <div id="loggedOut">
+      <p class="muted" style="margin-bottom:12px;">이메일로 등록하면 읽던 곳을<br>어디서든 이어서 볼 수 있어요.</p>
+      <a class="btn btn-primary" href="/bible/auth">이메일로 시작하기</a>
+    </div>
+    <div id="loggedIn" class="hidden">
+      <p><span class="badge">로그인 중</span></p>
+      <p style="margin:8px 0 4px; font-size:1.15rem; font-weight:700;" id="userName"></p>
+      <p class="muted" id="userEmail"></p>
+      <div class="row" style="margin-top:12px;">
+        <a class="btn btn-ghost" href="/bible/plan" style="text-decoration:none; text-align:center;">오늘의 계획</a>
+        <button class="btn btn-ghost" id="logoutBtn">로그아웃</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="progress-ring">
+      <div class="pct" id="pct">0%</div>
+      <div class="sub" id="pctSub">0 / 1189 장 읽음</div>
+      <div class="bar"><div id="barFill" style="width:0%"></div></div>
+    </div>
+    <a class="btn btn-primary" id="continueBtn" href="/bible/read/1/1">📖 이어 읽기</a>
+    <div class="row">
+      <a class="btn btn-ghost" href="/bible/plan" style="text-decoration:none; text-align:center;">1년 계획</a>
+      <a class="btn btn-ghost" href="/bible/read/1/1" style="text-decoration:none; text-align:center;">창세기부터</a>
+    </div>
+  </div>
+
+  <div class="sec-title">오늘의 읽기 <span class="muted" id="planDay"></span></div>
+  <div class="card" id="todayPlan"><p class="muted">불러오는 중...</p></div>
+
+  <div class="sec-title">성경 66권</div>
+  <div class="card">
+    <div class="book-grid" id="bookGrid"></div>
+  </div>
+
+  <p class="muted" style="text-align:center; margin-top:24px; font-size:.8rem;">
+    본문: Open Korean Bible (CC BY 4.0) · 개역한글 계열<br>
+    <a href="/bible/data/backup" style="color:#8a7a5c;">데이터 백업</a>
+  </p>
+</div>
+
+<script>
+let BOOKS = [], PROGRESS = {read:{}, last:null}, ME = null;
+
+async function init() {
+  const [booksRes, meRes] = await Promise.all([
+    fetch('/bible/api/books').then(r=>r.json()),
+    fetch('/bible/api/me').then(r=>r.json())
+  ]);
+  BOOKS = booksRes;
+  ME = meRes.user;
+  if (ME) {
+    document.getElementById('loggedOut').classList.add('hidden');
+    document.getElementById('loggedIn').classList.remove('hidden');
+    document.getElementById('userName').textContent = ME.name + '님';
+    document.getElementById('userEmail').textContent = ME.email;
+    const p = await fetch('/bible/api/progress').then(r=>r.json());
+    PROGRESS = p;
+    const last = ME.last || p.last;
+    if (last) {
+      const bn = BOOKS.find(b=>b.n===last.book);
+      document.getElementById('continueBtn').href = `/bible/read/${last.book}/${last.chapter}`;
+      document.getElementById('continueBtn').textContent = `📖 이어 읽기 — ${bn?bn.name:''} ${last.chapter}장`;
+    }
+  }
+  renderProgress();
+  renderBooks();
+  renderTodayPlan();
+}
+
+function readCount() {
+  return Object.values(PROGRESS.read||{}).reduce((a,v)=>a+v.length,0);
+}
+
+function renderProgress() {
+  const c = ME ? readCount() : 0;
+  const pct = (c/1189*100);
+  document.getElementById('pct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('pctSub').textContent = `${c} / 1189 장 읽음`;
+  document.getElementById('barFill').style.width = pct + '%';
+}
+
+function renderBooks() {
+  const g = document.getElementById('bookGrid');
+  g.innerHTML = '';
+  BOOKS.forEach(b => {
+    const read = (PROGRESS.read||{})[String(b.n)] || [];
+    const cls = read.length >= b.chapters ? 'done' : (read.length>0 ? 'partial' : '');
+    const d = document.createElement('div');
+    d.className = 'book-cell ' + cls;
+    d.innerHTML = `<div class="n">${b.name}</div><div class="c">${read.length}/${b.chapters}장</div>`;
+    d.onclick = () => {
+      // go to first unread chapter, or chapter 1
+      let ch = 1;
+      for (let i=1;i<=b.chapters;i++){ if(!read.includes(i)){ ch=i; break; } ch=i; }
+      location.href = `/bible/read/${b.n}/${ch}`;
+    };
+    g.appendChild(d);
+  });
+}
+
+async function renderTodayPlan() {
+  const box = document.getElementById('todayPlan');
+  try {
+    const p = await fetch('/bible/api/plan/today').then(r=>r.json());
+    document.getElementById('planDay').textContent = `Day ${p.day} / 365`;
+    if (!p.items.length) { box.innerHTML = '<p class="muted">계획을 모두 마쳤어요! 🎉</p>'; return; }
+    box.innerHTML = p.items.map(it =>
+      `<div class="plan-item"><a href="/bible/read/${it.book}/${it.chapter}">${it.book_name} ${it.chapter}장</a><span class="muted">읽기 →</span></div>`
+    ).join('');
+  } catch(e) { box.innerHTML = '<p class="muted">계획을 불러오지 못했어요.</p>'; }
+}
+
+document.getElementById('logoutBtn').onclick = async () => {
+  await fetch('/bible/api/logout', {method:'POST'});
+  location.reload();
+};
+
+init();
+</script>
+</body>
+</html>
