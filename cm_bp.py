@@ -1547,6 +1547,27 @@ def data_page():
     return render_template('cm/data.html', trash=trash, snapshots=snaps)
 
 
+@bp.route('/api/import-timecards', methods=['POST'])
+def api_import_timecards():
+    # TEMPORARY bulk import endpoint — remove after 2026-10-15 import
+    payload = request.get_json(force=True, silent=True) or {}
+    n_workers = n_timecards = 0
+    existing_names = {w.get('name', '').strip().lower() for w in DB['workers']}
+    for w in payload.get('workers', []):
+        if w.get('name', '').strip().lower() not in existing_names:
+            DB['workers'].append(w)
+            existing_names.add(w.get('name', '').strip().lower())
+            n_workers += 1
+    for t in payload.get('timecards', []):
+        DB['timecards'].append(t)
+        n_timecards += 1
+    save_db()
+    return jsonify({'ok': True, 'workers_added': n_workers,
+                    'timecards_added': n_timecards,
+                    'total_workers': len(DB['workers']),
+                    'total_timecards': len(DB['timecards'])})
+
+
 @bp.route('/data/backup')
 def data_backup():
     save_db()
