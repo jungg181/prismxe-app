@@ -1215,6 +1215,64 @@ def payroll():
                            total_gross=total_gross, total_hours=total_hours)
 
 
+def _fmt_num(v):
+    s = f"{round(v, 2):.2f}".rstrip('0').rstrip('.')
+    return s if s else '0'
+
+
+@bp.route('/timecards/payroll/export')
+def payroll_export():
+    start = request.args.get('start') or (today() - timedelta(days=13)).isoformat()
+    end = request.args.get('end') or today().isoformat()
+    detail = []
+    for t in DB['timecards']:
+        if not t.get('clock_out'):
+            continue
+        d = (t.get('clock_in') or '')[:10]
+        if not (start <= d <= end):
+            continue
+        ci = parse_iso(t.get('clock_in'))
+        co = parse_iso(t.get('clock_out'))
+        if not ci or not co:
+            continue
+        gross = round((co - ci).total_seconds() / 3600.0, 2)
+        meal = 1 if gross >= 5 else 0
+        pay_hours = round(gross - meal, 2)
+        status = t.get('status', '')
+        approved = status == 'approved'
+        detail.append({
+            'employee': worker_name(t.get('worker_id')),
+            'site': site_name(t.get('site_id')),
+            'ci': ci, 'co': co,
+            'gross': gross, 'meal': meal, 'pay_hours': pay_hours,
+            'payroll_status': 'Approved' if approved else 'Needs Approval',
+            'timecard_status': ('Approved' if approved
+                                else 'Clocked Out' if status == 'clocked_out'
+                                else 'Clocked In'),
+            'notes': t.get('notes', '') or '',
+        })
+    detail.sort(key=lambda r: (r['employee'].lower(), r['ci']))
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
+                'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
+                'Meal Break Deduction', 'Payroll Hours', 'Payroll Status',
+                'Timecard Status', 'Notes'])
+    for r in detail:
+        w.writerow([
+            r['employee'], r['site'],
+            f"{r['ci'].day}-{r['ci'].strftime('%b')}-{r['ci'].strftime('%y')}",
+            r['ci'].strftime('%-I:%M %p'),
+            f"{r['co'].day}-{r['co'].strftime('%b')}-{r['co'].strftime('%y')}",
+            r['co'].strftime('%-I:%M %p'),
+            _fmt_num(r['gross']), r['meal'], _fmt_num(r['pay_hours']),
+            r['payroll_status'], r['timecard_status'], r['notes'],
+        ])
+    data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return send_file(data, mimetype='text/csv', as_attachment=True,
+                     download_name=f'payroll-report-{start}-to-{end}.csv')
+
+
 # ================= INCIDENTS =================
 
 @bp.route('/incidents', methods=['GET', 'POST'])
