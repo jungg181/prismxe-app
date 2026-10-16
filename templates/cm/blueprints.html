@@ -50,7 +50,13 @@
 <div class="card" style="margin-top:8px"><div class="card-body row-form">
   <label class="grow">Plan opacity <input type="range" id="opacity" min="0" max="100" value="65"></label>
   <button class="btn small" id="sat-toggle" type="button">Satellite: On</button>
+  {% if plan %}<button class="btn small" id="adjust-toggle" type="button">Adjust Plan</button>{% endif %}
   {% if site.lat is not none %}<a class="btn small" target="_blank" href="https://www.google.com/maps?q={{ site.lat }},{{ site.lng }}">Open in Google Maps</a>{% endif %}
+</div></div>
+<div id="adjust-bar" class="card" style="margin-top:8px;display:none"><div class="card-body row-form">
+  <span class="muted">Drag the <b style="color:#fff">corner handles</b> to align the plan, then Save.</span>
+  <button class="btn primary small" id="adjust-save" type="button">Save Position</button>
+  <button class="btn small" id="adjust-cancel" type="button">Cancel</button>
 </div></div>
 
 <div class="legend">
@@ -73,6 +79,9 @@
 const SITE = {{ {'lat': site.lat if site else None, 'lng': site.lng if site else None, 'id': site.id if site else None} | tojson }};
 const FLOOR = {{ floor | tojson }};
 const PLAN_URL = {{ (plan.image_path if plan else None) | tojson }};
+const PLAN_ID = {{ (plan.id if plan else None) | tojson }};
+const PLAN_BOUNDS = {{ (plan.bounds if plan and plan.bounds else None) | tojson }};
+const API_PREFIX = '/cm';
 const center = (SITE.lat != null && SITE.lng != null) ? [SITE.lat, SITE.lng] : [33.28844, -111.55389];
 const map = L.map('map').setView(center, 16);
 const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 19, attribution: 'Esri'});
@@ -85,14 +94,64 @@ document.getElementById('sat-toggle').onclick = e => {
   else { map.removeLayer(esri); osm.addTo(map); e.target.textContent = 'Satellite: Off'; }
 };
 const SPAN = 0.004;
-const bounds = [[center[0]-SPAN/2, center[1]-SPAN/2],[center[0]+SPAN/2, center[1]+SPAN/2]];
+const defaultBounds = [[center[0]-SPAN/2, center[1]-SPAN/2],[center[0]+SPAN/2, center[1]+SPAN/2]];
+let currentBounds = PLAN_BOUNDS || defaultBounds;
 let overlay = null;
 if (PLAN_URL) {
-  overlay = L.imageOverlay(PLAN_URL, bounds, {opacity: 0.65}).addTo(map);
+  overlay = L.imageOverlay(PLAN_URL, currentBounds, {opacity: 0.65}).addTo(map);
   document.getElementById('opacity').oninput = e => overlay.setOpacity(e.target.value/100);
 } else {
   document.getElementById('opacity').disabled = true;
 }
+// ---- Plan adjust mode: drag corner handles to align ----
+let adjustMode = false, handles = [], savedBounds = null;
+const adjustBtn = document.getElementById('adjust-toggle');
+const adjustBar = document.getElementById('adjust-bar');
+function handleIcon(){
+  return L.divIcon({className:'', html:'<span style="display:block;width:18px;height:18px;background:#f5a623;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:move"></span>', iconSize:[18,18], iconAnchor:[9,9]});
+}
+function drawHandles(){
+  clearHandles();
+  const b = overlay.getBounds();
+  const corners = [b.getSouthWest(), b.getNorthWest(), b.getNorthEast(), b.getSouthEast()];
+  corners.forEach((c, i) => {
+    const m = L.marker(c, {draggable: true, icon: handleIcon(), zIndexOffset: 1000}).addTo(map);
+    m.on('drag', () => {
+      const nb = overlay.getBounds();
+      const pts = [nb.getSouthWest(), nb.getNorthWest(), nb.getNorthEast(), nb.getSouthEast()];
+      pts[i] = m.getLatLng();
+      const sw = pts[0], nw = pts[1], ne = pts[2], se = pts[3];
+      if (i === 0) { nw.lng = sw.lng; se.lat = sw.lat; }
+      if (i === 1) { sw.lng = nw.lng; ne.lat = nw.lat; }
+      if (i === 2) { se.lng = ne.lng; nw.lat = ne.lat; }
+      if (i === 3) { ne.lng = se.lng; sw.lat = se.lat; }
+      const newSW = L.latLng(Math.min(sw.lat, nw.lat), Math.min(sw.lng, se.lng));
+      const newNE = L.latLng(Math.max(sw.lat, nw.lat), Math.max(sw.lng, se.lng));
+      overlay.setBounds([newSW, newNE]);
+      drawHandles();
+    });
+    handles.push(m);
+  });
+}
+function clearHandles(){ handles.forEach(h => map.removeLayer(h)); handles = []; }
+function setAdjust(on){
+  adjustMode = on;
+  if (adjustBtn) adjustBtn.textContent = on ? 'Adjusting…' : 'Adjust Plan';
+  adjustBar.style.display = on ? '' : 'none';
+  if (on) { savedBounds = overlay.getBounds(); drawHandles(); map.dragging.disable(); }
+  else { clearHandles(); map.dragging.enable(); }
+}
+if (adjustBtn) adjustBtn.onclick = () => { if (overlay && !adjustMode) setAdjust(true); };
+document.getElementById('adjust-cancel').onclick = () => { if (savedBounds) overlay.setBounds(savedBounds); setAdjust(false); };
+document.getElementById('adjust-save').onclick = async () => {
+  const b = overlay.getBounds();
+  const bounds = [[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]];
+  const r = await fetch(API_PREFIX + '/api/plan-bounds', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({plan_id: PLAN_ID, bounds})});
+  if (r.ok) { currentBounds = bounds; alert('Plan position saved.'); }
+  else alert('Save failed.');
+  setAdjust(false);
+};
 const layerState = {personnel: true, defect: true, hazard: true};
 const pinLayer = L.layerGroup().addTo(map);
 const colors = {personnel:'green', defect:'red', hazard:'orange'};
@@ -144,8 +203,8 @@ map.on('click', async e => {
   if (!kind || !['personnel','defect','hazard'].includes(kind)) return;
   const label = prompt('Pin label:', kind);
   if (label === null) return;
-  const x = ((e.latlng.lng - bounds[0][1]) / (bounds[1][1]-bounds[0][1]) * 100);
-  const y = ((bounds[1][0] - e.latlng.lat) / (bounds[1][0]-bounds[0][0]) * 100);
+  const x = ((e.latlng.lng - currentBounds[0][1]) / (currentBounds[1][1]-currentBounds[0][1]) * 100);
+  const y = ((currentBounds[1][0] - e.latlng.lat) / (currentBounds[1][0]-currentBounds[0][0]) * 100);
   await fetch('/cm/api/pins', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({site_id: SITE.id, floor: FLOOR, kind, label, lat: e.latlng.lat, lng: e.latlng.lng, x: Math.round(x), y: Math.round(y)})});
   loadPins();
