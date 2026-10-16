@@ -54,6 +54,7 @@
   </div>
   <div class="bottom-bar">
     <button class="btn btn-primary" onclick="save()">Save changes</button>
+    <span id="autostatus" class="msg" style="margin:0"></span>
   </div>
   <div class="msg" id="msg"></div>
 </div>
@@ -109,18 +110,44 @@ function render(){
       const ci = +inp.dataset.ci, f = inp.dataset.f;
       if (inp.dataset.ai === undefined) data[ci][f] = inp.value;
       else data[ci].apps[+inp.dataset.ai][f] = inp.value;
+      scheduleAutosave();
     };
   });
 }
 
-function addCompany(){ data.push({name:'New Company', icon:'📁', apps:[]}); render(); }
-function delCompany(ci){ if(confirm('Delete "'+data[ci].name+'" and all its apps?')){ data.splice(ci,1); render(); } }
-function addApp(ci){ data[ci].apps.push({name:'New App', icon:'📱', desc:'', url:'/'}); render(); }
-function delApp(ci,ai){ data[ci].apps.splice(ai,1); render(); }
+function addCompany(){ data.push({name:'New Company', icon:'📁', apps:[]}); render(); scheduleAutosave(); }
+function delCompany(ci){ if(confirm('Delete "'+data[ci].name+'" and all its apps?')){ data.splice(ci,1); render(); scheduleAutosave(); } }
+function addApp(ci){ data[ci].apps.push({name:'New App', icon:'📱', desc:'', url:'/'}); render(); scheduleAutosave(); }
+function delApp(ci,ai){ data[ci].apps.splice(ai,1); render(); scheduleAutosave(); }
 function moveApp(fromCi, ai, toCi){
   if(toCi===''||+toCi===fromCi) return;
   const [a] = data[fromCi].apps.splice(ai,1);
-  data[+toCi].apps.push(a); render();
+  data[+toCi].apps.push(a); render(); scheduleAutosave();
+}
+
+// ---- auto-save: every edit saves automatically (debounced 900ms) ----
+let autosaveTimer = null;
+function setAutostatus(txt, cls){
+  const el = document.getElementById('autostatus');
+  el.textContent = txt;
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+}
+function scheduleAutosave(){
+  setAutostatus('● Unsaved changes', '');
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(autoSave, 900);
+}
+async function autoSave(){
+  setAutostatus('Saving…', '');
+  try{
+    const r = await fetch('/api/portal/save',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({companies: data})});
+    const j = await r.json();
+    if(j.ok){ setAutostatus('Saved ✓', 'ok'); }
+    else if(r.status === 401 || r.status === 403){ setAutostatus('Save failed — please log in again', 'err'); }
+    else { setAutostatus('Save failed: '+(j.error||'error'), 'err'); }
+  }catch(e){ setAutostatus('Save failed: '+e.message, 'err'); }
 }
 
 async function save(){
