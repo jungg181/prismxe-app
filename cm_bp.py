@@ -455,10 +455,24 @@ def plan_upload():
     if old:
         DB['plans'].remove(old)
     DB['plans'].append({'id': new_id(), 'site_id': site_id, 'floor': floor,
-                        'image_path': img})
+                        'image_path': img, 'bounds': None})
     save_db()
     flash(f'Plan uploaded for {floor}.')
     return redirect(url_for('cm.blueprints', site_id=site_id, floor=floor))
+
+
+@bp.route('/api/plan-bounds', methods=['POST'])
+def api_plan_bounds():
+    data = request.get_json(force=True) or {}
+    plan = next((p for p in DB['plans'] if p['id'] == data.get('plan_id')), None)
+    if not plan:
+        return {'ok': False, 'error': 'plan not found'}, 404
+    b = data.get('bounds')
+    if not b or len(b) != 2:
+        return {'ok': False, 'error': 'invalid bounds'}, 400
+    plan['bounds'] = [[float(b[0][0]), float(b[0][1])], [float(b[1][0]), float(b[1][1])]]
+    save_db()
+    return {'ok': True}
 
 
 @bp.route('/api/pins')
