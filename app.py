@@ -16,8 +16,9 @@ Env vars:
 """
 import os
 import json
+import io
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
@@ -93,6 +94,16 @@ def api_portal_save():
         save_portal_config({"companies": clean})
         return jsonify({"ok": True})
     return _inner()
+
+
+@app.get("/portal/backup")
+def portal_backup():
+    """Public backup of portal folder config (ephemeral-disk protection)."""
+    cfg = load_portal_config()
+    data = json.dumps(cfg, ensure_ascii=False, indent=2).encode("utf-8")
+    buf = io.BytesIO(data)
+    return send_file(buf, mimetype="application/json", as_attachment=True,
+                     download_name="portal-config-backup.json")
 
 
 @app.get("/.well-known/assetlinks.json")
