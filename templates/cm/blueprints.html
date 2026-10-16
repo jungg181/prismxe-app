@@ -116,22 +116,27 @@ function drawHandles(){
   const corners = [b.getSouthWest(), b.getNorthWest(), b.getNorthEast(), b.getSouthEast()];
   corners.forEach((c, i) => {
     const m = L.marker(c, {draggable: true, icon: handleIcon(), zIndexOffset: 1000}).addTo(map);
-    m.on('drag', () => {
-      const nb = overlay.getBounds();
-      const pts = [nb.getSouthWest(), nb.getNorthWest(), nb.getNorthEast(), nb.getSouthEast()];
-      pts[i] = m.getLatLng();
-      const sw = pts[0], nw = pts[1], ne = pts[2], se = pts[3];
-      if (i === 0) { nw.lng = sw.lng; se.lat = sw.lat; }
-      if (i === 1) { sw.lng = nw.lng; ne.lat = nw.lat; }
-      if (i === 2) { se.lng = ne.lng; nw.lat = ne.lat; }
-      if (i === 3) { ne.lng = se.lng; sw.lat = se.lat; }
-      const newSW = L.latLng(Math.min(sw.lat, nw.lat), Math.min(sw.lng, se.lng));
-      const newNE = L.latLng(Math.max(sw.lat, nw.lat), Math.max(sw.lng, se.lng));
-      overlay.setBounds([newSW, newNE]);
-      drawHandles();
-    });
+    m._cornerIndex = i;
+    m.on('drag', () => onHandleDrag(m));
     handles.push(m);
   });
+}
+function onHandleDrag(dragged){
+  const i = dragged._cornerIndex;
+  const nb = overlay.getBounds();
+  const sw = nb.getSouthWest(), ne = nb.getNorthEast();
+  const p = dragged.getLatLng();
+  let newSW, newNE;
+  if (i === 0) { newSW = p; newNE = ne; }
+  else if (i === 1) { newSW = L.latLng(sw.lat, p.lng); newNE = L.latLng(p.lat, ne.lng); }
+  else if (i === 2) { newSW = sw; newNE = p; }
+  else { newSW = L.latLng(p.lat, sw.lng); newNE = L.latLng(ne.lat, p.lng); }
+  const finalSW = L.latLng(Math.min(newSW.lat, newNE.lat), Math.min(newSW.lng, newNE.lng));
+  const finalNE = L.latLng(Math.max(newSW.lat, newNE.lat), Math.max(newSW.lng, newNE.lng));
+  overlay.setBounds([finalSW, finalNE]);
+  const b = overlay.getBounds();
+  const corners = [b.getSouthWest(), b.getNorthWest(), b.getNorthEast(), b.getSouthEast()];
+  handles.forEach((h, j) => { if (h !== dragged) h.setLatLng(corners[j]); });
 }
 function clearHandles(){ handles.forEach(h => map.removeLayer(h)); handles = []; }
 function setAdjust(on){
