@@ -821,9 +821,15 @@ def api_register_worker():
                 w = cand
                 break
     if w:
-        # Returning worker: fill in the email if it's missing.
+        # Returning worker self-registering: let them set their own name.
+        updated = False
+        if name and w.get('name') != name:
+            w['name'] = name
+            updated = True
         if not w.get('email'):
             w['email'] = email
+            updated = True
+        if updated:
             save_db()
         return jsonify({'ok': True, 'worker_id': w['id'],
                         'worker_name': w['name'], 'existing': True})
