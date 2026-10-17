@@ -316,6 +316,14 @@ def clock_page():
                            workers=sorted(DB['workers'], key=lambda w: w['name'].lower()))
 
 
+@bp.route('/sw.js')
+def service_worker():
+    """Serve the COA service worker from the /coa scope so installed
+    home-screen app works offline."""
+    return send_file(os.path.join(BASE_DIR, 'static', 'coa', 'sw.js'),
+                     mimetype='application/javascript')
+
+
 @bp.route('/qr/<site_id>.png')
 def qr_image(site_id):
     """Printable QR code for a jobsite. Workers scan it to open the COA
