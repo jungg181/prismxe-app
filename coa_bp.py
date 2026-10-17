@@ -115,6 +115,22 @@ def clock_in_distance_km(t):
                         s.get('lat'), s.get('lng'))
 
 
+def clock_out_distance_km(t):
+    s = find('sites', t.get('site_id'))
+    if not s:
+        return None
+    return haversine_km(t.get('clock_out_lat'), t.get('clock_out_lng'),
+                        s.get('lat'), s.get('lng'))
+
+
+def fmt_coords(lat, lng):
+    """Short 'lat, lng' string for at-a-glance display, or None."""
+    try:
+        return f"{float(lat):.4f}, {float(lng):.4f}"
+    except (TypeError, ValueError):
+        return None
+
+
 def open_timecard(worker_id, site_id=None):
     for t in DB['timecards']:
         if t['worker_id'] == worker_id and t['status'] == 'clocked_in':
@@ -544,6 +560,8 @@ def timecards():
                            fmt_dt=fmt_dt, gmaps_link=gmaps_link,
                            compute_hours=compute_hours,
                            clock_in_distance_km=clock_in_distance_km,
+                           clock_out_distance_km=clock_out_distance_km,
+                           fmt_coords=fmt_coords,
                            worker_name=worker_name)
 
 
