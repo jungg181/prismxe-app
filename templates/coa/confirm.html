@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d4f3c">
+<title>Confirm My Hours · COA</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+<style>
+.coa-head{background:#0d4f3c;color:#fff;padding:18px;text-align:center;border-radius:0 0 16px 16px}
+.coa-head h1{margin:0;font-size:1.25rem}
+.big-btn{width:100%;padding:16px;font-size:1.1rem;font-weight:800;border-radius:14px;margin:8px 0;border:2px solid transparent;cursor:pointer}
+.btn-ok{background:#0d4f3c;color:#fff}
+.btn-bad{background:#fff;color:#991b1b;border-color:#991b1b}
+.msg{padding:12px;border-radius:10px;margin:10px 0;font-size:.92rem}
+.msg.ok{background:#dcfce7;color:#166534}
+.msg.bad{background:#fee2e2;color:#991b1b}
+.tc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}
+textarea{width:100%;min-height:90px;border-radius:10px;padding:10px;font-size:.95rem}
+</style>
+</head>
+<body>
+<div class="coa-head"><h1>🧹 COA · Confirm My Hours</h1></div>
+<main class="container narrow">
+{% if not rec %}
+  <div class="card" style="margin-top:12px"><div class="card-body">
+    <div class="msg bad">This confirmation link is invalid or has expired. Ask your supervisor for a new one.</div>
+  </div></div>
+{% else %}
+  <div class="card" style="margin-top:12px"><div class="card-body">
+    <h3 style="margin-top:0">Hi {{ rec.worker_name }} 👋</h3>
+    <p>Please check your hours for <b>{{ rec.period_start }} → {{ rec.period_end }}</b>.</p>
+    <div style="font-size:1.6rem;font-weight:800;margin:8px 0">{{ rec.hours }} hours</div>
+    {% for d in rec.details %}
+    <div class="tc-row"><span><b>{{ d.date }}</b> · {{ d.site }}<br>
+      <span class="muted small">{{ d.clock_in[5:16].replace('T',' ') if d.clock_in }} – {{ d.clock_out[5:16].replace('T',' ') if d.clock_out }}</span></span>
+      <b>{{ d.hours }}h</b></div>
+    {% endfor %}
+
+    {% if msg == 'ok' or rec.status == 'confirmed' %}
+      <div class="msg ok" style="margin-top:12px">✓ Thank you! You confirmed your hours are correct.</div>
+    {% elif msg == 'problem' or rec.status == 'disputed' %}
+      <div class="msg bad" style="margin-top:12px">⚠️ Thank you — you flagged a problem. Your supervisor has been notified and will review it.</div>
+    {% else %}
+      <form method="post" style="margin-top:12px" onsubmit="return confirmChoice()">
+        <button type="submit" name="choice" value="ok" class="big-btn btn-ok">✓ No Problem — Hours Are Correct</button>
+        <div id="problem-box" style="display:none;margin-top:8px">
+          <label><b>What's wrong?</b>
+          <textarea name="note" id="problem-note" placeholder="e.g. I worked 8 hours on 10/15 but it shows 6..."></textarea></label>
+        </div>
+        <button type="button" id="problem-btn" class="big-btn btn-bad" onclick="showProblem()">⚠️ There's a Problem</button>
+        <button type="submit" name="choice" value="problem" id="problem-submit" class="big-btn btn-bad" style="display:none">Send Problem Report</button>
+      </form>
+      <script>
+      function showProblem(){
+        document.getElementById('problem-box').style.display='block';
+        document.getElementById('problem-btn').style.display='none';
+        document.getElementById('problem-submit').style.display='block';
+        document.getElementById('problem-note').focus();
+      }
+      function confirmChoice(){
+        var active = document.activeElement;
+        if (active && active.value === 'problem') {
+          return confirm('Send this problem report to your supervisor?');
+        }
+        return confirm('Confirm your hours are correct?');
+      }
+      </script>
+    {% endif %}
+  </div></div>
+{% endif %}
+</main>
+</body>
+</html>
