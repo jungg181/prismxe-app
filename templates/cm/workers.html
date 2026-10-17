@@ -18,7 +18,7 @@
 </div>
 
 <form class="filters" method="get">
-  <input type="search" name="q" placeholder="Search name, phone, trade..." value="{{ q }}">
+  <input type="search" name="q" placeholder="Search name, phone, trade, company..." value="{{ q }}">
   <div class="grid3">
     <select name="site" onchange="this.form.submit()">
       <option value="all">All sites</option>
@@ -27,6 +27,10 @@
     <select name="trade" onchange="this.form.submit()">
       <option value="all">All Trades</option>
       {% for t in trades %}<option {% if ftrade == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+    <select name="company" onchange="this.form.submit()">
+      <option value="all">All Companies</option>
+      {% for c in companies %}<option {% if fcompany == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
     </select>
     <select name="status" onchange="this.form.submit()">
       <option value="all">All Status</option>
@@ -49,6 +53,7 @@
       </span>
       {% if w.clocked_in %}<span class="live-slot" data-wid="{{ w.id }}"></span>{% endif %}
       <span class="pill trade">{{ w.trade }}</span>
+      {% if w.company %}<span class="pill">{{ w.company }}</span>{% endif %}
     </div>
     <div class="muted small">
       {% if w.phone %}<a href="tel:{{ w.phone }}">{{ w.phone }}</a>{% endif %}
@@ -114,7 +119,7 @@ async function openDetails(wid){
   const d = await (await fetch('/cm/api/workers/'+wid)).json();
   const rows = d.timecards.map(t=>`<tr><td>${t.date}</td><td>${t.in}–${t.out}</td><td>${t.status}</td><td>${t.hours}h</td></tr>`).join('');
   openModal(`<h3>${d.worker.name}</h3>
-    <p class="muted small">${d.worker.trade} · ${d.worker.employment_type} · ${siteName(d.worker.site_id)}<br>
+    <p class="muted small">${d.worker.trade} · ${d.worker.company||''} · ${d.worker.employment_type} · ${siteName(d.worker.site_id)}<br>
     ${d.worker.email||''} ${d.worker.phone||''}<br>Emergency: ${d.worker.emergency_contact||'Not registered'}</p>
     <div class="stats"><div class="stat"><div class="num">${d.counts.timecards}</div><div class="lbl">Timecards</div></div>
     <div class="stat"><div class="num">${d.counts.hours}</div><div class="lbl">Hours</div></div></div>
