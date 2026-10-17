@@ -65,6 +65,23 @@ function doPost(e) {
       out = { ok: true,
               url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
               file_id: file.getId() };
+    } else if (data.action === "saveCoaBackup") {
+      // data: {csv, filename, folder_id} — durable COA timecards backup.
+      // Overwrites a single CSV in the given Drive folder so the file is
+      // always the current state; survives Render redeploys.
+      var coaFolder = DriveApp.getFolderById(data.folder_id);
+      var fname = data.filename || "COA_Timecards.csv";
+      var coaBlob = Utilities.newBlob(data.csv || "", "text/csv", fname);
+      var existing = coaFolder.getFilesByName(fname);
+      var coaFile;
+      if (existing.hasNext()) {
+        coaFile = existing.next();
+        coaFile.setContent(coaBlob.getDataAsString());
+      } else {
+        coaFile = coaFolder.createFile(coaBlob);
+      }
+      coaFile.setDescription("COA timecards backup · updated " + new Date().toISOString());
+      out = { ok: true, file_id: coaFile.getId() };
     } else {
       out = { ok: false, error: "unknown action: " + data.action };
     }
