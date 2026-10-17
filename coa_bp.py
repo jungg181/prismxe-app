@@ -16,6 +16,7 @@ import io
 import csv
 import json
 import uuid
+import secrets
 import threading
 import urllib.request
 from datetime import datetime, timedelta
@@ -33,7 +34,7 @@ BASE_URL = os.environ.get('BASE_URL', 'https://app.prismxe.com')
 SHEETS_URL = os.environ.get('CM_SHEETS_URL', '')
 COA_DRIVE_FOLDER_ID = '1b5hO9wUMl1GO4UBhRd6YUdptGdSRC0r7'
 
-COLLECTIONS = ['sites', 'workers', 'timecards']
+COLLECTIONS = ['sites', 'workers', 'timecards', 'confirmations']
 
 
 # ---------- small helpers ----------
@@ -596,3 +597,216 @@ def api_backup_now():
     """Manual trigger: back up the COA DB to the Drive folder right now."""
     drive_backup_async()
     return jsonify({'ok': True})
+
+
+# ================= PAY-PERIOD CONFIRMATIONS =================
+# A few days before payday the admin picks the worked date range and sends
+# each worker a confirmation email (everyone registers with an email).
+# The worker opens their personal link, reviews their hours and taps
+# "No problem" or "There's a problem" — the admin sees the results here.
+
+def _email_available():
+    """True when the deployed Apps Script supports sendEmail."""
+    res = _drive_post({'action': 'sendEmail', 'probe': True}, timeout=15)
+    return bool(res and res.get('ok'))
+
+
+def _send_email(to, subject, body, html):
+    res = _drive_post({'action': 'sendEmail', 'to': to, 'subject': subject,
+                       'body': body, 'html': html}, timeout=30)
+    return bool(res and res.get('ok'))
+
+
+def _site_name(site_id):
+    s = find('sites', site_id)
+    return s['name'] if s else '—'
+
+
+def _period_rows(worker_id, start, end):
+    """Completed timecards for a worker with clock-in date in [start, end]."""
+    rows = [t for t in DB['timecards']
+            if t.get('worker_id') == worker_id
+            and t.get('status') in ('clocked_out', 'approved')
+            and start <= (t.get('clock_in') or '')[:10] <= end]
+    rows.sort(key=lambda t: t.get('clock_in') or '')
+    return rows
+
+
+def _period_hours(rows):
+    total = 0.0
+    for t in rows:
+        h = t.get('hours')
+        if h is None:
+            h = compute_hours(t.get('clock_in'), t.get('clock_out'))
+        try:
+            total += float(h)
+        except (TypeError, ValueError):
+            pass
+    return round(total, 2)
+
+
+def _confirm_url(rec):
+    return BASE_URL.rstrip('/') + '/coa/confirm/' + rec['token']
+
+
+def _confirmation_email(rec):
+    link = _confirm_url(rec)
+    shift_rows = ''.join(
+        '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">%s</td>'
+        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s</td>'
+        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s – %s</td>'
+        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s h</td></tr>'
+        % ((t.get('clock_in') or '')[:10], _site_name(t.get('site_id')),
+           fmt_dt(t.get('clock_in')), fmt_dt(t.get('clock_out')),
+           t.get('hours') if t.get('hours') is not None
+           else compute_hours(t.get('clock_in'), t.get('clock_out')))
+        for t in rec['details'])
+    subject = f"Please confirm your hours — {rec['period_start']} to {rec['period_end']}"
+    body = (f"Hi {rec['worker_name']},\n\n"
+            f"Please review your hours for {rec['period_start']} to {rec['period_end']}.\n"
+            f"Total: {rec['hours']} hours.\n\n"
+            f"Open this link to confirm: {link}\n\n"
+            f"Tap 'No problem' if the hours are correct, or 'There's a problem' "
+            f"and tell us what's wrong.\n\n— Cleaners of America")
+    html = (f"<p>Hi {rec['worker_name']},</p>"
+            f"<p>Please review your hours for <b>{rec['period_start']}</b> to "
+            f"<b>{rec['period_end']}</b>.</p>"
+            f"<table style='border-collapse:collapse'>"
+            f"<tr><th style='text-align:left;padding:6px 10px'>Date</th>"
+            f"<th style='text-align:left;padding:6px 10px'>Jobsite</th>"
+            f"<th style='text-align:left;padding:6px 10px'>Shift</th>"
+            f"<th style='text-align:left;padding:6px 10px'>Hours</th></tr>"
+            f"{shift_rows}</table>"
+            f"<p><b>Total: {rec['hours']} hours</b></p>"
+            f"<p><a href='{link}' style='display:inline-block;background:#0d4f3c;"
+            f"color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;"
+            f"font-weight:700'>Review &amp; Confirm My Hours</a></p>"
+            f"<p>If the button doesn't work, open this link:<br>{link}</p>"
+            f"<p>— Cleaners of America</p>")
+    return subject, body, html
+
+
+def _build_confirmation(worker, start, end):
+    rows = _period_rows(worker['id'], start, end)
+    if not rows:
+        return None
+    details = [{
+        'date': (t.get('clock_in') or '')[:10],
+        'site': _site_name(t.get('site_id')),
+        'clock_in': t.get('clock_in'), 'clock_out': t.get('clock_out'),
+        'hours': t.get('hours') if t.get('hours') is not None
+                 else compute_hours(t.get('clock_in'), t.get('clock_out')),
+        'reported_hours': t.get('reported_hours'),
+        'status': t.get('status'),
+    } for t in rows]
+    return {
+        'id': uuid.uuid4().hex[:12],
+        'worker_id': worker['id'],
+        'worker_name': worker.get('name', '—'),
+        'email': worker.get('email', ''),
+        'period_start': start, 'period_end': end,
+        'hours': _period_hours(rows),
+        'details': details,
+        'token': secrets.token_urlsafe(32),
+        'status': 'pending',  # pending | confirmed | disputed
+        'note': '',
+        'sent_at': None, 'responded_at': None,
+        'created_at': now_iso(),
+    }
+
+
+@bp.route('/confirmations')
+def confirmations():
+    start = request.args.get('start', '')
+    end = request.args.get('end', '')
+    preview = []
+    if start and end and start <= end:
+        for w in DB['workers']:
+            rec = _build_confirmation(w, start, end)
+            if rec:
+                preview.append(rec)
+        preview.sort(key=lambda r: r['worker_name'].lower())
+    email_ok = _email_available()
+    recs = sorted(DB['confirmations'], key=lambda r: r.get('created_at') or '',
+                  reverse=True)
+    return render_template('coa/confirmations.html', start=start, end=end,
+                           preview=preview, recs=recs, email_ok=email_ok,
+                           worker_name=worker_name)
+
+
+@bp.route('/confirmations/send', methods=['POST'])
+def confirmations_send():
+    start = request.form.get('start', '').strip()
+    end = request.form.get('end', '').strip()
+    if not (start and end and start <= end):
+        return redirect(url_for('coa.confirmations'))
+    sent, skipped, failed = 0, 0, 0
+    email_ok = _email_available()
+    for w in DB['workers']:
+        # don't duplicate a pending confirmation for the same worker+period
+        dup = any(r['worker_id'] == w['id'] and r['period_start'] == start
+                  and r['period_end'] == end and r['status'] == 'pending'
+                  for r in DB['confirmations'])
+        if dup:
+            skipped += 1
+            continue
+        rec = _build_confirmation(w, start, end)
+        if not rec:
+            continue
+        if email_ok and rec['email']:
+            subject, body, html = _confirmation_email(rec)
+            if _send_email(rec['email'], subject, body, html):
+                rec['sent_at'] = now_iso()
+                sent += 1
+            else:
+                failed += 1
+        else:
+            # no email delivery (no address or old Apps Script) — the record
+            # is still created so the admin can copy the link manually.
+            failed += 1
+        DB['confirmations'].append(rec)
+    save_db()
+    return redirect(url_for('coa.confirmations', start=start, end=end,
+                            sent=sent, failed=failed, skipped=skipped,
+                            _anchor='results'))
+
+
+@bp.route('/confirmations/<cid>/resend', methods=['POST'])
+def confirmation_resend(cid):
+    rec = find('confirmations', cid)
+    if rec and rec.get('email') and _email_available():
+        subject, body, html = _confirmation_email(rec)
+        if _send_email(rec['email'], subject, body, html):
+            rec['sent_at'] = now_iso()
+            rec['status'] = 'pending'
+            rec['responded_at'] = None
+            save_db()
+    return redirect(url_for('coa.confirmations', _anchor='results'))
+
+
+@bp.route('/confirm/<token>', methods=['GET', 'POST'])
+def confirm_hours(token):
+    """Public worker page: review hours and tap No problem / There's a problem."""
+    rec = next((r for r in DB['confirmations'] if r.get('token') == token), None)
+    if not rec:
+        return render_template('coa/confirm.html', rec=None), 404
+    msg = None
+    if request.method == 'POST' and rec['status'] == 'pending':
+        choice = request.form.get('choice')
+        if choice == 'ok':
+            rec['status'] = 'confirmed'
+            rec['responded_at'] = now_iso()
+            msg = 'ok'
+        elif choice == 'problem':
+            rec['status'] = 'disputed'
+            rec['note'] = request.form.get('note', '').strip()[:1000]
+            rec['responded_at'] = now_iso()
+            msg = 'problem'
+            # notify the admin (script owner) by email — best effort
+            _drive_post({'action': 'notifyDispute',
+                         'worker': f"{rec['worker_name']} <{rec['email']}>",
+                         'period': f"{rec['period_start']} to {rec['period_end']}",
+                         'note': rec['note'] or '(no note)'}, timeout=20)
+        save_db()
+    return render_template('coa/confirm.html', rec=rec, msg=msg,
+                           site_name=_site_name)
