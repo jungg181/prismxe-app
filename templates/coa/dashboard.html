@@ -1,0 +1,27 @@
+{% extends "coa/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>COA Dashboard</h1>
+<p class="muted">Cleaners of America · 출퇴근 현황</p>
+<div class="stats">
+  <div class="stat"><div class="num">{{ shift_rows|length }}</div><div class="lbl">근무 중</div></div>
+  <div class="stat"><div class="num">{{ today_hours }}</div><div class="lbl">오늘 근무 시간</div></div>
+  <div class="stat"><div class="num">{{ n_workers }}</div><div class="lbl">등록 직원</div></div>
+  <div class="stat"><div class="num">{{ n_sites }}</div><div class="lbl">현장</div></div>
+</div>
+{% if shift_rows %}
+<div class="card" style="margin-top:12px"><div class="card-body">
+  <h3 style="margin-top:0">현재 근무 중</h3>
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>직원</th><th>현장</th><th>출근 시간</th></tr>
+    {% for r in shift_rows %}
+    <tr><td><b>{{ r.worker }}</b></td><td>{{ r.site }}</td><td>{{ r.clock_in }}</td></tr>
+    {% endfor %}
+  </table></div>
+</div></div>
+{% endif %}
+<div class="toolbar" style="margin-top:12px">
+  <a class="btn" href="{{ url_for('coa.timecards') }}">Timecards 보기</a>
+  <a class="btn" href="{{ url_for('coa.sites') }}">현장 QR 출력</a>
+</div>
+{% endblock %}
