@@ -235,6 +235,14 @@ def save_db():
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
     drive_backup_async()
+    # Piggyback on the CM Sheets sync so COA data survives Render deploys
+    # even before the Apps Script update (the old script blind-stores the
+    # saveData blob, wrapped as {"cm":..., "coa":...}).
+    try:
+        from cm_bp import sheets_sync_db
+        sheets_sync_db()
+    except Exception as e:  # noqa: BLE001
+        print(f"coa: sheets sync failed: {e}", flush=True)
 
 
 DB = load_db()
