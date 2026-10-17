@@ -27,6 +27,10 @@
       <option value="newest" {% if sort=='newest' %}selected{% endif %}>Date: newest first</option>
       <option value="oldest" {% if sort=='oldest' %}selected{% endif %}>Date: oldest first</option>
     </select>
+    <select name="company" onchange="this.form.submit()">
+      <option value="all">All Companies</option>
+      {% for c in companies %}<option {% if fcompany == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
   </div>
   <div class="chip-row">
     {% for v,label in [('all','All'),('clocked_in','Clocked In'),('clocked_out','Clocked Out'),('approved','Approved')] %}
