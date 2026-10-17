@@ -1,10 +1,10 @@
 {% extends "coa/base.html" %}
 {% block title %}Sites{% endblock %}
 {% block content %}
-<h1>현장 (Jobsites)</h1>
-<p class="muted">현장마다 QR 코드를 출력해서 붙여두세요. 직원이 QR을 찍으면 그 현장으로 출퇴근합니다.</p>
+<h1>Jobsites</h1>
+<p class="muted">Print the QR code for each jobsite and post it there. Workers scan it to clock in/out for that site.</p>
 <div class="toolbar">
-  <a class="btn primary" href="{{ url_for('coa.site_new') }}">+ 현장 추가</a>
+  <a class="btn primary" href="{{ url_for('coa.site_new') }}">+ Add Jobsite</a>
 </div>
 <div class="cards">
 {% for s in sites %}
@@ -15,8 +15,8 @@
   {% if s.address %}<div class="muted small">{{ s.address }}</div>{% endif %}
   {% if s.lat and s.lng %}<div class="muted small">📍 {{ s.lat }}, {{ s.lng }}</div>{% endif %}
   <div class="row-actions" style="margin-top:8px">
-    <a class="btn small primary" href="{{ url_for('coa.qr_image', site_id=s.id) }}" target="_blank">📷 QR 출력</a>
-    <a class="btn small" href="{{ url_for('coa.clock_page', site=s.id) }}" target="_blank">출퇴근 페이지</a>
+    <a class="btn small primary" href="{{ url_for('coa.qr_image', site_id=s.id) }}" target="_blank">📷 Print QR</a>
+    <a class="btn small" href="{{ url_for('coa.clock_page', site=s.id) }}" target="_blank">Clock Page</a>
     <a class="btn small" href="{{ url_for('coa.site_edit', sid=s.id) }}">Edit</a>
     <form method="post" action="{{ url_for('coa.site_delete', sid=s.id) }}" onsubmit="return confirm('Delete this site?')">
       <button class="btn small danger">Delete</button>
@@ -24,7 +24,7 @@
   </div>
 </div></div>
 {% else %}
-<p class="muted">등록된 현장이 없습니다.</p>
+<p class="muted">No jobsites yet.</p>
 {% endfor %}
 </div>
 {% endblock %}
