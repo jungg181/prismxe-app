@@ -215,6 +215,7 @@ def load_db():
             t['created_at'] = (exp - timedelta(minutes=10)).isoformat(timespec='seconds') if exp else now_iso()
     for t in db.get('timecards', []):
         t.setdefault('offline', False)
+        t.setdefault('company', '')
     return db
 
 
@@ -815,12 +816,13 @@ def clock_page(token):
 
 
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
-                   offline=False, reported_hours=None, note=None):
+                   offline=False, reported_hours=None, note=None, company=None):
     """Shared clock-in/out engine used by both the /clock page and the
     On Site worker app API. at_iso overrides the timestamp (used for
     offline-synced punches); offline marks the record as synced offline.
     reported_hours is the worker-declared hours for the shift (excluding
-    meal break), captured at clock-out. Returns (ok, info dict)."""
+    meal break), captured at clock-out. company stamps the record with the
+    worker's company (e.g. 'COA'). Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
         return False, {'error': 'Worker not found.'}
@@ -840,6 +842,7 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
              'hours': 0.0, 'status': 'clocked_in',
              'notes': note or 'QR clock-in',
+             'company': company or '',
              'offline': offline}
         DB['timecards'].append(t)
         save_db()
@@ -1061,8 +1064,158 @@ def api_direct_clock():
     ok, info = _perform_clock(site_id, action, worker_id,
                               d.get('lat'), d.get('lng'),
                               reported_hours=d.get('reported_hours'),
-                              note='Self clock-in' if action == 'clock_in' else None)
+                              note='Self clock-in' if action == 'clock_in' else None,
+                              company=(d.get('company') or '').strip() or None)
     info['ok'] = ok
+    return jsonify(info), (200 if ok else 400)
+
+
+# ================= COA (Cleaners of America) TIME CLOCK =================
+
+COA_COMPANY = 'COA'
+# Google Drive folder where COA timecard backups are saved.
+COA_DRIVE_FOLDER_ID = '1b5hO9wUMl1GO4UBhRd6YUdptGdSRC0r7'
+
+
+def coa_workers():
+    return [w for w in DB['workers'] if (w.get('company') or '') == COA_COMPANY]
+
+
+def coa_timecards():
+    return [t for t in DB['timecards'] if (t.get('company') or '') == COA_COMPANY]
+
+
+def coa_drive_backup_async():
+    """Save the COA timecards as a CSV into the user's Google Drive folder
+    (background thread, best-effort). This is the durable backup the user
+    asked for — it survives Render redeploys independently of Sheets sync."""
+    if not CM_SHEETS_URL:
+        return
+
+    def _run():
+        try:
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(['id', 'worker', 'phone', 'site', 'clock_in', 'clock_out',
+                        'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng',
+                        'hours', 'reported_hours', 'status', 'notes'])
+            for t in sorted(coa_timecards(), key=lambda x: x.get('clock_in') or ''):
+                wr = find('workers', t.get('worker_id')) or {}
+                w.writerow([t.get('id'), wr.get('name', ''), wr.get('phone', ''),
+                            site_name(t.get('site_id')), t.get('clock_in'), t.get('clock_out'),
+                            t.get('clock_in_lat'), t.get('clock_in_lng'),
+                            t.get('clock_out_lat'), t.get('clock_out_lng'),
+                            t.get('hours'), t.get('reported_hours', ''), t.get('status'),
+                            t.get('notes', '')])
+            sheets_post({'action': 'saveCoaBackup',
+                         'csv': buf.getvalue(),
+                         'filename': 'COA_Timecards.csv',
+                         'folder_id': COA_DRIVE_FOLDER_ID}, timeout=25)
+        except Exception:
+            pass
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@bp.route('/coa-clock')
+def coa_clock():
+    sites = [s for s in DB['sites'] if s.get('status') == 'active']
+    # ?site=<site_id> — opened from a jobsite QR code: the site is fixed.
+    fixed_site = find('sites', request.args.get('site') or '')
+    if fixed_site and fixed_site.get('status') != 'active':
+        fixed_site = None
+    return render_template('cm/coa_clock.html', sites=sites,
+                           fixed_site=fixed_site,
+                           workers=sorted(coa_workers(), key=lambda w: w['name'].lower()))
+
+
+@bp.route('/coa-qr/<site_id>.png')
+def coa_qr_image(site_id):
+    """Printable QR code for a jobsite. Workers scan it to open the COA
+    clock page with that site pre-selected — the same code is used for
+    registration and for clock in/out."""
+    try:
+        import qrcode
+    except ImportError:
+        abort(500, 'qrcode library not installed')
+    s = find('sites', site_id)
+    if not s:
+        abort(404)
+    url = BASE_URL.rstrip('/') + '/cm/coa-clock?site=' + site_id
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
+
+
+@bp.route('/api/coa-workers')
+def api_coa_workers():
+    return jsonify([{'id': w['id'], 'name': w['name'],
+                     'email': w.get('email', ''), 'phone': w.get('phone', '')}
+                    for w in sorted(coa_workers(), key=lambda w: w['name'].lower())])
+
+
+@bp.route('/api/coa-clock', methods=['POST'])
+def api_coa_clock():
+    """COA-dedicated clock in/out. Workers register with email (the key),
+    name and phone. Finds the worker by email first (or registers a new
+    COA worker), records the punch with GPS, and queues a Drive-folder
+    backup of all COA timecards."""
+    d = request.get_json(force=True)
+    worker_id = d.get('worker_id')
+    w = find('workers', worker_id) if worker_id else None
+    if not w:
+        name = (d.get('name') or '').strip()
+        email = (d.get('email') or '').strip().lower()
+        phone = (d.get('phone') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Enter your name.'}), 400
+        if '@' not in email or '.' not in email.split('@')[-1]:
+            return jsonify({'ok': False, 'error': 'Enter a valid email address.'}), 400
+        # Email is the identity key; fall back to phone, then name.
+        w = next((x for x in coa_workers()
+                  if (x.get('email') or '').strip().lower() == email), None)
+        if not w and phone:
+            w = next((x for x in coa_workers()
+                      if (x.get('phone') or '').strip() == phone), None)
+        if not w:
+            w = next((x for x in coa_workers()
+                      if x.get('name', '').strip().lower() == name.lower()), None)
+        if not w:
+            w = {'id': new_id(), 'name': name, 'email': email, 'phone': phone,
+                 'trade': 'Cleaner', 'company': COA_COMPANY,
+                 'employment_type': 'Contract', 'hourly_rate': 0.0,
+                 'site_id': d.get('site_id') or '', 'status': 'active',
+                 'emergency_contact': '', 'photo_url': '',
+                 'created_at': now_iso(), 'self_registered': True}
+            DB['workers'].append(w)
+        else:
+            # Keep the record fresh.
+            if not w.get('email'):
+                w['email'] = email
+            if phone and not w.get('phone'):
+                w['phone'] = phone
+        worker_id = w['id']
+    action = d.get('action')
+    if action not in ('clock_in', 'clock_out'):
+        action = 'clock_out' if open_timecard(worker_id) else 'clock_in'
+    site_id = d.get('site_id') or w.get('site_id') or ''
+    if action == 'clock_in':
+        if not find('sites', site_id):
+            return jsonify({'ok': False, 'error': 'Choose a jobsite first.'}), 400
+        w['site_id'] = site_id
+    ok, info = _perform_clock(site_id, action, worker_id,
+                              d.get('lat'), d.get('lng'),
+                              reported_hours=d.get('reported_hours'),
+                              note='COA clock-in' if action == 'clock_in' else None,
+                              company=COA_COMPANY)
+    if ok:
+        save_db()
+        coa_drive_backup_async()
+    info['ok'] = ok
+    info['worker_id'] = worker_id
+    info['worker_name'] = w['name']
     return jsonify(info), (200 if ok else 400)
 
 
@@ -1140,8 +1293,11 @@ def api_sync_clock():
     ok, info = _perform_clock(sync_site_id, action, worker_id,
                               d.get('lat'), d.get('lng'),
                               at_iso=client_at, offline=True,
-                              reported_hours=d.get('reported_hours'))
+                              reported_hours=d.get('reported_hours'),
+                              company=(d.get('company') or '').strip() or None)
     info['ok'] = ok
+    if ok and (d.get('company') or '').strip() == COA_COMPANY:
+        coa_drive_backup_async()
     return jsonify(info), (200 if ok else 400)
 
 
@@ -1261,6 +1417,7 @@ def api_my_timecards(worker_id):
 def timecards():
     fsite = request.args.get('site') or 'all'
     fstatus = request.args.get('status') or 'all'
+    fcompany = request.args.get('company') or 'all'
     sort = request.args.get('sort') or 'newest'
     rows = []
     for t in DB['timecards']:
@@ -1268,6 +1425,10 @@ def timecards():
             continue
         if fstatus != 'all' and t.get('status') != fstatus:
             continue
+        if fcompany != 'all':
+            tc = t.get('company') or (find('workers', t.get('worker_id')) or {}).get('company', '')
+            if tc != fcompany:
+                continue
         rows.append(t)
     rows.sort(key=lambda t: t.get('clock_in') or '',
               reverse=(sort == 'newest'))
@@ -1276,7 +1437,8 @@ def timecards():
     gps_n = sum(1 for t in rows if t.get('clock_in_lat') not in (None, ''))
     active_now = sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_in')
     return render_template('cm/timecards.html', rows=rows, fsite=fsite,
-                           fstatus=fstatus, sort=sort, sites=DB['sites'],
+                           fstatus=fstatus, fcompany=fcompany, sort=sort, sites=DB['sites'],
+                           companies=all_companies(),
                            total_hours=round(total_hours, 1), total=len(rows),
                            gps_pct=round(100 * gps_n / len(rows)) if rows else 0,
                            active_now=active_now, attention=needs_attention_count())
