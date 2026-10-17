@@ -1,0 +1,17 @@
+{% extends "coa/base.html" %}
+{% block title %}Workers{% endblock %}
+{% block content %}
+<h1>직원 (Workers)</h1>
+<p class="muted">출퇴근 페이지에서 이메일로 등록된 COA 직원 목록입니다.</p>
+<form class="filters" method="get">
+  <input type="search" name="q" placeholder="이름, 이메일, 전화번호 검색..." value="{{ q }}">
+</form>
+<div class="table-wrap"><table class="tbl">
+<tr><th>이름</th><th>이메일</th><th>전화번호</th><th>등록일</th></tr>
+{% for w in rows %}
+<tr><td><b>{{ w.name }}</b></td><td>{{ w.email }}</td><td>{{ w.phone }}</td><td class="muted small">{{ w.created_at[:10] if w.created_at }}</td></tr>
+{% else %}
+<tr><td colspan="4" class="muted">등록된 직원이 없습니다.</td></tr>
+{% endfor %}
+</table></div>
+{% endblock %}
