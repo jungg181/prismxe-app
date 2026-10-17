@@ -592,12 +592,32 @@ TRADES = ['Electrician', 'Carpenter', 'Plumber', 'Laborer', 'Welder',
 EMP_TYPES = ['Direct Team', 'Contract']
 WORKER_STATUSES = ['active', 'on_leave', 'inactive']
 
+# Priority companies shown first in dropdowns, filters and CSV exports.
+COMPANY_PRIORITY = ['COA', 'Carpenter', 'KSR', 'Myungjin', 'Upper Concrete', 'Brian']
+
+
+def company_sort_key(name):
+    """Sort key: priority companies first (in listed order), then A-Z."""
+    n = (name or '').strip()
+    if n in COMPANY_PRIORITY:
+        return (0, COMPANY_PRIORITY.index(n))
+    return (1, n.lower())
+
+
+def all_companies():
+    """Priority companies first, then any other companies already in use."""
+    others = sorted({(w.get('company') or '').strip() for w in DB['workers']
+                     if (w.get('company') or '').strip() and w.get('company') not in COMPANY_PRIORITY},
+                    key=str.lower)
+    return COMPANY_PRIORITY + others
+
 
 @bp.route('/workers')
 def workers():
     q = (request.args.get('q') or '').lower()
     fsite = request.args.get('site') or 'all'
     ftrade = request.args.get('trade') or 'all'
+    fcompany = request.args.get('company') or 'all'
     fstatus = request.args.get('status') or 'all'
     rows = []
     for w in DB['workers']:
@@ -605,20 +625,24 @@ def workers():
             continue
         if ftrade != 'all' and w.get('trade') != ftrade:
             continue
+        if fcompany != 'all' and (w.get('company') or '') != fcompany:
+            continue
         if fstatus != 'all' and w.get('status') != fstatus:
             continue
-        if q and q not in f"{w['name']} {w.get('phone','')} {w.get('trade','')}".lower():
+        if q and q not in f"{w['name']} {w.get('phone','')} {w.get('trade','')} {w.get('company','')}".lower():
             continue
         w2 = dict(w)
         w2['clocked_in'] = open_timecard(w['id']) is not None
         rows.append(w2)
+    rows.sort(key=lambda w: (company_sort_key(w.get('company')), w['name'].lower()))
     total_hours = sum(t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
                       for t in DB['timecards'] if t.get('clock_out'))
     active_now = sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_in')
     return render_template('cm/workers.html', rows=rows,
                            q=request.args.get('q', ''), fsite=fsite,
-                           ftrade=ftrade, fstatus=fstatus,
+                           ftrade=ftrade, fcompany=fcompany, fstatus=fstatus,
                            sites=DB['sites'], trades=sorted({w.get('trade') for w in DB['workers'] if w.get('trade')} | set(TRADES)),
+                           companies=all_companies(),
                            total=len(DB['workers']), active_now=active_now,
                            total_hours=round(total_hours, 1))
 
@@ -632,6 +656,7 @@ def worker_new():
             'email': request.form.get('email', '').strip(),
             'phone': request.form.get('phone', '').strip(),
             'trade': request.form.get('trade', '').strip() or 'Other',
+            'company': request.form.get('company', '').strip(),
             'employment_type': request.form.get('employment_type', 'Contract'),
             'hourly_rate': _f(request.form.get('hourly_rate')) or 0.0,
             'site_id': request.form.get('site_id') or None,
@@ -645,7 +670,8 @@ def worker_new():
         flash(f"Worker '{w['name']}' registered.")
         return redirect(url_for('cm.workers'))
     return render_template('cm/worker_form.html', worker=None, sites=DB['sites'],
-                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES)
+                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES,
+                           companies=all_companies())
 
 
 @bp.route('/workers/<wid>/edit', methods=['GET', 'POST'])
@@ -658,6 +684,7 @@ def worker_edit(wid):
         w['email'] = request.form.get('email', '').strip()
         w['phone'] = request.form.get('phone', '').strip()
         w['trade'] = request.form.get('trade', '').strip() or 'Other'
+        w['company'] = request.form.get('company', '').strip()
         w['employment_type'] = request.form.get('employment_type', 'Contract')
         w['hourly_rate'] = _f(request.form.get('hourly_rate')) or 0.0
         w['site_id'] = request.form.get('site_id') or None
@@ -670,7 +697,8 @@ def worker_edit(wid):
         flash(f"Worker '{w['name']}' updated.")
         return redirect(url_for('cm.workers'))
     return render_template('cm/worker_form.html', worker=w, sites=DB['sites'],
-                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES)
+                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES,
+                           companies=all_companies())
 
 
 @bp.route('/workers/<wid>/delete', methods=['POST'])
@@ -684,11 +712,11 @@ def worker_delete(wid):
 def workers_export():
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(['id', 'name', 'email', 'phone', 'trade', 'employment_type',
+    w.writerow(['id', 'name', 'email', 'phone', 'trade', 'company', 'employment_type',
                 'hourly_rate', 'site', 'status', 'emergency_contact', 'created_at'])
     for x in DB['workers']:
         w.writerow([x.get('id'), x.get('name'), x.get('email'), x.get('phone'),
-                    x.get('trade'), x.get('employment_type'), x.get('hourly_rate'),
+                    x.get('trade'), x.get('company', ''), x.get('employment_type'), x.get('hourly_rate'),
                     site_name(x.get('site_id')), x.get('status'),
                     x.get('emergency_contact'), x.get('created_at')])
     data = io.BytesIO(buf.getvalue().encode('utf-8'))
@@ -1288,10 +1316,11 @@ def payroll():
         w = find('workers', wid)
         rate = (w or {}).get('hourly_rate') or 0.0
         rows.append({'worker': worker_name(wid), 'trade': (w or {}).get('trade', '—'),
+                     'company': (w or {}).get('company', '') or '—',
                      'rate': rate, 'hours': round(a['hours'], 2),
                      'records': a['records'],
                      'gross': round(a['hours'] * rate, 2)})
-    rows.sort(key=lambda r: r['worker'])
+    rows.sort(key=lambda r: (company_sort_key(r['company'] if r['company'] != '—' else ''), r['worker'].lower()))
     total_gross = round(sum(r['gross'] for r in rows), 2)
     total_hours = round(sum(r['hours'] for r in rows), 2)
     return render_template('cm/payroll.html', rows=rows, start=start, end=end,
@@ -1325,6 +1354,7 @@ def payroll_export():
         approved = status == 'approved'
         detail.append({
             'employee': worker_name(t.get('worker_id')),
+            'company': (find('workers', t.get('worker_id')) or {}).get('company', '') or '',
             'site': site_name(t.get('site_id')),
             'ci': ci, 'co': co,
             'gross': gross, 'meal': meal, 'pay_hours': pay_hours,
@@ -1334,16 +1364,16 @@ def payroll_export():
                                 else 'Clocked In'),
             'notes': t.get('notes', '') or '',
         })
-    detail.sort(key=lambda r: (r['employee'].lower(), r['ci']))
+    detail.sort(key=lambda r: (company_sort_key(r['company']), r['employee'].lower(), r['ci']))
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
+    w.writerow(['Employee', 'Company', 'Site', 'Clock-In Date', 'Clock-In Time',
                 'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
                 'Meal Break Deduction', 'Payroll Hours', 'Payroll Status',
                 'Timecard Status', 'Notes'])
     for r in detail:
         w.writerow([
-            r['employee'], r['site'],
+            r['employee'], r['company'], r['site'],
             f"{r['ci'].day}-{r['ci'].strftime('%b')}-{r['ci'].strftime('%y')}",
             r['ci'].strftime('%-I:%M %p'),
             f"{r['co'].day}-{r['co'].strftime('%b')}-{r['co'].strftime('%y')}",
