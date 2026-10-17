@@ -22,63 +22,63 @@
 <body>
 <div class="coa-head">
   <h1>🧹 COA Time Clock</h1>
-  <p>Cleaners of America · 출퇴근 기록</p>
-  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-worker-name"></b> · <a href="#" id="switch-link" style="color:#a7e3c9">다른 직원으로 변경</a></p>
+  <p>Cleaners of America</p>
+  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-worker-name"></b> · <a href="#" id="switch-link" style="color:#a7e3c9">Switch worker</a></p>
 </div>
 
 <main class="container narrow">
   <div id="flash"></div>
-  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 오프라인 — 기록은 연결되면 자동 전송됩니다.</div>
+  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — records will sync automatically when reconnected.</div>
 
   <div class="card" id="who-card" style="margin-top:12px"><div class="card-body">
-    <h3 style="margin-top:0">직원 등록</h3>
-    <p class="muted small" style="margin-top:0">이메일로 등록됩니다. 처음 한 번만 입력하세요.</p>
-    <label><b>등록된 직원 선택</b>
+    <h3 style="margin-top:0">Worker Registration</h3>
+    <p class="muted small" style="margin-top:0">You register with your email. Only once.</p>
+    <label><b>Select registered worker</b>
       <select id="who-select" style="width:100%">
-        <option value="">— 선택하세요 —</option>
+        <option value="">— Select —</option>
         {% for w in workers %}<option value="{{ w.id }}">{{ w.name }}{% if w.email %} · {{ w.email }}{% endif %}</option>{% endfor %}
       </select>
     </label>
-    <p class="muted small" style="text-align:center;margin:8px 0">— 또는 처음이시면 등록 —</p>
-    <label><b>이름</b><input type="text" id="who-name" placeholder="홍길동" style="width:100%" autocomplete="name"></label>
-    <label><b>이메일</b> <span class="muted small">(필수)</span><input type="email" id="who-email" placeholder="you@example.com" style="width:100%" autocomplete="email"></label>
-    <label><b>전화번호</b><input type="tel" id="who-phone" placeholder="010-0000-0000" style="width:100%" autocomplete="tel"></label>
-    <button class="btn primary scan-btn" onclick="identify()">등록하고 시작하기</button>
+    <p class="muted small" style="text-align:center;margin:8px 0">— or register for the first time —</p>
+    <label><b>Name</b><input type="text" id="who-name" placeholder="Jane Doe" style="width:100%" autocomplete="name"></label>
+    <label><b>Email</b> <span class="muted small">(required)</span><input type="email" id="who-email" placeholder="you@example.com" style="width:100%" autocomplete="email"></label>
+    <label><b>Phone</b><input type="tel" id="who-phone" placeholder="+1 480 555 0101" style="width:100%" autocomplete="tel"></label>
+    <button class="btn primary scan-btn" onclick="identify()">Register &amp; Start</button>
     <div id="who-msg"></div>
   </div></div>
 
   <div id="main-app" class="hidden">
     <div class="card" style="margin-top:12px"><div class="card-body" id="status-card">
-      <div class="muted">상태 불러오는 중...</div>
+      <div class="muted">Loading status...</div>
     </div></div>
 
     <div class="card" style="margin-top:12px"><div class="card-body">
-      <h3 style="margin-top:0">⏱️ 출근 / 퇴근</h3>
-      <p class="muted small" style="margin-top:0">현장에 도착하면 바로 눌러주세요. 위치가 자동으로 기록됩니다.</p>
+      <h3 style="margin-top:0">⏱️ Clock In / Out</h3>
+      <p class="muted small" style="margin-top:0">Tap below when you arrive at the jobsite. Your location is captured automatically.</p>
       <div id="dc-in-ui">
         {% if fixed_site %}
-        <p style="margin-top:0">📍 <b>현장:</b> {{ fixed_site.name }} <span class="pill pill-active small">QR 확인됨</span></p>
+        <p style="margin-top:0">📍 <b>Jobsite:</b> {{ fixed_site.name }} <span class="pill pill-active small">QR verified</span></p>
         <input type="hidden" id="dc-site" value="{{ fixed_site.id }}">
         {% else %}
-        <label><b>현장 (Jobsite)</b>
+        <label><b>Jobsite</b>
           <select id="dc-site" style="width:100%">
             {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
           </select>
         </label>
         {% endif %}
-        {% if not sites %}<p class="msg err">등록된 현장이 없습니다. 관리자에게 문의하세요.</p>{% endif %}
-        <button class="btn primary scan-btn" id="dc-in-btn" onclick="coaClockIn()">🟢 출근 (Clock In)</button>
+        {% if not sites %}<p class="msg err">No jobsites registered. Ask your supervisor.</p>{% endif %}
+        <button class="btn primary scan-btn" id="dc-in-btn" onclick="coaClockIn()">🟢 Clock In</button>
       </div>
       <div id="dc-out-ui" class="hidden">
-        <p style="margin-top:0"><b>현장:</b> <span id="dc-site-name"></span></p>
-        <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()" style="background:#dc2626;color:#fff;border-color:#dc2626">🔴 퇴근 (Clock Out)</button>
+        <p style="margin-top:0"><b>Jobsite:</b> <span id="dc-site-name"></span></p>
+        <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()" style="background:#dc2626;color:#fff;border-color:#dc2626">🔴 Clock Out</button>
       </div>
       <p class="muted small" id="dc-geo"></p>
     </div></div>
 
     <div class="card" style="margin-top:10px"><div class="card-body">
-      <h3 style="margin-top:0">내 근무 기록 <span class="muted small">(최근 7일)</span></h3>
-      <div id="tc-list"><div class="muted">불러오는 중...</div></div>
+      <h3 style="margin-top:0">My timecards <span class="muted small">(last 7 days)</span></h3>
+      <div id="tc-list"><div class="muted">Loading...</div></div>
     </div></div>
   </div>
 </main>
@@ -86,16 +86,16 @@
 <div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
   <div class="card" style="width:100%;max-width:400px;margin:0"><div class="card-body" style="text-align:center">
     <div style="font-size:40px">⏱️</div>
-    <h3 style="margin:8px 0 4px">퇴근 (Clock Out)</h3>
-    <p style="margin:4px 0"><b>오늘 일한 시간을 적어주세요</b></p>
-    <p class="muted small" style="margin:0 0 10px">(Meal Break 시간 제외)</p>
+    <h3 style="margin:8px 0 4px">Clock Out</h3>
+    <p style="margin:4px 0"><b>Enter the hours you worked today</b></p>
+    <p class="muted small" style="margin:0 0 10px">(excluding Meal Break)</p>
     <input type="number" id="hours-input" step="0.1" min="0" max="24" inputmode="decimal"
-           placeholder="예: 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:12px">
+           placeholder="e.g. 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:12px">
     <div class="row-actions" style="margin-top:12px;justify-content:center">
-      <button class="btn primary big" id="hours-confirm-btn" onclick="confirmCoaClockOut()">퇴근 확인</button>
-      <button class="btn big" onclick="closeHoursModal()">취소</button>
+      <button class="btn primary big" id="hours-confirm-btn" onclick="confirmCoaClockOut()">Confirm Clock Out</button>
+      <button class="btn big" onclick="closeHoursModal()">Cancel</button>
     </div>
-    <p class="muted small" style="margin:10px 0 0">비워 두면 입력 없이 퇴근 처리됩니다.</p>
+    <p class="muted small" style="margin:10px 0 0">Leave empty to clock out without entering hours.</p>
   </div></div>
 </div>
 
@@ -132,7 +132,7 @@ async function flushQueue(){
     } catch(e) { remaining.push(item); }
   }
   saveQueue(remaining);
-  if (synced) { msg(`✓ ${synced}개의 오프라인 기록을 전송했습니다.`, 'ok'); refreshAll(); }
+  if (synced) { msg(`✓ Synced ${synced} offline record${synced > 1 ? 's' : ''}.`, 'ok'); refreshAll(); }
 }
 
 function msg(html, kind){
@@ -165,16 +165,16 @@ function identify(){
   if (sel) {
     const name = $('who-select').selectedOptions[0].textContent.split(' ·')[0];
     enterMain(sel, name);
-    msg('환영합니다, ' + name + '님!', 'ok');
+    msg('Welcome, ' + name + '!', 'ok');
     return;
   }
   const name = $('who-name').value.trim();
   const email = $('who-email').value.trim().toLowerCase();
   const phone = $('who-phone').value.trim();
-  if (!name) { $('who-msg').innerHTML = '<div class="msg err">이름을 입력하거나 목록에서 선택하세요.</div>'; return; }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('who-msg').innerHTML = '<div class="msg err">올바른 이메일 주소를 입력하세요.</div>'; return; }
+  if (!name) { $('who-msg').innerHTML = '<div class="msg err">Enter your name or select from the list.</div>'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('who-msg').innerHTML = '<div class="msg err">Enter a valid email address.</div>'; return; }
   enterMain('new:' + encodeURIComponent(JSON.stringify({name: name, email: email, phone: phone})), name);
-  msg('등록되었습니다. 출근 버튼을 눌러주세요.', 'ok');
+  msg('Registered! Tap Clock In to start.', 'ok');
 }
 
 function capturePosition(){
@@ -210,7 +210,7 @@ function updateClockUI(d){
 }
 async function refreshStatus(){
   if (!curWorker || curWorker.startsWith('new:')) {
-    $('status-card').innerHTML = `<div class="status-big">⚪ 출근 전</div><div class="muted small">출근 버튼을 누르면 등록과 함께 기록됩니다.</div>`;
+    $('status-card').innerHTML = `<div class="status-big">⚪ Not clocked in</div><div class="muted small">Tap Clock In — registration completes automatically.</div>`;
     updateClockUI(null);
     return;
   }
@@ -220,21 +220,21 @@ async function refreshStatus(){
     const d = await r.json();
     updateClockUI(d);
     $('status-card').innerHTML = d.clocked_in
-      ? `<div class="status-big">🟢 근무 중</div><div>${d.site_name} · ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}부터</div>`
-      : `<div class="status-big">⚪ 출근 전</div><div class="muted small">출근 버튼을 눌러 시작하세요.</div>`;
+      ? `<div class="status-big">🟢 On shift</div><div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>`
+      : `<div class="status-big">⚪ Not clocked in</div><div class="muted small">Tap Clock In to start.</div>`;
   } catch(e) { /* offline — keep last state */ }
 }
 async function refreshTimecards(){
-  if (!curWorker || curWorker.startsWith('new:')) { $('tc-list').innerHTML = '<div class="muted">출근 후 기록이 표시됩니다.</div>'; return; }
+  if (!curWorker || curWorker.startsWith('new:')) { $('tc-list').innerHTML = '<div class="muted">Your records will appear after clocking in.</div>'; return; }
   try {
     const r = await fetch('/coa/api/my-timecards/' + curWorker + '?days=7');
     if (!r.ok) return;
     const rows = await r.json();
     $('tc-list').innerHTML = rows.length ? rows.map(t =>
       `<div class="tc-row"><span><b>${t.date}</b> · ${t.site_name}<br>
-       <span class="muted small">${t.clock_in}${t.clock_out ? ' – ' + t.clock_out : ' – 근무 중'} · ${t.status.replace('_',' ')}</span></span>
+       <span class="muted small">${t.clock_in}${t.clock_out ? ' – ' + t.clock_out : ' – on shift'} · ${t.status.replace('_',' ')}</span></span>
        <b>${t.hours}h</b></div>`).join('')
-      : '<div class="muted">최근 7일간 기록이 없습니다.</div>';
+      : '<div class="muted">No records in the last 7 days.</div>';
   } catch(e) {}
 }
 function refreshAll(){ refreshStatus(); refreshTimecards(); }
@@ -242,13 +242,13 @@ function refreshAll(){ refreshStatus(); refreshTimecards(); }
 async function coaClockIn(){
   if (!curWorker) return;
   const siteId = $('dc-site').value;
-  if (!siteId) { msg('현장을 선택하세요.', 'err'); return; }
+  if (!siteId) { msg('Choose a jobsite first.', 'err'); return; }
   localStorage.setItem(SITE_KEY, siteId);
   const btn = $('dc-in-btn');
   btn.disabled = true;
-  $('dc-geo').textContent = '위치 확인 중...';
+  $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ 위치 기록됨' : '위치를 가져올 수 없어도 출근 처리됩니다.';
+  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking in anyway.';
   const nw = newWorkerPayload();
   const payload = {worker_id: nw ? null : curWorker,
                    name: nw ? nw.name : undefined,
@@ -261,7 +261,7 @@ async function coaClockIn(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(q);
     btn.disabled = false;
-    msg('✓ 오프라인 저장됨 — 연결되면 자동 전송됩니다.', 'ok');
+    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
@@ -275,9 +275,9 @@ async function coaClockIn(){
         localStorage.setItem(NAME_KEY, d.worker_name);
         $('head-worker-name').textContent = d.worker_name;
       }
-      msg(`✓ ${d.worker_name}님 출근 처리되었습니다 (${d.site_name})`, 'ok');
-    } else msg(d.error || '출근 실패', 'err');
-  } catch(e) { msg('네트워크 오류 — 다시 시도하세요.', 'err'); }
+      msg(`✓ ${d.worker_name} clocked in at ${d.site_name}`, 'ok');
+    } else msg(d.error || 'Clock in failed.', 'err');
+  } catch(e) { msg('Network error — try again.', 'err'); }
   btn.disabled = false;
   refreshAll();
 }
@@ -293,9 +293,9 @@ async function confirmCoaClockOut(){
   const btn = $('hours-confirm-btn');
   btn.disabled = true;
   closeHoursModal();
-  $('dc-geo').textContent = '위치 확인 중...';
+  $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ 위치 기록됨' : '위치를 가져올 수 없어도 퇴근 처리됩니다.';
+  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking out anyway.';
   const nw = newWorkerPayload();
   const payload = {worker_id: nw ? null : curWorker,
                    name: nw ? nw.name : undefined,
@@ -309,16 +309,16 @@ async function confirmCoaClockOut(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(q);
     btn.disabled = false;
-    msg('✓ 오프라인 저장됨 — 연결되면 자동 전송됩니다.', 'ok');
+    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
     const r = await fetch('/coa/api/clock', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
-    if (d.ok) msg(`✓ 퇴근 처리되었습니다 — ${d.hours}h` + (d.reported_hours ? ` (입력: ${d.reported_hours}h)` : ''), 'ok');
-    else msg(d.error || '퇴근 실패', 'err');
-  } catch(e) { msg('네트워크 오류 — 다시 시도하세요.', 'err'); }
+    if (d.ok) msg(`✓ Clocked out — ${d.hours}h` + (d.reported_hours ? ` (you entered ${d.reported_hours}h)` : ''), 'ok');
+    else msg(d.error || 'Clock out failed.', 'err');
+  } catch(e) { msg('Network error — try again.', 'err'); }
   btn.disabled = false;
   refreshAll();
 }
@@ -328,9 +328,9 @@ async function confirmCoaClockOut(){
   const saved = localStorage.getItem(LS_KEY);
   if (saved && !saved.startsWith('new:')) {
     fetch('/coa/api/worker-status/' + saved).then(r => {
-      if (r.ok) enterMain(saved, localStorage.getItem(NAME_KEY) || '직원');
+      if (r.ok) enterMain(saved, localStorage.getItem(NAME_KEY) || 'Worker');
       else showWho();
-    }).catch(() => enterMain(saved, localStorage.getItem(NAME_KEY) || '직원'));
+    }).catch(() => enterMain(saved, localStorage.getItem(NAME_KEY) || 'Worker'));
   } else showWho();
 })();
 </script>
