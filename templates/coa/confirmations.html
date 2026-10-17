@@ -1,0 +1,73 @@
+{% extends "coa/base.html" %}
+{% block title %}Pay Confirmations{% endblock %}
+{% block content %}
+<h1>Pay-Period Confirmations</h1>
+<p class="muted">Pick the worked dates, send each worker a confirmation email, and see who confirmed or flagged a problem.</p>
+
+{% if not email_ok %}
+<div class="msg err" style="margin-bottom:12px">📧 Email delivery needs the Apps Script update (sendEmail action). Records and links still work — copy each worker's link and send it manually (text, etc.).</div>
+{% endif %}
+{% if request.args.get('sent') is not none %}
+<div class="msg ok" style="margin-bottom:12px">✉️ Sent {{ request.args.get('sent') }} email(s){% if request.args.get('failed')|int %} · {{ request.args.get('failed') }} need manual link{% endif %}{% if request.args.get('skipped')|int %} · {{ request.args.get('skipped') }} already pending, skipped{% endif %}.</div>
+{% endif %}
+
+<div class="card"><div class="card-body">
+  <h3 style="margin-top:0">1 · Choose the pay period</h3>
+  <form method="get" class="filters">
+    <div class="grid3">
+      <label>From <input type="date" name="start" value="{{ start }}" required></label>
+      <label>To <input type="date" name="end" value="{{ end }}" required></label>
+      <div style="align-self:end"><button class="btn primary" type="submit">Preview</button></div>
+    </div>
+  </form>
+  {% if preview %}
+  <h3>2 · Preview — {{ preview|length }} worker(s) with hours in this period</h3>
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>Worker</th><th>Email</th><th>Hours</th><th>Shifts</th></tr>
+    {% for r in preview %}
+    <tr><td><b>{{ r.worker_name }}</b></td>
+        <td>{% if r.email %}{{ r.email }}{% else %}<span class="pill pill-low small">no email</span>{% endif %}</td>
+        <td><b>{{ r.hours }}h</b></td><td>{{ r.details|length }}</td></tr>
+    {% endfor %}
+  </table></div>
+  <form method="post" action="{{ url_for('coa.confirmations_send') }}" style="margin-top:10px"
+        onsubmit="return confirm('Send confirmation emails to {{ preview|length }} worker(s)?')">
+    <input type="hidden" name="start" value="{{ start }}">
+    <input type="hidden" name="end" value="{{ end }}">
+    <button class="btn primary big" type="submit">✉️ Send Confirmation Emails</button>
+  </form>
+  {% elif start and end %}
+  <p class="muted">No completed shifts in this period.</p>
+  {% endif %}
+</div></div>
+
+<div class="card" id="results" style="margin-top:12px"><div class="card-body">
+  <h3 style="margin-top:0">Confirmations</h3>
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>Worker</th><th>Period</th><th>Hours</th><th>Status</th><th>Sent</th><th>Responded</th><th>Actions</th></tr>
+    {% for r in recs %}
+    <tr>
+      <td><b>{{ r.worker_name }}</b><br><span class="muted small">{{ r.email or 'no email' }}</span></td>
+      <td class="small">{{ r.period_start }} → {{ r.period_end }}</td>
+      <td><b>{{ r.hours }}h</b></td>
+      <td>
+        {% if r.status == 'confirmed' %}<span class="pill pill-active">✓ No problem</span>
+        {% elif r.status == 'disputed' %}<span class="pill pill-low">⚠️ Problem flagged</span>
+        {% else %}<span class="pill pill-pending">Pending</span>{% endif %}
+        {% if r.note %}<br><span class="small" style="color:#991b1b">“{{ r.note }}”</span>{% endif %}
+      </td>
+      <td class="muted small">{{ r.sent_at[:16].replace('T',' ') if r.sent_at else '—' }}</td>
+      <td class="muted small">{{ r.responded_at[:16].replace('T',' ') if r.responded_at else '—' }}</td>
+      <td class="nowrap">
+        <button class="btn small" onclick="navigator.clipboard.writeText('{{ request.host_url.rstrip('/') }}/coa/confirm/{{ r.token }}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy link',1500)">Copy link</button>
+        {% if r.email and r.status == 'pending' %}
+        <form method="post" action="{{ url_for('coa.confirmation_resend', cid=r.id) }}" style="display:inline"><button class="btn small">Resend</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">No confirmations sent yet.</td></tr>
+    {% endfor %}
+  </table></div>
+</div></div>
+{% endblock %}
