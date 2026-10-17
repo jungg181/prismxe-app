@@ -1,15 +1,15 @@
 {% extends "coa/base.html" %}
 {% block title %}{{ 'Edit Site' if site else 'New Site' }}{% endblock %}
 {% block content %}
-<h1>{{ 'Edit Site' if site else 'New Jobsite' }}</h1>
+<h1>{{ 'Edit Jobsite' if site else 'New Jobsite' }}</h1>
 {% if error %}<div class="msg err">{{ error }}</div>{% endif %}
 <form class="form" method="post">
-  <label>현장 이름 <input name="name" required value="{{ site.name if site }}"></label>
-  <label>주소 <input name="address" value="{{ site.address if site }}"></label>
+  <label>Jobsite name <input name="name" required value="{{ site.name if site }}"></label>
+  <label>Address <input name="address" value="{{ site.address if site }}"></label>
   <div class="grid2">
-    <label>위도 (Latitude) <input name="lat" type="number" step="any" value="{{ site.lat if site and site.lat is not none }}">
-      <span class="muted small">출근 위치 확인용 (선택)</span></label>
-    <label>경도 (Longitude) <input name="lng" type="number" step="any" value="{{ site.lng if site and site.lng is not none }}"></label>
+    <label>Latitude <input name="lat" type="number" step="any" value="{{ site.lat if site and site.lat is not none }}">
+      <span class="muted small">For on-site arrival check (optional)</span></label>
+    <label>Longitude <input name="lng" type="number" step="any" value="{{ site.lng if site and site.lng is not none }}"></label>
   </div>
   {% if site %}
   <label>Status
@@ -20,7 +20,7 @@
   </label>
   {% endif %}
   <div class="row-actions">
-    <button class="btn primary" type="submit">{{ 'Save' if site else 'Add Site' }}</button>
+    <button class="btn primary" type="submit">{{ 'Save' if site else 'Add Jobsite' }}</button>
     <a class="btn" href="{{ url_for('coa.sites') }}">Cancel</a>
   </div>
 </form>
