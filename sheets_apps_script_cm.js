@@ -21,6 +21,14 @@
  *   (human-readable audit log)
  * - GETs ?action=getData on startup to restore everything after a Render
  *   redeploy wipes the ephemeral disk
+ * - POSTs plan images (action=uploadPlan) -> Google Drive folder "CM Plans"
+ *   (shared with link). Render's disk is ephemeral, so plan/blueprint images
+ *   uploaded in /cm/blueprints would otherwise vanish on every redeploy.
+ *   The server stores the returned Drive URL on the plan record.
+ *
+ * NOTE: after pasting new code, Deploy > Manage deployments > Edit >
+ * New version, otherwise the web app keeps running the old code. The first
+ * uploadPlan call will ask you to authorize Drive access.
  */
 
 function doPost(e) {
@@ -44,6 +52,19 @@ function doPost(e) {
       var t = data.timecard || {};
       tsh.appendRow([t.ts, t.worker, t.site, t.action, t.clock_in, t.clock_out, t.hours, t.id]);
       out = { ok: true };
+    } else if (data.action === "uploadPlan") {
+      // data: {image_base64, mime, filename, site_id, floor}
+      var folders = DriveApp.getFoldersByName("CM Plans");
+      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("CM Plans");
+      var blob = Utilities.newBlob(Utilities.base64Decode(data.image_base64),
+                                   data.mime || "image/jpeg",
+                                   data.filename || "plan.jpg");
+      var file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      file.setDescription("site=" + (data.site_id || "") + " floor=" + (data.floor || ""));
+      out = { ok: true,
+              url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
+              file_id: file.getId() };
     } else {
       out = { ok: false, error: "unknown action: " + data.action };
     }
