@@ -31,6 +31,20 @@
  * uploadPlan call will ask you to authorize Drive access.
  */
 
+function saveTextFile(folder, name, mime, content, desc) {
+  var blob = Utilities.newBlob(content, mime, name);
+  var files = folder.getFilesByName(name);
+  var file;
+  if (files.hasNext()) {
+    file = files.next();
+    file.setContent(blob.getDataAsString());
+  } else {
+    file = folder.createFile(blob);
+  }
+  file.setDescription(desc);
+  return file;
+}
+
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -66,22 +80,30 @@ function doPost(e) {
               url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
               file_id: file.getId() };
     } else if (data.action === "saveCoaBackup") {
-      // data: {csv, filename, folder_id} — durable COA timecards backup.
-      // Overwrites a single CSV in the given Drive folder so the file is
-      // always the current state; survives Render redeploys.
+      // data: {db_json, csv, filename, folder_id} — durable COA backup.
+      // COA_Data.json holds the full DB (used to restore after a Render
+      // redeploy wipes the disk); the CSV is the human-readable copy.
       var coaFolder = DriveApp.getFolderById(data.folder_id);
-      var fname = data.filename || "COA_Timecards.csv";
-      var coaBlob = Utilities.newBlob(data.csv || "", "text/csv", fname);
-      var existing = coaFolder.getFilesByName(fname);
-      var coaFile;
-      if (existing.hasNext()) {
-        coaFile = existing.next();
-        coaFile.setContent(coaBlob.getDataAsString());
-      } else {
-        coaFile = coaFolder.createFile(coaBlob);
+      saveTextFile(coaFolder, "COA_Data.json", "application/json",
+                   data.db_json || "{}",
+                   "COA database backup · updated " + new Date().toISOString());
+      if (data.csv) {
+        saveTextFile(coaFolder, data.filename || "COA_Timecards.csv", "text/csv",
+                     data.csv,
+                     "COA timecards · updated " + new Date().toISOString());
       }
-      coaFile.setDescription("COA timecards backup · updated " + new Date().toISOString());
-      out = { ok: true, file_id: coaFile.getId() };
+      out = { ok: true };
+    } else if (data.action === "getCoaBackup") {
+      // data: {folder_id, filename} — returns the saved COA DB JSON so the
+      // server can restore it after a redeploy.
+      var gfolder = DriveApp.getFolderById(data.folder_id);
+      var gfiles = gfolder.getFilesByName(data.filename || "COA_Data.json");
+      if (gfiles.hasNext()) {
+        out = { ok: true,
+                data: JSON.parse(gfiles.next().getBlob().getDataAsString()) };
+      } else {
+        out = { ok: false, error: "no backup found" };
+      }
     } else {
       out = { ok: false, error: "unknown action: " + data.action };
     }
