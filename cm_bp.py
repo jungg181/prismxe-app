@@ -16,6 +16,9 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data_cm.json')
+# COA module's DB file — its contents piggyback on the CM Sheets backup so
+# COA data survives Render deploys even before the Apps Script update.
+COA_DB_PATH = os.path.join(BASE_DIR, 'data_coa.json')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'static', 'cm', 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -70,13 +73,30 @@ def sheets_post_async(payload):
 
 
 def sheets_sync_db():
-    """Push the full CM DB to Google Sheets (async, best-effort)."""
+    """Push the full CM + COA DBs to Google Sheets (async, best-effort).
+
+    The deployed Apps Script stores the saveData payload blindly in one
+    cell, so the COA database piggybacks here as {"cm": ..., "coa": ...}.
+    This keeps COA data alive across Render deploys even before the Apps
+    Script is updated with the saveCoaBackup action. Bare-CM blobs written
+    by older code still restore fine.
+    """
     if not CM_SHEETS_URL:
         return
     try:
         # Copy to avoid mutation during async JSON encoding
         data = json.loads(json.dumps(DB))
-        sheets_post_async({"action": "saveData", "data": data})
+        coa = None
+        if os.path.exists(COA_DB_PATH):
+            with open(COA_DB_PATH) as f:
+                coa = json.load(f)
+        payload_data = {"cm": data, "coa": coa}
+        # Google Sheets cell limit is 50k chars — fall back to CM-only
+        # rather than losing the CM backup if the blob gets too big.
+        if len(json.dumps(payload_data)) > 45000:
+            print("cm sheets_sync_db: payload too large, saving CM only", flush=True)
+            payload_data = data
+        sheets_post_async({"action": "saveData", "data": payload_data})
     except Exception as e:  # noqa: BLE001
         print(f"cm sheets_sync_db failed: {e}", flush=True)
 
@@ -189,7 +209,20 @@ def load_db():
         # Fresh deploy (Render wiped the disk) — try to restore from Google Sheets first
         restored = sheets_get_data()
         if restored and isinstance(restored, dict):
-            db = restored
+            # New wrapped format {"cm": {...}, "coa": {...}} — restore both.
+            # Old bare-CM blobs (just the CM DB) still load as before.
+            if isinstance(restored.get("cm"), dict):
+                coa_data = restored.get("coa")
+                if isinstance(coa_data, dict):
+                    try:
+                        with open(COA_DB_PATH, 'w') as f:
+                            json.dump(coa_data, f, indent=2)
+                        print("cm: restored COA DB from Google Sheets", flush=True)
+                    except Exception as e:  # noqa: BLE001
+                        print(f"cm: COA restore failed: {e}", flush=True)
+                db = restored["cm"]
+            else:
+                db = restored
             for c in COLLECTIONS:
                 db.setdefault(c, [])
             print("cm: restored DB from Google Sheets", flush=True)
