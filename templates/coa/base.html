@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}COA{% endblock %} · Cleaners of America</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+<style>
+.coa-nav{background:#0d4f3c;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.coa-nav .brand{font-weight:800;font-size:1.05rem}
+.coa-nav .brand small{font-weight:400;color:#a7e3c9;font-size:.75rem;display:block}
+.coa-nav a{color:#d1f0e0;text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+.coa-nav a:hover,.coa-nav a.on{background:rgba(255,255,255,.15);color:#fff}
+</style>
+</head>
+<body>
+<nav class="coa-nav">
+  <div class="brand">🧹 COA<small>Cleaners of America</small></div>
+  <a href="{{ url_for('coa.dashboard') }}" class="{{ 'on' if request.endpoint=='coa.dashboard' else '' }}">Dashboard</a>
+  <a href="{{ url_for('coa.timecards') }}" class="{{ 'on' if request.endpoint=='coa.timecards' else '' }}">Timecards</a>
+  <a href="{{ url_for('coa.workers') }}" class="{{ 'on' if request.endpoint=='coa.workers' else '' }}">Workers</a>
+  <a href="{{ url_for('coa.sites') }}" class="{{ 'on' if request.endpoint in ['coa.sites','coa.site_new','coa.site_edit'] else '' }}">Sites</a>
+  <a href="{{ url_for('coa.clock_page') }}" target="_blank">📱 Clock Page</a>
+</nav>
+<main class="container" style="padding-top:16px">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
