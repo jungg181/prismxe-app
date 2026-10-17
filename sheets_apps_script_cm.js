@@ -25,6 +25,12 @@
  *   (shared with link). Render's disk is ephemeral, so plan/blueprint images
  *   uploaded in /cm/blueprints would otherwise vanish on every redeploy.
  *   The server stores the returned Drive URL on the plan record.
+ * - POSTs COA database backups (action=saveCoaBackup) -> Google Drive folder
+ *   (COA_Data.json + COA_Timecards.csv); GETs them back (action=getCoaBackup)
+ *   to restore after a redeploy.
+ * - Sends pay-period confirmation emails to COA workers (action=sendEmail,
+ *   via the script owner's Gmail) and notifies the owner when a worker
+ *   disputes their hours (action=notifyDispute).
  *
  * NOTE: after pasting new code, Deploy > Manage deployments > Edit >
  * New version, otherwise the web app keeps running the old code. The first
@@ -104,6 +110,27 @@ function doPost(e) {
       } else {
         out = { ok: false, error: "no backup found" };
       }
+    } else if (data.action === "sendEmail") {
+      // data: {to, subject, body, html} — sends via the script owner's Gmail.
+      // {probe: true} just checks the action exists (sends nothing).
+      if (data.probe) {
+        out = { ok: true, probe: true };
+      } else {
+        GmailApp.sendEmail(data.to, data.subject, data.body || "",
+                           { htmlBody: data.html || data.body || "" });
+        out = { ok: true };
+      }
+    } else if (data.action === "notifyDispute") {
+      // data: {worker, period, note} — emails the script owner that a worker
+      // disputed their hours.
+      var owner = Session.getActiveUser().getEmail();
+      var subj = "COA hours disputed by " + (data.worker || "a worker");
+      var txt = (data.worker || "A worker") + " flagged a problem with their " +
+                "hours for " + (data.period || "") + ".\n\nNote:\n" +
+                (data.note || "(no note)") +
+                "\n\nReview it in the COA timecards admin.";
+      GmailApp.sendEmail(owner, subj, txt);
+      out = { ok: true };
     } else {
       out = { ok: false, error: "unknown action: " + data.action };
     }
