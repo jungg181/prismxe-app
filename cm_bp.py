@@ -313,6 +313,32 @@ def gmaps_link(lat, lng):
     return f"https://www.google.com/maps?q={lat},{lng}"
 
 
+def haversine_km(lat1, lng1, lat2, lng2):
+    """Great-circle distance in km between two lat/lng points."""
+    try:
+        lat1, lng1, lat2, lng2 = map(float, (lat1, lng1, lat2, lng2))
+    except (TypeError, ValueError):
+        return None
+    import math
+    r = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlng / 2) ** 2)
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def clock_in_distance_km(t):
+    """Distance in km between a timecard's clock-in GPS and its site's
+    registered coordinates. None when either side has no coordinates."""
+    s = find('sites', t.get('site_id'))
+    if not s:
+        return None
+    return haversine_km(t.get('clock_in_lat'), t.get('clock_in_lng'),
+                        s.get('lat'), s.get('lng'))
+
+
 def needs_attention_count():
     return sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_out')
 
@@ -330,6 +356,7 @@ def register_jinja(app):
     app.jinja_env.globals.update(
         site_name=site_name, worker_name=worker_name, fmt_dt=fmt_dt,
         gmaps_link=gmaps_link, compute_hours=compute_hours,
+        clock_in_distance_km=clock_in_distance_km,
         days_remaining=days_remaining, today=today,
     )
 
@@ -788,15 +815,22 @@ def clock_page(token):
 
 
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
-                   offline=False):
+                   offline=False, reported_hours=None, note=None):
     """Shared clock-in/out engine used by both the /clock page and the
     On Site worker app API. at_iso overrides the timestamp (used for
     offline-synced punches); offline marks the record as synced offline.
-    Returns (ok, info dict)."""
+    reported_hours is the worker-declared hours for the shift (excluding
+    meal break), captured at clock-out. Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
         return False, {'error': 'Worker not found.'}
     now = at_iso or now_iso()
+    try:
+        rh = float(reported_hours) if reported_hours not in (None, '') else None
+        if rh is not None and (rh < 0 or rh > 24):
+            rh = None
+    except (TypeError, ValueError):
+        rh = None
     if action == 'clock_in':
         if open_timecard(worker_id):
             return False, {'error': f"{w['name']} is already clocked in.",
@@ -804,7 +838,8 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
         t = {'id': new_id(), 'worker_id': worker_id, 'site_id': site_id,
              'clock_in': now, 'clock_in_lat': lat, 'clock_in_lng': lng,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
-             'hours': 0.0, 'status': 'clocked_in', 'notes': 'QR clock-in',
+             'hours': 0.0, 'status': 'clocked_in',
+             'notes': note or 'QR clock-in',
              'offline': offline}
         DB['timecards'].append(t)
         save_db()
@@ -819,13 +854,16 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
     t['clock_out_lng'] = lng
     t['hours'] = compute_hours(t['clock_in'], now)
     t['status'] = 'clocked_out'
+    if rh is not None:
+        t['reported_hours'] = round(rh, 2)
     if offline:
         t['offline'] = True
     save_db()
     return True, {'action': 'clock_out', 'site_id': t['site_id'],
                   'site_name': site_name(t['site_id']), 'worker_name': w['name'],
                   'clock_in': t['clock_in'], 'clock_out': now,
-                  'hours': t['hours']}
+                  'hours': t['hours'],
+                  'reported_hours': t.get('reported_hours')}
 
 
 def _client_at_local_iso(s):
@@ -874,7 +912,8 @@ def clock_confirm(token):
 
 @bp.route('/onsite')
 def onsite():
-    return render_template('cm/onsite.html', trades=TRADES)
+    sites = [s for s in DB['sites'] if s.get('status') == 'active']
+    return render_template('cm/onsite.html', trades=TRADES, sites=sites)
 
 
 def _phone_match(a, b):
@@ -1002,6 +1041,31 @@ def api_scan_clock():
     return jsonify(info), (200 if ok else 400)
 
 
+@bp.route('/api/direct-clock', methods=['POST'])
+def api_direct_clock():
+    """Clock in/out without a QR code: the worker picks the site in the
+    On Site app and their GPS coordinates are captured with the punch,
+    so the office can verify on-time arrival at the jobsite."""
+    d = request.get_json(force=True)
+    worker_id = d.get('worker_id')
+    site_id = d.get('site_id')
+    action = d.get('action')
+    if not find('workers', worker_id):
+        return jsonify({'ok': False, 'error': 'Worker not found.'}), 404
+    if action not in ('clock_in', 'clock_out'):
+        # Toggle mode: clock out if an open shift exists, else clock in.
+        action = 'clock_out' if open_timecard(worker_id) else 'clock_in'
+    if action == 'clock_in':
+        if not find('sites', site_id):
+            return jsonify({'ok': False, 'error': 'Choose a jobsite first.'}), 400
+    ok, info = _perform_clock(site_id, action, worker_id,
+                              d.get('lat'), d.get('lng'),
+                              reported_hours=d.get('reported_hours'),
+                              note='Self clock-in' if action == 'clock_in' else None)
+    info['ok'] = ok
+    return jsonify(info), (200 if ok else 400)
+
+
 @bp.route('/api/location', methods=['POST'])
 def api_location():
     d = request.get_json(force=True)
@@ -1034,23 +1098,37 @@ def service_worker():
 def api_sync_clock():
     """Accept a clock action captured offline. The QR token is validated
     against the CLIENT timestamp: created_at <= client_at <= expires_at,
-    i.e. the scan must have happened while the QR was valid. The timecard
+    i.e. the scan must have happened while the QR was valid. Direct
+    (QR-less) clock actions instead carry a site_id. The timecard
     is stamped with the client time and flagged offline=True."""
     d = request.get_json(force=True)
     token = (d.get('token') or '').strip()
-    rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
-    if not rec:
+    site_id = d.get('site_id')
+    if token:
+        rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
+        if not rec:
+            return jsonify({'ok': False,
+                            'error': 'QR code not recognized.'}), 410
+        client_at = _client_at_local_iso(d.get('client_at'))
+        if not client_at:
+            return jsonify({'ok': False,
+                            'error': 'Missing scan time.'}), 400
+        created = parse_iso(rec.get('created_at'))
+        expires = parse_iso(rec.get('expires_at'))
+        if not created or not expires or not (created <= parse_iso(client_at) <= expires):
+            return jsonify({'ok': False,
+                            'error': 'QR expired before the scan.'}), 410
+        sync_site_id = rec['site_id']
+    elif site_id and find('sites', site_id):
+        # Offline direct clock-in: the worker chose the site in the app.
+        client_at = _client_at_local_iso(d.get('client_at'))
+        if not client_at:
+            return jsonify({'ok': False,
+                            'error': 'Missing scan time.'}), 400
+        sync_site_id = site_id
+    else:
         return jsonify({'ok': False,
                         'error': 'QR code not recognized.'}), 410
-    client_at = _client_at_local_iso(d.get('client_at'))
-    if not client_at:
-        return jsonify({'ok': False,
-                        'error': 'Missing scan time.'}), 400
-    created = parse_iso(rec.get('created_at'))
-    expires = parse_iso(rec.get('expires_at'))
-    if not created or not expires or not (created <= parse_iso(client_at) <= expires):
-        return jsonify({'ok': False,
-                        'error': 'QR expired before the scan.'}), 410
     worker_id = d.get('worker_id')
     if not find('workers', worker_id):
         return jsonify({'ok': False, 'error': 'Worker not found.'}), 400
@@ -1059,9 +1137,10 @@ def api_sync_clock():
     action = d.get('action')
     if action not in ('clock_in', 'clock_out'):
         return jsonify({'ok': False, 'error': 'Invalid action.'}), 400
-    ok, info = _perform_clock(rec['site_id'], action, worker_id,
+    ok, info = _perform_clock(sync_site_id, action, worker_id,
                               d.get('lat'), d.get('lng'),
-                              at_iso=client_at, offline=True)
+                              at_iso=client_at, offline=True,
+                              reported_hours=d.get('reported_hours'))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
