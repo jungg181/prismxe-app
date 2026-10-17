@@ -43,6 +43,7 @@
       </div>
       <div class="row-actions">
         <a class="btn small" href="{{ url_for('.blueprints', site_id=r.site.id) }}">Site Map &amp; Plans</a>
+        <a class="btn small" href="{{ url_for('.coa_qr_image', site_id=r.site.id) }}" target="_blank" title="Printable QR — workers scan it to open the COA clock for this site">🧹 COA Clock QR</a>
         <a class="btn small" href="{{ url_for('.site_edit', sid=r.site.id) }}">Edit</a>
         <form method="post" action="{{ url_for('.site_delete', sid=r.site.id) }}" onsubmit="return confirm('Delete this site?')">
           <button class="btn small danger">Delete</button>
