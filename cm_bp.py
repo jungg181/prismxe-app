@@ -1,6 +1,7 @@
 """Construction Manager - standalone site management web app (Flask)."""
 import os
 import io
+import base64
 import csv
 import json
 import copy
@@ -78,6 +79,55 @@ def sheets_sync_db():
         sheets_post_async({"action": "saveData", "data": data})
     except Exception as e:  # noqa: BLE001
         print(f"cm sheets_sync_db failed: {e}", flush=True)
+
+
+def drive_upload_plan(raw, filename, site_id="", floor="", timeout=90):
+    """Upload a plan image to Google Drive via the Apps Script webhook.
+
+    Render's disk is ephemeral, so files in static/cm/uploads/ vanish on
+    every redeploy. Drive gives plans a permanent URL. Returns the public
+    thumbnail URL, or None on any failure (caller keeps the local path).
+    """
+    if not CM_SHEETS_URL:
+        return None
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw))
+        im.thumbnail((2000, 2000), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.convert("RGB").save(buf, "JPEG", quality=82)
+        payload, mime = buf.getvalue(), "image/jpeg"
+        ext = ".jpg"
+    except Exception:  # noqa: BLE001
+        payload, mime, ext = raw, "image/png", ""
+    body = {
+        "action": "uploadPlan",
+        "image_base64": base64.b64encode(payload).decode("ascii"),
+        "mime": mime,
+        "filename": (secure_filename(filename) or "plan") + ext,
+        "site_id": site_id,
+        "floor": floor,
+    }
+    try:
+        req = urllib.request.Request(
+            CM_SHEETS_URL, data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+        return res.get("url") if res.get("ok") else None
+    except Exception as e:  # noqa: BLE001
+        print(f"cm drive_upload_plan failed: {e}", flush=True)
+        return None
+
+
+def _drive_upload_plan_async(plan_id, raw, filename, site_id, floor):
+    url = drive_upload_plan(raw, filename, site_id, floor)
+    if not url:
+        return
+    plan = next((p for p in DB["plans"] if p.get("id") == plan_id), None)
+    if plan:
+        plan["image_url"] = url
+        save_db()
 
 
 def new_id():
@@ -447,16 +497,29 @@ def blueprints():
 def plan_upload():
     site_id = request.form.get('site_id')
     floor = request.form.get('floor', '1F').strip() or '1F'
-    img = save_upload(request.files.get('plan'))
+    f = request.files.get('plan')
+    img = save_upload(f)
     if not img:
         flash('No file uploaded.')
         return redirect(url_for('cm.blueprints', site_id=site_id))
+    try:
+        f.stream.seek(0)
+        raw = f.read()
+    except Exception:  # noqa: BLE001
+        raw = None
     old = next((p for p in DB['plans'] if p['site_id'] == site_id and p['floor'] == floor), None)
     if old:
         DB['plans'].remove(old)
-    DB['plans'].append({'id': new_id(), 'site_id': site_id, 'floor': floor,
-                        'image_path': img, 'bounds': None})
+    plan = {'id': new_id(), 'site_id': site_id, 'floor': floor,
+            'image_path': img, 'image_url': '', 'bounds': None}
+    DB['plans'].append(plan)
     save_db()
+    # Persist to Google Drive in the background: Render wipes local uploads
+    # on every redeploy, but the Drive URL survives.
+    if raw and CM_SHEETS_URL:
+        threading.Thread(target=_drive_upload_plan_async,
+                         args=(plan['id'], raw, f.filename, site_id, floor),
+                         daemon=True).start()
     flash(f'Plan uploaded for {floor}.')
     return redirect(url_for('cm.blueprints', site_id=site_id, floor=floor))
 
