@@ -14,11 +14,11 @@
   <div class="stat"><div class="num">${{ '%.2f'|format(total_gross) }}</div><div class="lbl">Total gross pay</div></div>
 </div>
 <div class="table-wrap"><table class="tbl">
-<tr><th>Worker</th><th>Trade</th><th>Rate</th><th>Records</th><th>Hours</th><th>Gross pay</th></tr>
+<tr><th>Worker</th><th>Company</th><th>Trade</th><th>Rate</th><th>Records</th><th>Hours</th><th>Gross pay</th></tr>
 {% for r in rows %}
-<tr><td><b>{{ r.worker }}</b></td><td>{{ r.trade }}</td><td>${{ '%.2f'|format(r.rate) }}</td><td>{{ r.records }}</td><td>{{ r.hours }}</td><td><b>${{ '%.2f'|format(r.gross) }}</b></td></tr>
+<tr><td><b>{{ r.worker }}</b></td><td>{{ r.company }}</td><td>{{ r.trade }}</td><td>${{ '%.2f'|format(r.rate) }}</td><td>{{ r.records }}</td><td>{{ r.hours }}</td><td><b>${{ '%.2f'|format(r.gross) }}</b></td></tr>
 {% else %}
-<tr><td colspan="6" class="muted">No records in this range.</td></tr>
+<tr><td colspan="7" class="muted">No records in this range.</td></tr>
 {% endfor %}
 </table></div>
 {% endblock %}
