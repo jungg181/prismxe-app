@@ -8,6 +8,14 @@
     <label>Trade
       <select name="trade">{% for t in trades %}<option {% if worker and worker.trade==t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
     </label>
+    <label>Company
+      <input name="company" list="companyList" value="{{ worker.company if worker and worker.company }}" placeholder="Select or type…" autocomplete="off">
+      <datalist id="companyList">
+        {% for c in companies %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+    </label>
+  </div>
+  <div class="grid2">
     <label>Employment Type
       <select name="employment_type">{% for e in emp_types %}<option {% if worker and worker.employment_type==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select>
     </label>
