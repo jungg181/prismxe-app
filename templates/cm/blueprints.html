@@ -78,7 +78,7 @@
 <script>
 const SITE = {{ {'lat': site.lat if site else None, 'lng': site.lng if site else None, 'id': site.id if site else None} | tojson }};
 const FLOOR = {{ floor | tojson }};
-const PLAN_URL = {{ (plan.image_path if plan else None) | tojson }};
+const PLAN_URL = {{ ((plan.image_url or plan.image_path) if plan else None) | tojson }};
 const PLAN_ID = {{ (plan.id if plan else None) | tojson }};
 const PLAN_BOUNDS = {{ (plan.bounds if plan and plan.bounds else None) | tojson }};
 const API_PREFIX = '/cm';
