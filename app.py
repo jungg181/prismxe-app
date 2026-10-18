@@ -36,6 +36,20 @@ def load_portal_config():
 def save_portal_config(cfg):
     with open(PORTAL_CONFIG_PATH, "w") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
+    # Back up portal config to Drive (survives Render deploys)
+    try:
+        import drive_backup
+        drive_backup.backup_one_async('portal_config.json')
+    except Exception:
+        pass
+
+# Restore all DB files from Drive BEFORE blueprints load them
+# (Render wipes the disk on every deploy).
+try:
+    import drive_backup
+    drive_backup.restore_all()
+except Exception:
+    pass
 
 from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
