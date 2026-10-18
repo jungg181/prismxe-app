@@ -19,6 +19,7 @@ import uuid
 import secrets
 import threading
 import urllib.request
+import drive_backup
 from datetime import datetime, timedelta
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
@@ -161,62 +162,13 @@ def _drive_post(payload, timeout=25):
         return None
 
 
-def _coa_timecards_csv():
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(['id', 'worker', 'email', 'phone', 'site', 'clock_in', 'clock_out',
-                'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng',
-                'hours', 'reported_hours', 'status', 'notes'])
-    for t in sorted(DB['timecards'], key=lambda x: x.get('clock_in') or ''):
-        wr = find('workers', t.get('worker_id')) or {}
-        w.writerow([t.get('id'), wr.get('name', ''), wr.get('email', ''), wr.get('phone', ''),
-                    site_name(t.get('site_id')), t.get('clock_in'), t.get('clock_out'),
-                    t.get('clock_in_lat'), t.get('clock_in_lng'),
-                    t.get('clock_out_lat'), t.get('clock_out_lng'),
-                    t.get('hours'), t.get('reported_hours', ''), t.get('status'),
-                    t.get('notes', '')])
-    return buf.getvalue()
-
-
-def drive_backup_async():
-    """Back up the full COA DB (JSON, for restore) + a readable timecards
-    CSV into the user's Drive folder. Background thread, best-effort."""
-    if not SHEETS_URL:
-        return
-
-    def _run():
-        try:
-            data = json.loads(json.dumps(DB))
-            _drive_post({'action': 'saveCoaBackup',
-                         'db_json': json.dumps(data),
-                         'csv': _coa_timecards_csv(),
-                         'filename': 'COA_Timecards.csv',
-                         'folder_id': COA_DRIVE_FOLDER_ID}, timeout=30)
-        except Exception:
-            pass
-
-    threading.Thread(target=_run, daemon=True).start()
-
-
-def drive_restore():
-    """Fetch the COA DB JSON from the Drive folder. Returns dict or None."""
-    try:
-        res = _drive_post({'action': 'getCoaBackup',
-                           'filename': 'COA_Data.json',
-                           'folder_id': COA_DRIVE_FOLDER_ID}, timeout=30)
-        if res and res.get('ok') and isinstance(res.get('data'), dict):
-            return res['data']
-    except Exception:
-        pass
-    return None
-
-
 def load_db():
     if not os.path.exists(DB_PATH):
         # Fresh deploy — restore from the Drive folder backup.
-        restored = drive_restore()
-        if restored and isinstance(restored, dict):
-            db = restored
+        restored = drive_backup.restore()
+        coa_data = restored.get('coa') if isinstance(restored, dict) else None
+        if isinstance(coa_data, dict):
+            db = coa_data
             for c in COLLECTIONS:
                 db.setdefault(c, [])
             print('coa: restored DB from Drive folder', flush=True)
@@ -235,7 +187,7 @@ def load_db():
 def save_db():
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
-    drive_backup_async()
+    drive_backup.backup_async()
     # Piggyback on the CM Sheets sync so COA data survives Render deploys
     # even before the Apps Script update (the old script blind-stores the
     # saveData blob, wrapped as {"cm":..., "coa":...}).
@@ -626,7 +578,7 @@ def timecard_delete(tid):
 @bp.route('/api/backup-now', methods=['POST'])
 def api_backup_now():
     """Manual trigger: back up the COA DB to the Drive folder right now."""
-    drive_backup_async()
+    drive_backup.backup_async()
     return jsonify({'ok': True})
 
 
@@ -882,3 +834,33 @@ def _contact_list():
 @bp.route('/contacts')
 def contacts():
     return render_template('coa/contacts.html', contacts=_contact_list())
+
+
+# ================= BACKUP STATUS =================
+
+@bp.route('/backup', methods=['GET'])
+def backup_page():
+    probes_raw = drive_backup.probe()
+    probes = [(a, label, probes_raw.get(a, False))
+              for a, label in drive_backup.PROBE_ACTIONS]
+    drive_ok = bool(probes_raw.get('saveCoaBackup') and probes_raw.get('getCoaBackup'))
+    coa_counts = {c: len(DB.get(c, [])) for c in ('workers', 'timecards', 'sites')}
+    script_code = ''
+    if not drive_ok:
+        try:
+            with open(os.path.join(BASE_DIR, 'sheets_apps_script_cm.js')) as f:
+                script_code = f.read()
+        except Exception:
+            script_code = ''
+    return render_template('coa/backup.html', probes=probes, drive_ok=drive_ok,
+                           coa_counts=coa_counts, last=drive_backup.last_result(),
+                           script_code=script_code,
+                           backup_msg=request.args.get('msg'),
+                           backup_ok=request.args.get('ok') == '1')
+
+
+@bp.route('/backup/now', methods=['POST'])
+def backup_now():
+    ok, detail = drive_backup.backup_now()
+    return redirect(url_for('coa.backup_page', ok='1' if ok else '0',
+                            msg='' if ok else detail[:200]))
