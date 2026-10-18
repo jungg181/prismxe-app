@@ -1,12 +1,11 @@
-"""Shared Google Drive backup for the prismxe-app databases.
+"""Google Drive backup for the COA database (prismxe-app /coa).
 
 The Render disk is ephemeral, so every deploy wipes the local JSON files.
-This module backs up BOTH databases (CM + COA) into the user's Google Drive
-folder via the Apps Script web app (the only credentialed path to Drive).
+This module backs up the COA database into the user's Google Drive folder
+via the Apps Script web app (the only credentialed path to Drive).
 
 Backup files in the folder:
   COA_Data.json      full COA database (restored on fresh deploy)
-  CM_Data.json       full CM database (restored on fresh deploy)
   COA_Timecards.csv  human-readable COA timecards
 
 Everything is best-effort and never raises: if the Apps Script hasn't been
@@ -23,7 +22,6 @@ import time
 import urllib.request
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CM_DB_PATH = os.path.join(BASE_DIR, 'data_cm.json')
 COA_DB_PATH = os.path.join(BASE_DIR, 'data_coa.json')
 
 SHEETS_URL = os.environ.get('CM_SHEETS_URL', '')
@@ -103,18 +101,16 @@ def _coa_timecards_csv(coa_db):
 
 
 def backup_now(timeout=40):
-    """Write both DBs to the Drive folder. Returns (ok, detail)."""
+    """Write the COA DB to the Drive folder. Returns (ok, detail)."""
     global _last_result
     coa_db = _read_db(COA_DB_PATH)
-    cm_db = _read_db(CM_DB_PATH)
-    if coa_db is None and cm_db is None:
+    if coa_db is None:
         _last_result = {'ok': False, 'at': _now(),
-                        'detail': 'No local database files found.'}
+                        'detail': 'No local COA database file found.'}
         return False, _last_result['detail']
     res = post({'action': 'saveCoaBackup',
-                'coa_json': json.dumps(coa_db or {}),
-                'cm_json': json.dumps(cm_db or {}),
-                'coa_csv': _coa_timecards_csv(coa_db or {}),
+                'coa_json': json.dumps(coa_db),
+                'coa_csv': _coa_timecards_csv(coa_db),
                 'folder_id': COA_DRIVE_FOLDER_ID}, timeout=timeout)
     ok = bool(res and res.get('ok'))
     detail = '' if ok else (res.get('error') if res else
@@ -131,7 +127,7 @@ def backup_async():
 
 
 def restore(timeout=40):
-    """Fetch both DBs from the Drive folder. Returns {'coa':..., 'cm':...} or None."""
+    """Fetch the COA DB from the Drive folder. Returns {'coa':...} or None."""
     res = post({'action': 'getCoaBackup', 'folder_id': COA_DRIVE_FOLDER_ID},
                timeout=timeout)
     if res and res.get('ok') and isinstance(res.get('data'), dict):
