@@ -517,6 +517,16 @@ def worker_edit(wid):
     return render_template('coa/worker_form.html', w=w)
 
 
+@bp.route('/workers/<wid>/delete', methods=['POST'])
+def worker_delete(wid):
+    """Delete a worker. Their timecards stay (shown as —)."""
+    w = find('workers', wid)
+    if w:
+        DB['workers'].remove(w)
+        save_db()
+    return redirect(url_for('coa.workers'))
+
+
 @bp.route('/timecards')
 def timecards():
     fsite = request.args.get('site') or 'all'
