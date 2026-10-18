@@ -9,7 +9,8 @@
 <div class="table-wrap"><table class="tbl">
 <tr><th>Name</th><th>Email</th><th>Phone</th><th>Registered</th><th></th></tr>
 {% for w in rows %}
-<tr><td><b>{{ w.name }}</b></td><td>{{ w.email }}</td><td>{{ w.phone }}</td><td class="muted small">{{ w.created_at[:10] if w.created_at }}</td><td><a class="btn small" href="{{ url_for('coa.worker_edit', wid=w.id) }}">Edit</a></td></tr>
+<tr><td><b>{{ w.name }}</b></td><td>{{ w.email }}</td><td>{{ w.phone }}</td><td class="muted small">{{ w.created_at[:10] if w.created_at }}</td><td><a class="btn small" href="{{ url_for('coa.worker_edit', wid=w.id) }}">Edit</a>
+<form method="post" action="{{ url_for('coa.worker_delete', wid=w.id) }}" style="display:inline" onsubmit="return confirm('Delete {{ w.name }}? Their timecards will stay.')"><button class="btn small" type="submit">Delete</button></form></td></tr>
 {% else %}
 <tr><td colspan="5" class="muted">No workers registered yet.</td></tr>
 {% endfor %}
