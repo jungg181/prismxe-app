@@ -92,13 +92,14 @@ def _unpack_blob(stored):
 
 
 def sheets_sync_db():
-    """Push the full CM + COA DBs to Google Sheets (async, best-effort).
+    """Push ALL module DBs to Google Sheets (async, best-effort).
 
     The deployed Apps Script stores the saveData payload blindly in one
-    cell, so the COA database piggybacks here as {"cm": ..., "coa": ...}.
+    cell, so every module's database piggybacks here as
+    {"cm": ..., "coa": ..., "patrol": ..., ...}.
     The blob is zlib+base64 packed: the CM DB alone is already ~48k chars
     of JSON, so an uncompressed wrapped save would exceed the ~50k
-    per-cell Sheets limit and silently drop the COA half every time.
+    per-cell Sheets limit and silently drop data every time.
     Packed blobs restore via _unpack_blob; bare-CM dicts written by older
     code still restore fine.
     """
@@ -107,11 +108,21 @@ def sheets_sync_db():
     try:
         # Copy to avoid mutation during async JSON encoding
         data = json.loads(json.dumps(DB))
-        coa = None
-        if os.path.exists(COA_DB_PATH):
-            with open(COA_DB_PATH) as f:
-                coa = json.load(f)
-        packed = _pack_blob({"cm": data, "coa": coa})
+        blob = {"cm": data}
+        # Piggyback every other module's DB file
+        for key, fname in (("coa", "data_coa.json"),
+                           ("patrol", "data_patrol.json"),
+                           ("patrol_coa", "data_patrol_coa.json"),
+                           ("gauge", "data_gauge.json"),
+                           ("portal", "portal_config.json")):
+            p = os.path.join(BASE_DIR, fname)
+            if os.path.exists(p):
+                try:
+                    with open(p) as f:
+                        blob[key] = json.load(f)
+                except Exception:
+                    pass
+        packed = _pack_blob(blob)
         # Google Sheets cell limit is ~50k chars — fall back to CM-only
         # rather than losing the CM backup if the blob gets too big.
         if len(packed) > 48000:
@@ -236,17 +247,22 @@ def load_db():
             # Packed (zlib+base64) blob written by sheets_sync_db
             restored = _unpack_blob(restored)
         if restored and isinstance(restored, dict):
-            # Wrapped format {"cm": {...}, "coa": {...}} (packed or plain) —
-            # restore both. Old bare-CM blobs (just the CM DB) still load.
+            # Wrapped format {"cm": {...}, "coa": {...}, ...} (packed or plain) —
+            # restore all modules. Old bare-CM blobs (just the CM DB) still load.
             if isinstance(restored.get("cm"), dict):
-                coa_data = restored.get("coa")
-                if isinstance(coa_data, dict):
-                    try:
-                        with open(COA_DB_PATH, 'w') as f:
-                            json.dump(coa_data, f, indent=2)
-                        print("cm: restored COA DB from Google Sheets", flush=True)
-                    except Exception as e:  # noqa: BLE001
-                        print(f"cm: COA restore failed: {e}", flush=True)
+                for key, fname in (("coa", "data_coa.json"),
+                                   ("patrol", "data_patrol.json"),
+                                   ("patrol_coa", "data_patrol_coa.json"),
+                                   ("gauge", "data_gauge.json"),
+                                   ("portal", "portal_config.json")):
+                    mod_data = restored.get(key)
+                    if isinstance(mod_data, dict):
+                        try:
+                            with open(os.path.join(BASE_DIR, fname), 'w') as f:
+                                json.dump(mod_data, f, indent=2)
+                            print(f"cm: restored {key} DB from Google Sheets", flush=True)
+                        except Exception as e:  # noqa: BLE001
+                            print(f"cm: {key} restore failed: {e}", flush=True)
                 db = restored["cm"]
             else:
                 db = restored
