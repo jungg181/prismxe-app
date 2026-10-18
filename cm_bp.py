@@ -8,6 +8,7 @@ import copy
 import uuid
 import threading
 import urllib.request
+import zlib
 from datetime import datetime, date, timedelta
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
@@ -56,7 +57,11 @@ def sheets_post(payload, timeout=12):
 
 
 def sheets_get_data(timeout=15):
-    """Fetch the persisted CM DB from Google Sheets. Returns dict or None."""
+    """Fetch the persisted DB blob from Google Sheets.
+
+    Returns the stored value: a dict (blobs written by older code) or a
+    str (zlib+base64 packed blobs written by sheets_sync_db), or None.
+    """
     if not CM_SHEETS_URL:
         return None
     try:
@@ -72,14 +77,30 @@ def sheets_post_async(payload):
     threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
 
 
+def _pack_blob(obj):
+    """Serialize + zlib-compress + base64 a DB blob for one Sheets cell."""
+    raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
+    return base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
+
+
+def _unpack_blob(stored):
+    """Inverse of _pack_blob. Returns the decoded object, or None."""
+    try:
+        return json.loads(zlib.decompress(base64.b64decode(stored)).decode("utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def sheets_sync_db():
     """Push the full CM + COA DBs to Google Sheets (async, best-effort).
 
     The deployed Apps Script stores the saveData payload blindly in one
     cell, so the COA database piggybacks here as {"cm": ..., "coa": ...}.
-    This keeps COA data alive across Render deploys even before the Apps
-    Script is updated with the saveCoaBackup action. Bare-CM blobs written
-    by older code still restore fine.
+    The blob is zlib+base64 packed: the CM DB alone is already ~48k chars
+    of JSON, so an uncompressed wrapped save would exceed the ~50k
+    per-cell Sheets limit and silently drop the COA half every time.
+    Packed blobs restore via _unpack_blob; bare-CM dicts written by older
+    code still restore fine.
     """
     if not CM_SHEETS_URL:
         return
@@ -90,13 +111,16 @@ def sheets_sync_db():
         if os.path.exists(COA_DB_PATH):
             with open(COA_DB_PATH) as f:
                 coa = json.load(f)
-        payload_data = {"cm": data, "coa": coa}
-        # Google Sheets cell limit is 50k chars — fall back to CM-only
+        packed = _pack_blob({"cm": data, "coa": coa})
+        # Google Sheets cell limit is ~50k chars — fall back to CM-only
         # rather than losing the CM backup if the blob gets too big.
-        if len(json.dumps(payload_data)) > 45000:
-            print("cm sheets_sync_db: payload too large, saving CM only", flush=True)
-            payload_data = data
-        sheets_post_async({"action": "saveData", "data": payload_data})
+        if len(packed) > 48000:
+            print("cm sheets_sync_db: packed blob too large, saving CM only", flush=True)
+            packed = _pack_blob(data)
+        if len(packed) > 48000:
+            print("cm sheets_sync_db: blob too large for Sheets cell, skipping", flush=True)
+            return
+        sheets_post_async({"action": "saveData", "data": packed})
     except Exception as e:  # noqa: BLE001
         print(f"cm sheets_sync_db failed: {e}", flush=True)
 
@@ -208,9 +232,12 @@ def load_db():
     if not os.path.exists(DB_PATH):
         # Fresh deploy (Render wiped the disk) — try to restore from Google Sheets first
         restored = sheets_get_data()
+        if isinstance(restored, str):
+            # Packed (zlib+base64) blob written by sheets_sync_db
+            restored = _unpack_blob(restored)
         if restored and isinstance(restored, dict):
-            # New wrapped format {"cm": {...}, "coa": {...}} — restore both.
-            # Old bare-CM blobs (just the CM DB) still load as before.
+            # Wrapped format {"cm": {...}, "coa": {...}} (packed or plain) —
+            # restore both. Old bare-CM blobs (just the CM DB) still load.
             if isinstance(restored.get("cm"), dict):
                 coa_data = restored.get("coa")
                 if isinstance(coa_data, dict):
