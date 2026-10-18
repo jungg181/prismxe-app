@@ -1,16 +1,21 @@
-"""Google Drive backup for the COA database (prismxe-app /coa).
+"""Google Drive backup for ALL prismxe-app databases (app.prismxe.com).
 
 The Render disk is ephemeral, so every deploy wipes the local JSON files.
-This module backs up the COA database into the user's Google Drive folder
-via the Apps Script web app (the only credentialed path to Drive).
+This module backs up every module's database into the user's Google Drive
+folder via the Apps Script web app (the only credentialed path to Drive).
 
 Backup files in the folder:
-  COA_Data.json      full COA database (restored on fresh deploy)
-  COA_Timecards.csv  human-readable COA timecards
+  COA_Data.json       full COA database (restored on fresh deploy)
+  COA_Timecards.csv   human-readable COA timecards
+  CM_Data.json        full CM database
+  Patrol_Data.json    patrol database
+  PatrolCOA_Data.json patrol-COA database
+  Gauge_Data.json     gauge database
+  BibleUsers.json     bible user registrations/progress
+  PortalConfig.json   portal folder/app config
 
 Everything is best-effort and never raises: if the Apps Script hasn't been
-updated with the saveCoaBackup/getCoaBackup actions yet, backups are skipped
-and /coa/backup shows exactly what's missing.
+updated with the saveFile/getFile actions yet, backups are skipped.
 """
 
 import csv
@@ -22,16 +27,28 @@ import time
 import urllib.request
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-COA_DB_PATH = os.path.join(BASE_DIR, 'data_coa.json')
 
 SHEETS_URL = os.environ.get('CM_SHEETS_URL', '')
 COA_DRIVE_FOLDER_ID = '1b5hO9wUMl1GO4UBhRd6YUdptGdSRC0r7'
 
+# (local filename, drive filename) — every JSON DB that must survive redeploys
+ALL_BACKUPS = [
+    ('data_coa.json', 'COA_Data.json'),
+    ('data_cm.json', 'CM_Data.json'),
+    ('data_patrol.json', 'Patrol_Data.json'),
+    ('data_patrol_coa.json', 'PatrolCOA_Data.json'),
+    ('data_gauge.json', 'Gauge_Data.json'),
+    ('data/bible_users.json', 'BibleUsers.json'),
+    ('portal_config.json', 'PortalConfig.json'),
+]
+
 # action -> human label, used by the /coa/backup status page
 PROBE_ACTIONS = [
     ('saveData', 'CM spreadsheet sync'),
-    ('saveCoaBackup', 'Drive folder backup'),
-    ('getCoaBackup', 'Drive folder restore'),
+    ('saveCoaBackup', 'Drive folder backup (COA)'),
+    ('getCoaBackup', 'Drive folder restore (COA)'),
+    ('saveFile', 'Drive folder backup (all modules)'),
+    ('getFile', 'Drive folder restore (all modules)'),
     ('sendEmail', 'Confirmation emails'),
     ('uploadPlan', 'Plan image upload'),
 ]
@@ -59,19 +76,16 @@ def probe():
     if not SHEETS_URL:
         return {a: False for a, _ in PROBE_ACTIONS}
     for action, _label in PROBE_ACTIONS:
-        if action == 'sendEmail':
-            res = post({'action': action, 'probe': True}, timeout=15)
-        elif action == 'getCoaBackup':
-            res = post({'action': action, 'probe': True,
-                        'folder_id': COA_DRIVE_FOLDER_ID}, timeout=15)
-        elif action == 'saveCoaBackup':
-            res = post({'action': action, 'probe': True,
-                        'folder_id': COA_DRIVE_FOLDER_ID}, timeout=15)
+        if action in ('sendEmail', 'getCoaBackup', 'saveCoaBackup',
+                      'saveFile', 'getFile'):
+            payload = {'action': action, 'probe': True,
+                       'folder_id': COA_DRIVE_FOLDER_ID}
+            if action in ('saveFile', 'getFile'):
+                payload['filename'] = 'probe.json'
+            res = post(payload, timeout=15)
         else:
-            # saveData/getData/uploadPlan have no probe; infer from a cheap call
-            res = post({'action': 'getData'}
-                       if action == 'getData' else {'action': action, 'probe': True},
-                       timeout=15)
+            # saveData/uploadPlan have no probe; infer from a cheap call
+            res = post({'action': action, 'probe': True}, timeout=15)
         results[action] = bool(res and (res.get('ok') or res.get('probe')))
     return results
 
@@ -133,6 +147,83 @@ def restore(timeout=40):
     if res and res.get('ok') and isinstance(res.get('data'), dict):
         return res['data']
     return None
+
+
+def backup_file(local_name, drive_name, timeout=40):
+    """Back up one local JSON file to the Drive folder. Returns (ok, detail)."""
+    path = os.path.join(BASE_DIR, local_name)
+    try:
+        with open(path) as f:
+            content = f.read()
+    except Exception as e:
+        return False, f'Cannot read {local_name}: {e}'
+    res = post({'action': 'saveFile', 'filename': drive_name,
+                'content': content, 'mime': 'application/json',
+                'folder_id': COA_DRIVE_FOLDER_ID}, timeout=timeout)
+    ok = bool(res and res.get('ok'))
+    detail = '' if ok else (res.get('error') if res else 'No response')
+    return ok, detail
+
+
+def restore_file(drive_name, local_name, timeout=40):
+    """Restore one file from Drive if the local copy is missing/empty.
+    Returns True if the local file now exists with content."""
+    path = os.path.join(BASE_DIR, local_name)
+    try:
+        if os.path.getsize(path) > 10:
+            return True  # local copy is fine
+    except OSError:
+        pass
+    res = post({'action': 'getFile', 'filename': drive_name,
+                'folder_id': COA_DRIVE_FOLDER_ID}, timeout=timeout)
+    if res and res.get('ok') and res.get('content'):
+        try:
+            with open(path, 'w') as f:
+                f.write(res['content'])
+            return True
+        except Exception:
+            return False
+    return False
+
+
+def backup_all(timeout=60):
+    """Back up every module's DB file to Drive. Returns {drive_name: (ok, detail)}."""
+    global _last_result
+    results = {}
+    for local_name, drive_name in ALL_BACKUPS:
+        ok, detail = backup_file(local_name, drive_name, timeout=timeout)
+        results[drive_name] = (ok, detail)
+    n_ok = sum(1 for ok, _ in results.values() if ok)
+    _last_result = {'ok': n_ok == len(results), 'at': _now(),
+                    'detail': f'{n_ok}/{len(results)} files backed up'}
+    return results
+
+
+def backup_all_async():
+    """Fire-and-forget full backup in a background thread."""
+    if not SHEETS_URL:
+        return
+    threading.Thread(target=backup_all, daemon=True).start()
+
+
+def backup_one_async(local_name):
+    """Fire-and-forget backup of a single DB file in a background thread."""
+    if not SHEETS_URL:
+        return
+    drive_name = next((d for l, d in ALL_BACKUPS if l == local_name), None)
+    if not drive_name:
+        return
+    threading.Thread(target=lambda: backup_file(local_name, drive_name),
+                     daemon=True).start()
+
+
+def restore_all(timeout=60):
+    """Restore every missing DB file from Drive. Returns {local_name: bool}."""
+    results = {}
+    for local_name, drive_name in ALL_BACKUPS:
+        results[local_name] = restore_file(drive_name, local_name,
+                                           timeout=timeout)
+    return results
 
 
 def last_result():
