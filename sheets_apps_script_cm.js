@@ -61,20 +61,41 @@ function readJsonFile(folder, name) {
   }
 }
 
+// Optional spreadsheet for the legacy CM Sheets sync (saveData/getData/timecard).
+// For a standalone script project, paste the spreadsheet ID here. Empty means
+// those actions are skipped — the Drive folder backup already covers both DBs.
+var SPREADSHEET_ID = '';
+
+function getSpreadsheet_() {
+  try {
+    if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
+    return SpreadsheetApp.getActiveSpreadsheet();
+  } catch (e) {
+    return null;
+  }
+}
+
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = getSpreadsheet_();
     var out = { ok: false };
 
     if (data.action === "saveData") {
-      var dsh = ss.getSheetByName("Data");
-      if (!dsh) dsh = ss.insertSheet("Data");
-      dsh.getRange("A1").setValue(JSON.stringify(data.data));
-      dsh.getRange("B1").setValue(new Date().toISOString());
-      out = { ok: true };
+      if (!ss) {
+        out = { ok: false, error: "no spreadsheet bound (SPREADSHEET_ID empty)" };
+      } else {
+        var dsh = ss.getSheetByName("Data");
+        if (!dsh) dsh = ss.insertSheet("Data");
+        dsh.getRange("A1").setValue(JSON.stringify(data.data));
+        dsh.getRange("B1").setValue(new Date().toISOString());
+        out = { ok: true };
+      }
     } else if (data.action === "timecard") {
-      var tsh = ss.getSheetByName("Timecards");
+      if (!ss) {
+        out = { ok: false, error: "no spreadsheet bound (SPREADSHEET_ID empty)" };
+      } else {
+        var tsh = ss.getSheetByName("Timecards");
       if (!tsh) {
         tsh = ss.insertSheet("Timecards");
         tsh.appendRow(["ts", "worker", "site", "action", "clock_in", "clock_out", "hours", "id"]);
@@ -82,6 +103,7 @@ function doPost(e) {
       var t = data.timecard || {};
       tsh.appendRow([t.ts, t.worker, t.site, t.action, t.clock_in, t.clock_out, t.hours, t.id]);
       out = { ok: true };
+      }
     } else if (data.action === "uploadPlan") {
       // data: {image_base64, mime, filename, site_id, floor}
       var folders = DriveApp.getFoldersByName("CM Plans");
@@ -165,8 +187,12 @@ function doPost(e) {
 
 function doGet(e) {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (e.parameter.action === "getData") {
+      var ss = getSpreadsheet_();
+      if (!ss) {
+        return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "no spreadsheet bound" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
       var dsh = ss.getSheetByName("Data");
       var raw = dsh ? dsh.getRange("A1").getValue() : "";
       return ContentService.createTextOutput(JSON.stringify({
