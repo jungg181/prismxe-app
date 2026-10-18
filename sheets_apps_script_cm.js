@@ -63,7 +63,7 @@ function readJsonFile(folder, name) {
 
 // Optional spreadsheet for the legacy CM Sheets sync (saveData/getData/timecard).
 // For a standalone script project, paste the spreadsheet ID here. Empty means
-// those actions are skipped — the Drive folder backup already covers both DBs.
+// those actions are skipped — the Drive folder backup covers the COA DB.
 var SPREADSHEET_ID = '';
 
 function getSpreadsheet_() {
@@ -118,8 +118,8 @@ function doPost(e) {
               url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
               file_id: file.getId() };
     } else if (data.action === "saveCoaBackup") {
-      // data: {coa_json, cm_json, coa_csv, folder_id} — durable backup of
-      // BOTH databases into the user's Drive folder, so nothing is lost when
+      // data: {coa_json, coa_csv, folder_id} — durable backup of the COA
+      // database into the user's Drive folder, so nothing is lost when
       // Render wipes its ephemeral disk on redeploy. {probe:true} just
       // checks the action exists (writes nothing).
       if (data.probe) {
@@ -129,9 +129,6 @@ function doPost(e) {
         saveTextFile(coaFolder, "COA_Data.json", "application/json",
                      data.coa_json || "{}",
                      "COA database backup · updated " + new Date().toISOString());
-        saveTextFile(coaFolder, "CM_Data.json", "application/json",
-                     data.cm_json || "{}",
-                     "CM database backup · updated " + new Date().toISOString());
         if (data.coa_csv) {
           saveTextFile(coaFolder, "COA_Timecards.csv", "text/csv", data.coa_csv,
                        "COA timecards · updated " + new Date().toISOString());
@@ -139,16 +136,15 @@ function doPost(e) {
         out = { ok: true };
       }
     } else if (data.action === "getCoaBackup") {
-      // Returns {coa: {...}, cm: {...}} so the server can restore both DBs
+      // Returns {coa: {...}} so the server can restore the COA DB
       // after a redeploy. {probe:true} just checks the action exists.
       if (data.probe) {
         out = { ok: true, probe: true };
       } else {
         var gfolder = DriveApp.getFolderById(data.folder_id);
         var coaData = readJsonFile(gfolder, "COA_Data.json");
-        var cmData = readJsonFile(gfolder, "CM_Data.json");
-        if (coaData || cmData) {
-          out = { ok: true, data: { coa: coaData, cm: cmData } };
+        if (coaData) {
+          out = { ok: true, data: { coa: coaData } };
         } else {
           out = { ok: false, error: "no backup found" };
         }
