@@ -192,7 +192,7 @@ def load_db():
 def save_db():
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
-    drive_backup.backup_async()
+    drive_backup.backup_one_async('data_coa.json')
     # Piggyback on the CM Sheets sync so COA data survives Render deploys
     # even before the Apps Script update (the old script blind-stores the
     # saveData blob, wrapped as {"cm":..., "coa":...}).
