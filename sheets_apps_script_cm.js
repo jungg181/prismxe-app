@@ -61,6 +61,16 @@ function readJsonFile(folder, name) {
   }
 }
 
+function readTextFile(folder, name) {
+  var files = folder.getFilesByName(name);
+  if (!files.hasNext()) return null;
+  try {
+    return files.next().getBlob().getDataAsString();
+  } catch (e) {
+    return null;
+  }
+}
+
 // Optional spreadsheet for the legacy CM Sheets sync (saveData/getData/timecard).
 // For a standalone script project, paste the spreadsheet ID here. Empty means
 // those actions are skipped — the Drive folder backup covers the COA DB.
@@ -147,6 +157,34 @@ function doPost(e) {
           out = { ok: true, data: { coa: coaData } };
         } else {
           out = { ok: false, error: "no backup found" };
+        }
+      }
+    } else if (data.action === "saveFile") {
+      // Generic: data: {filename, content, mime, folder_id} — saves any text
+      // file into the Drive folder. Used for all-module backups.
+      // {probe:true} just checks the action exists (writes nothing).
+      if (data.probe) {
+        out = { ok: true, probe: true };
+      } else {
+        var sfFolder = DriveApp.getFolderById(data.folder_id);
+        saveTextFile(sfFolder, data.filename, data.mime || "application/json",
+                     data.content || "",
+                     "backup · updated " + new Date().toISOString());
+        out = { ok: true };
+      }
+    } else if (data.action === "getFile") {
+      // Generic: data: {filename, folder_id} — returns {ok:true, content}
+      // so the server can restore any module's DB after a redeploy.
+      // {probe:true} just checks the action exists.
+      if (data.probe) {
+        out = { ok: true, probe: true };
+      } else {
+        var gfFolder = DriveApp.getFolderById(data.folder_id);
+        var gContent = readTextFile(gfFolder, data.filename);
+        if (gContent !== null) {
+          out = { ok: true, content: gContent };
+        } else {
+          out = { ok: false, error: "no backup found: " + data.filename };
         }
       }
     } else if (data.action === "sendEmail") {
