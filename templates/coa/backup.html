@@ -1,0 +1,48 @@
+{% extends "coa/base.html" %}
+{% block title %}Backup Status{% endblock %}
+{% block content %}
+<h1>Backup Status</h1>
+<p class="muted">Your data is backed up to the Google Drive folder on every save. This page proves it's working.</p>
+
+{% if backup_msg is not none %}
+<div class="msg {{ 'ok' if backup_ok else 'err' }}" style="margin-bottom:12px">
+  {% if backup_ok %}✅ Backup complete — COA_Data.json, CM_Data.json and COA_Timecards.csv are now in your Drive folder.{% else %}❌ Backup failed: {{ backup_msg }}{% endif %}
+</div>
+{% endif %}
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ coa_counts.workers }}</div><div class="lbl">COA workers</div></div>
+  <div class="stat"><div class="num">{{ coa_counts.timecards }}</div><div class="lbl">COA timecards</div></div>
+  <div class="stat"><div class="num">{{ coa_counts.sites }}</div><div class="lbl">COA sites</div></div>
+  <div class="stat"><div class="num">{{ last.at or '—' }}</div><div class="lbl">Last backup attempt</div></div>
+</div>
+
+<div class="card" style="margin-top:12px"><div class="card-body">
+  <h3 style="margin-top:0">Google connection</h3>
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>Feature</th><th>Status</th></tr>
+    {% for action, label, ok in probes %}
+    <tr><td>{{ label }}</td>
+        <td>{% if ok %}<span class="pill pill-active">✓ Working</span>{% else %}<span class="pill pill-low">✗ Not available</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+  <form method="post" action="{{ url_for('coa.backup_now') }}" style="margin-top:10px">
+    <button class="btn primary big" type="submit">💾 Back Up Now</button>
+  </form>
+  {% if not drive_ok %}
+  <div class="msg err" style="margin-top:12px">
+    <b>One-time setup needed:</b> the Drive backup needs the updated Apps Script.
+    <ol style="margin:8px 0;padding-left:20px">
+      <li>Open your "CM Data" spreadsheet → <b>Extensions → Apps Script</b></li>
+      <li>Replace all the code with the updated file (copy button below) and <b>Save</b></li>
+      <li><b>Deploy → Manage deployments → Edit → New version → Deploy</b></li>
+      <li>Approve the Drive permission when asked, then come back here and press <b>Back Up Now</b></li>
+    </ol>
+    <button class="btn small" onclick="navigator.clipboard.writeText(document.getElementById('script-code').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy script code',2000)">Copy script code</button>
+    <pre id="script-code" class="hidden">{{ script_code }}</pre>
+  </div>
+  {% else %}
+  <p class="muted small" style="margin-top:10px">✅ Drive backup is active. Files: COA_Data.json, CM_Data.json, COA_Timecards.csv in your backup folder.</p>
+  {% endif %}
+</div></div>
+{% endblock %}
