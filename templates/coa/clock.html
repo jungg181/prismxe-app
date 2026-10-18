@@ -54,6 +54,14 @@
     <label><b>Name</b><input type="text" id="who-name" placeholder="Jane Doe" style="width:100%" autocomplete="name"></label>
     <label><b>Email</b> <span class="muted small">(required)</span><input type="email" id="who-email" placeholder="you@example.com" style="width:100%" autocomplete="email"></label>
     <label><b>Phone</b><input type="tel" id="who-phone" placeholder="+1 480 555 0101" style="width:100%" autocomplete="tel"></label>
+    <label><b>Position</b> <span class="muted small">(optional)</span><input type="text" id="who-position" list="position-list" placeholder="e.g. Cleaner" style="width:100%"></label>
+    <datalist id="position-list">
+      <option value="Carpenter"><option value="Spotter"><option value="Accounting">
+      <option value="Maintenance"><option value="Building Manager"><option value="Janitor">
+      <option value="Cleaner"><option value="Security"><option value="Landscaper">
+      <option value="HVAC Technician"><option value="Electrician"><option value="Plumber">
+      <option value="Supervisor"><option value="General Labor">
+    </datalist>
     <button class="btn primary scan-btn" onclick="identify()">Register &amp; Start</button>
     <div id="who-msg"></div>
   </div></div>
@@ -211,9 +219,10 @@ function identify(){
   const name = $('who-name').value.trim();
   const email = $('who-email').value.trim().toLowerCase();
   const phone = $('who-phone').value.trim();
+  const position = $('who-position').value.trim();
   if (!name) { $('who-msg').innerHTML = '<div class="msg err">Enter your name or select from the list.</div>'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('who-msg').innerHTML = '<div class="msg err">Enter a valid email address.</div>'; return; }
-  enterMain('new:' + encodeURIComponent(JSON.stringify({name: name, email: email, phone: phone})), name);
+  enterMain('new:' + encodeURIComponent(JSON.stringify({name: name, email: email, phone: phone, position: position})), name);
   msg('Registered! Tap Clock In to start.', 'ok');
 }
 
@@ -294,6 +303,7 @@ async function coaClockIn(){
                    name: nw ? nw.name : undefined,
                    email: nw ? nw.email : undefined,
                    phone: nw ? nw.phone : undefined,
+                   position: nw ? nw.position : undefined,
                    site_id: siteId, action: 'clock_in',
                    lat: pos ? pos.lat : null, lng: pos ? pos.lng : null};
   if (!isOnline()) {
@@ -341,6 +351,7 @@ async function confirmCoaClockOut(){
                    name: nw ? nw.name : undefined,
                    email: nw ? nw.email : undefined,
                    phone: nw ? nw.phone : undefined,
+                   position: nw ? nw.position : undefined,
                    lat: pos ? pos.lat : null, lng: pos ? pos.lng : null,
                    action: 'clock_out'};
   if (rh !== '') payload.reported_hours = rh;
