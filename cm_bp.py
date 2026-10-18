@@ -8,7 +8,6 @@ import copy
 import uuid
 import threading
 import urllib.request
-import drive_backup
 import zlib
 from datetime import datetime, date, timedelta
 
@@ -233,16 +232,6 @@ def load_db():
     if not os.path.exists(DB_PATH):
         # Fresh deploy (Render wiped the disk) — try to restore from Google Sheets first
         restored = sheets_get_data()
-        if not restored:
-            # Sheets missed — try the Drive folder backup (needs Apps Script update)
-            try:
-                drv = drive_backup.restore()
-                cm_data = drv.get('cm') if isinstance(drv, dict) else None
-                if isinstance(cm_data, dict):
-                    restored = cm_data
-                    print("cm: restored DB from Drive folder", flush=True)
-            except Exception as e:  # noqa: BLE001
-                print(f"cm: Drive restore failed: {e}", flush=True)
         if isinstance(restored, str):
             # Packed (zlib+base64) blob written by sheets_sync_db
             restored = _unpack_blob(restored)
@@ -295,11 +284,6 @@ def save_db():
         json.dump(DB, f, indent=2)
     # Auto-sync to Google Sheets (survives Render deploys)
     sheets_sync_db()
-    # Back up both DBs to the Drive folder (needs Apps Script update)
-    try:
-        drive_backup.backup_async()
-    except Exception:  # noqa: BLE001
-        pass
 
 
 DB = load_db()
