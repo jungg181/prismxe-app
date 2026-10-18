@@ -1,6 +1,6 @@
 /* COA Time Clock service worker — offline support for the worker app.
    Bump CACHE when /coa/clock or its core assets change. */
-const CACHE = 'coa-clock-v1';
+const CACHE = 'coa-clock-v2';
 const CORE = ['/coa/clock', '/coa/contacts', '/static/cm/style.css'];
 
 self.addEventListener('install', (e) => {
@@ -31,15 +31,14 @@ self.addEventListener('fetch', (e) => {
                     url.pathname === '/static/cm/style.css';
   if (!cacheable) return;
   e.respondWith(
-    caches.match(e.request).then((hit) => {
-      const net = fetch(e.request).then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
+    // Network-first: try the live page, fall back to cache only if offline.
+    // Never serve a stale cached "not found".
+    fetch(e.request).then((res) => {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
