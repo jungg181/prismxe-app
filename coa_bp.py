@@ -37,6 +37,11 @@ COA_DRIVE_FOLDER_ID = '1b5hO9wUMl1GO4UBhRd6YUdptGdSRC0r7'
 
 COLLECTIONS = ['sites', 'workers', 'timecards', 'confirmations']
 
+POSITION_LIST = ['Carpenter', 'Spotter', 'Accounting', 'Maintenance',
+                 'Building Manager', 'Janitor', 'Cleaner', 'Security',
+                 'Landscaper', 'HVAC Technician', 'Electrician', 'Plumber',
+                 'Supervisor', 'General Labor']
+
 
 # ---------- small helpers ----------
 
@@ -249,11 +254,12 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
                   'reported_hours': t.get('reported_hours')}
 
 
-def _find_or_register_worker(name, email, phone, site_id):
+def _find_or_register_worker(name, email, phone, site_id, position=None):
     """Email is the identity key; falls back to phone, then name."""
     email = (email or '').strip().lower()
     phone = (phone or '').strip()
     name = (name or '').strip()
+    position = (position or '').strip()
     if '@' not in email or '.' not in email.split('@')[-1]:
         return None, 'Enter a valid email address.'
     if not name:
@@ -268,6 +274,7 @@ def _find_or_register_worker(name, email, phone, site_id):
                   if x.get('name', '').strip().lower() == name.lower()), None)
     if not w:
         w = {'id': new_id(), 'name': name, 'email': email, 'phone': phone,
+             'position': position,
              'site_id': site_id or '', 'status': 'active',
              'created_at': now_iso()}
         DB['workers'].append(w)
@@ -276,6 +283,8 @@ def _find_or_register_worker(name, email, phone, site_id):
             w['email'] = email
         if phone and not w.get('phone'):
             w['phone'] = phone
+        if position and not w.get('position'):
+            w['position'] = position
     return w, None
 
 
@@ -336,7 +345,8 @@ def api_clock():
     w = find('workers', d.get('worker_id')) if d.get('worker_id') else None
     if not w:
         w, err = _find_or_register_worker(d.get('name'), d.get('email'),
-                                          d.get('phone'), d.get('site_id'))
+                                          d.get('phone'), d.get('site_id'),
+                                          d.get('position'))
         if not w:
             return jsonify({'ok': False, 'error': err}), 400
     worker_id = w['id']
@@ -407,7 +417,8 @@ def api_sync_clock():
     w = find('workers', worker_id) if worker_id else None
     if not w:
         w, err = _find_or_register_worker(d.get('name'), d.get('email'),
-                                          d.get('phone'), site_id)
+                                          d.get('phone'), site_id,
+                                          d.get('position'))
         if not w:
             return jsonify({'ok': False, 'error': err}), 400
         worker_id = w['id']
@@ -512,9 +523,11 @@ def worker_edit(wid):
         w['name'] = request.form.get('name', '').strip() or w.get('name')
         w['email'] = request.form.get('email', '').strip().lower() or w.get('email')
         w['phone'] = request.form.get('phone', '').strip()
+        w['position'] = request.form.get('position', '').strip()
         save_db()
         return redirect(url_for('coa.workers'))
-    return render_template('coa/worker_form.html', w=w)
+    return render_template('coa/worker_form.html', w=w,
+                           positions=POSITION_LIST)
 
 
 @bp.route('/workers/<wid>/delete', methods=['POST'])
@@ -830,7 +843,7 @@ def _contact_list():
         if not phone:
             continue
         name = w.get('name') or '—'
-        sub = w.get('email') or 'COA'
+        sub = w.get('position') or w.get('email') or 'COA'
         contacts.append({
             'name': name, 'phone': phone,
             'phone_display': phone, 'sub': sub, 'team': 'coa',
