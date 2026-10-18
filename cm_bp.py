@@ -284,6 +284,12 @@ def save_db():
         json.dump(DB, f, indent=2)
     # Auto-sync to Google Sheets (survives Render deploys)
     sheets_sync_db()
+    # Back up to Drive folder (survives Render deploys)
+    try:
+        import drive_backup
+        drive_backup.backup_one_async('data_cm.json')
+    except Exception:
+        pass
 
 
 DB = load_db()
