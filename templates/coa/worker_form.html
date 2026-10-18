@@ -13,6 +13,12 @@
   <label>Phone
     <input type="tel" name="phone" value="{{ w.phone or '' }}" placeholder="e.g. 12135550101">
   </label>
+  <label>Position
+    <input type="text" name="position" list="positions" value="{{ w.position or '' }}" placeholder="e.g. Cleaner">
+    <datalist id="positions">
+      {% for p in positions %}<option value="{{ p }}">{% endfor %}
+    </datalist>
+  </label>
   <div class="row-actions">
     <button class="btn primary" type="submit">Save</button>
     <a class="btn" href="{{ url_for('coa.workers') }}">Cancel</a>
