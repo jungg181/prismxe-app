@@ -19,6 +19,7 @@
   <a href="{{ url_for('coa.dashboard') }}" class="{{ 'on' if request.endpoint=='coa.dashboard' else '' }}">Dashboard</a>
   <a href="{{ url_for('coa.timecards') }}" class="{{ 'on' if request.endpoint=='coa.timecards' else '' }}">Timecards</a>
   <a href="{{ url_for('coa.confirmations') }}" class="{{ 'on' if request.endpoint=='coa.confirmations' else '' }}">Confirmations</a>
+  <a href="{{ url_for('coa.contacts') }}" class="{{ 'on' if request.endpoint=='coa.contacts' else '' }}">Contacts</a>
   <a href="{{ url_for('coa.workers') }}" class="{{ 'on' if request.endpoint=='coa.workers' else '' }}">Workers</a>
   <a href="{{ url_for('coa.sites') }}" class="{{ 'on' if request.endpoint in ['coa.sites','coa.site_new','coa.site_edit'] else '' }}">Sites</a>
   <a href="{{ url_for('coa.clock_page') }}" target="_blank">📱 Clock Page</a>
