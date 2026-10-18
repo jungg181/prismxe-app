@@ -502,6 +502,21 @@ def workers():
     return render_template('coa/workers.html', rows=rows, q=request.args.get('q', ''))
 
 
+@bp.route('/workers/<wid>/edit', methods=['GET', 'POST'])
+def worker_edit(wid):
+    """Edit a worker's name, email, or phone (e.g. fix a typo)."""
+    w = find('workers', wid)
+    if not w:
+        abort(404)
+    if request.method == 'POST':
+        w['name'] = request.form.get('name', '').strip() or w.get('name')
+        w['email'] = request.form.get('email', '').strip().lower() or w.get('email')
+        w['phone'] = request.form.get('phone', '').strip()
+        save_db()
+        return redirect(url_for('coa.workers'))
+    return render_template('coa/worker_form.html', w=w)
+
+
 @bp.route('/timecards')
 def timecards():
     fsite = request.args.get('site') or 'all'
