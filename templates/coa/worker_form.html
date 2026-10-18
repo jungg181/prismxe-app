@@ -1,0 +1,21 @@
+{% extends "coa/base.html" %}
+{% block title %}Edit Worker{% endblock %}
+{% block content %}
+<h1>Edit Worker</h1>
+<p class="muted">Fix name, email, or phone. Timecards stay linked to this worker.</p>
+<form class="form" method="post">
+  <label>Name
+    <input type="text" name="name" required value="{{ w.name }}">
+  </label>
+  <label>Email
+    <input type="email" name="email" required value="{{ w.email }}">
+  </label>
+  <label>Phone
+    <input type="tel" name="phone" value="{{ w.phone or '' }}" placeholder="e.g. 12135550101">
+  </label>
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('coa.workers') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
