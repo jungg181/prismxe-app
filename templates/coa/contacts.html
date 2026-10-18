@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d4f3c">
+<title>COA Contacts</title>
+<link rel="manifest" href="/static/coa/contacts-manifest.json">
+<link rel="apple-touch-icon" href="/static/coa/icon-180.png">
+<link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
+<style>
+.coa-head{background:#0d4f3c;color:#fff;padding:16px;text-align:center;border-radius:0 0 16px 16px}
+.coa-head h1{margin:0;font-size:1.25rem}
+.searchbar{width:100%;padding:14px;font-size:1rem;border-radius:12px;border:1px solid var(--line);margin:12px 0}
+.chip-row{display:flex;gap:8px;margin-bottom:8px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card);font-size:.85rem;cursor:pointer}
+.chip.on{background:#0d4f3c;color:#fff;border-color:#0d4f3c}
+.contact{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line)}
+.avatar{width:44px;height:44px;border-radius:50%;background:#0d4f3c;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;flex:none}
+.cinfo{flex:1;min-width:0}
+.cinfo b{font-size:1rem}
+.cinfo .sub{font-size:.8rem;color:var(--muted)}
+.callbtn{flex:none;width:52px;height:52px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;text-decoration:none}
+.smsbtn{flex:none;width:44px;height:44px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.1rem;text-decoration:none}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="coa-head"><h1>📞 COA Contacts</h1></div>
+<main class="container narrow">
+  <div id="install-card" class="hidden" style="background:#e8f5ee;border:1px solid #0d4f3c;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:.88rem">
+    📲 <b>Install the Contacts app</b> — add it to your home screen.
+    <button class="btn primary small" id="install-btn" style="margin-top:8px">Install</button>
+  </div>
+  <input class="searchbar" id="q" type="search" placeholder="🔍 Search name, number, company..." oninput="filterList()">
+  <div class="chip-row">
+    <button class="chip on" data-f="all" onclick="setFilter('all',this)">All</button>
+    <button class="chip" data-f="coa" onclick="setFilter('coa',this)">COA</button>
+    <button class="chip" data-f="cm" onclick="setFilter('cm',this)">CM Crew</button>
+  </div>
+  <div class="card"><div class="card-body" id="list" style="padding:4px 12px">
+    {% for c in contacts %}
+    <div class="contact" data-team="{{ c.team }}" data-search="{{ c.search }}">
+      <div class="avatar">{{ c.name[0]|upper }}</div>
+      <div class="cinfo">
+        <b>{{ c.name }}</b>
+        <div class="sub">{{ c.sub }}</div>
+        <div class="sub">{{ c.phone_display }}</div>
+      </div>
+      <a class="smsbtn" href="sms:{{ c.phone }}" aria-label="Text">💬</a>
+      <a class="callbtn" href="tel:{{ c.phone }}" aria-label="Call">📞</a>
+    </div>
+    {% else %}
+    <p class="muted" style="padding:12px">No phone numbers saved yet.</p>
+    {% endfor %}
+  </div></div>
+  <p class="muted small" style="text-align:center;margin:12px 0">{{ contacts|length }} contacts · tap 📞 to call, 💬 to text</p>
+</main>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/coa/sw.js').catch(() => {});
+}
+let curFilter = 'all';
+function setFilter(f, el){
+  curFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  filterList();
+}
+function filterList(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  document.querySelectorAll('.contact').forEach(el => {
+    const okTeam = curFilter === 'all' || el.dataset.team === curFilter;
+    const okQ = !q || el.dataset.search.includes(q);
+    el.style.display = (okTeam && okQ) ? '' : 'none';
+  });
+}
+/* home-screen install */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    document.getElementById('install-card').classList.remove('hidden');
+  }
+});
+document.getElementById('install-btn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-card').classList.add('hidden');
+};
+</script>
+</body>
+</html>
