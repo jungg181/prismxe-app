@@ -1,0 +1,32 @@
+{% extends "coa/base.html" %}
+{% block title %}Edit Timecard{% endblock %}
+{% block content %}
+<h1>Edit Timecard</h1>
+<p class="muted">Fix clock in/out times. Hours are recalculated automatically (1h meal break deducted on shifts ≥ 5h).</p>
+<form class="form" method="post">
+  <div class="grid2">
+    <label>Worker
+      <select name="worker_id" required>
+        {% for w in workers %}<option value="{{ w.id }}" {% if t.worker_id==w.id %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Jobsite
+      <select name="site_id" required>
+        {% for s in sites %}<option value="{{ s.id }}" {% if t.site_id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <div class="grid3">
+    <label>Date <input type="date" name="date" required value="{{ (t.clock_in[:10] if t.clock_in) or '' }}"></label>
+    <label>Clock in <input type="time" name="clock_in" value="{{ t.clock_in[11:16] if t.clock_in }}"></label>
+    <label>Clock out <input type="time" name="clock_out" value="{{ t.clock_out[11:16] if t.clock_out }}"></label>
+  </div>
+  <label>Worker-reported hours <span class="muted small">(optional)</span>
+    <input type="number" name="reported_hours" step="0.1" min="0" max="24" value="{{ t.reported_hours if t.reported_hours is not none }}">
+  </label>
+  <div class="row-actions">
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('coa.timecards') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
