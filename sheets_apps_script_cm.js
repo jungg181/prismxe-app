@@ -51,6 +51,16 @@ function saveTextFile(folder, name, mime, content, desc) {
   return file;
 }
 
+function readJsonFile(folder, name) {
+  var files = folder.getFilesByName(name);
+  if (!files.hasNext()) return null;
+  try {
+    return JSON.parse(files.next().getBlob().getDataAsString());
+  } catch (e) {
+    return null;
+  }
+}
+
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -86,29 +96,40 @@ function doPost(e) {
               url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
               file_id: file.getId() };
     } else if (data.action === "saveCoaBackup") {
-      // data: {db_json, csv, filename, folder_id} — durable COA backup.
-      // COA_Data.json holds the full DB (used to restore after a Render
-      // redeploy wipes the disk); the CSV is the human-readable copy.
-      var coaFolder = DriveApp.getFolderById(data.folder_id);
-      saveTextFile(coaFolder, "COA_Data.json", "application/json",
-                   data.db_json || "{}",
-                   "COA database backup · updated " + new Date().toISOString());
-      if (data.csv) {
-        saveTextFile(coaFolder, data.filename || "COA_Timecards.csv", "text/csv",
-                     data.csv,
-                     "COA timecards · updated " + new Date().toISOString());
-      }
-      out = { ok: true };
-    } else if (data.action === "getCoaBackup") {
-      // data: {folder_id, filename} — returns the saved COA DB JSON so the
-      // server can restore it after a redeploy.
-      var gfolder = DriveApp.getFolderById(data.folder_id);
-      var gfiles = gfolder.getFilesByName(data.filename || "COA_Data.json");
-      if (gfiles.hasNext()) {
-        out = { ok: true,
-                data: JSON.parse(gfiles.next().getBlob().getDataAsString()) };
+      // data: {coa_json, cm_json, coa_csv, folder_id} — durable backup of
+      // BOTH databases into the user's Drive folder, so nothing is lost when
+      // Render wipes its ephemeral disk on redeploy. {probe:true} just
+      // checks the action exists (writes nothing).
+      if (data.probe) {
+        out = { ok: true, probe: true };
       } else {
-        out = { ok: false, error: "no backup found" };
+        var coaFolder = DriveApp.getFolderById(data.folder_id);
+        saveTextFile(coaFolder, "COA_Data.json", "application/json",
+                     data.coa_json || "{}",
+                     "COA database backup · updated " + new Date().toISOString());
+        saveTextFile(coaFolder, "CM_Data.json", "application/json",
+                     data.cm_json || "{}",
+                     "CM database backup · updated " + new Date().toISOString());
+        if (data.coa_csv) {
+          saveTextFile(coaFolder, "COA_Timecards.csv", "text/csv", data.coa_csv,
+                       "COA timecards · updated " + new Date().toISOString());
+        }
+        out = { ok: true };
+      }
+    } else if (data.action === "getCoaBackup") {
+      // Returns {coa: {...}, cm: {...}} so the server can restore both DBs
+      // after a redeploy. {probe:true} just checks the action exists.
+      if (data.probe) {
+        out = { ok: true, probe: true };
+      } else {
+        var gfolder = DriveApp.getFolderById(data.folder_id);
+        var coaData = readJsonFile(gfolder, "COA_Data.json");
+        var cmData = readJsonFile(gfolder, "CM_Data.json");
+        if (coaData || cmData) {
+          out = { ok: true, data: { coa: coaData, cm: cmData } };
+        } else {
+          out = { ok: false, error: "no backup found" };
+        }
       }
     } else if (data.action === "sendEmail") {
       // data: {to, subject, body, html} — sends via the script owner's Gmail.
