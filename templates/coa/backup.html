@@ -6,7 +6,7 @@
 
 {% if backup_msg is not none %}
 <div class="msg {{ 'ok' if backup_ok else 'err' }}" style="margin-bottom:12px">
-  {% if backup_ok %}✅ Backup complete — COA_Data.json, CM_Data.json and COA_Timecards.csv are now in your Drive folder.{% else %}❌ Backup failed: {{ backup_msg }}{% endif %}
+  {% if backup_ok %}✅ Backup complete — COA_Data.json and COA_Timecards.csv are now in your Drive folder.{% else %}❌ Backup failed: {{ backup_msg }}{% endif %}
 </div>
 {% endif %}
 
@@ -42,7 +42,7 @@
     <pre id="script-code" class="hidden">{{ script_code }}</pre>
   </div>
   {% else %}
-  <p class="muted small" style="margin-top:10px">✅ Drive backup is active. Files: COA_Data.json, CM_Data.json, COA_Timecards.csv in your backup folder.</p>
+  <p class="muted small" style="margin-top:10px">✅ Drive backup is active. Files: COA_Data.json, COA_Timecards.csv in your backup folder.</p>
   {% endif %}
 </div></div>
 {% endblock %}
