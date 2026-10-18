@@ -841,3 +841,44 @@ def confirm_hours(token):
         save_db()
     return render_template('coa/confirm.html', rec=rec, msg=msg,
                            site_name=_site_name)
+
+
+# ================= EMPLOYEE CONTACTS =================
+# Phone directory: COA cleaners + CM crew, tap to call / text.
+
+def _contact_list():
+    contacts = []
+    for w in DB['workers']:
+        phone = (w.get('phone') or '').strip()
+        if not phone:
+            continue
+        name = w.get('name') or '—'
+        sub = w.get('email') or 'COA'
+        contacts.append({
+            'name': name, 'phone': phone,
+            'phone_display': phone, 'sub': sub, 'team': 'coa',
+            'search': f"{name} {phone} {sub}".lower(),
+        })
+    try:
+        from cm_bp import DB as CM_DB
+        for w in CM_DB.get('workers', []):
+            phone = (w.get('phone') or '').strip()
+            if not phone:
+                continue
+            name = w.get('name') or '—'
+            parts = [p for p in (w.get('company'), w.get('trade')) if p]
+            sub = ' · '.join(parts) if parts else 'CM Crew'
+            contacts.append({
+                'name': name, 'phone': phone,
+                'phone_display': phone, 'sub': sub, 'team': 'cm',
+                'search': f"{name} {phone} {sub}".lower(),
+            })
+    except Exception:  # noqa: BLE001
+        pass
+    contacts.sort(key=lambda c: c['name'].lower())
+    return contacts
+
+
+@bp.route('/contacts')
+def contacts():
+    return render_template('coa/contacts.html', contacts=_contact_list())
