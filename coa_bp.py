@@ -583,6 +583,37 @@ def timecard_approve(tid):
     return redirect(url_for('coa.timecards'))
 
 
+@bp.route('/timecards/<tid>/edit', methods=['GET', 'POST'])
+def timecard_edit(tid):
+    """Manually fix clock in/out times (e.g. worker forgot to clock out)."""
+    t = find('timecards', tid)
+    if not t:
+        abort(404)
+    if request.method == 'POST':
+        date = request.form.get('date', '').strip()
+        ci = request.form.get('clock_in', '').strip()
+        co = request.form.get('clock_out', '').strip()
+        if date and ci:
+            t['clock_in'] = f"{date}T{ci}:00"
+        if date and co:
+            t['clock_out'] = f"{date}T{co}:00"
+            if t.get('status') == 'clocked_in':
+                t['status'] = 'clocked_out'
+        if t.get('clock_in') and t.get('clock_out'):
+            t['hours'] = compute_hours(t['clock_in'], t['clock_out'])
+        t['worker_id'] = request.form.get('worker_id') or t.get('worker_id')
+        t['site_id'] = request.form.get('site_id') or t.get('site_id')
+        rh = request.form.get('reported_hours', '').strip()
+        try:
+            t['reported_hours'] = float(rh) if rh else None
+        except ValueError:
+            pass
+        save_db()
+        return redirect(url_for('coa.timecards'))
+    return render_template('coa/timecard_form.html', t=t,
+                           workers=DB['workers'], sites=DB['sites'])
+
+
 @bp.route('/timecards/<tid>/delete', methods=['POST'])
 def timecard_delete(tid):
     t = find('timecards', tid)
