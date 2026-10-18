@@ -1,7 +1,7 @@
 /* COA Time Clock service worker — offline support for the worker app.
    Bump CACHE when /coa/clock or its core assets change. */
 const CACHE = 'coa-clock-v1';
-const CORE = ['/coa/clock', '/static/cm/style.css'];
+const CORE = ['/coa/clock', '/coa/contacts', '/static/cm/style.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -25,8 +25,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return; // API POSTs pass through
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
-  // Cache the clock page (any query string) and the stylesheet.
+  // Cache the clock + contacts pages (any query string) and the stylesheet.
   const cacheable = url.pathname === '/coa/clock' ||
+                    url.pathname === '/coa/contacts' ||
                     url.pathname === '/static/cm/style.css';
   if (!cacheable) return;
   e.respondWith(
