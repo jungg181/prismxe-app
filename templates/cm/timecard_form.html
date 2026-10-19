@@ -20,10 +20,51 @@
     <label>Clock in <input type="time" name="clock_in" value="{{ t.clock_in[11:16] if t and t.clock_in }}"></label>
     <label>Clock out <input type="time" name="clock_out" value="{{ t.clock_out[11:16] if t and t.clock_out }}"></label>
   </div>
+  <label>Worker-reported hours <span class="muted small">(optional)</span>
+    <input type="number" name="reported_hours" id="reported_hours" step="0.1" min="0" max="24" value="{{ t.reported_hours if t and t.reported_hours is not none }}">
+  </label>
   <label>Notes <textarea name="notes" rows="2">{{ t.notes if t }}</textarea></label>
+  <div class="card" style="margin:12px 0"><div class="card-body" id="hours-summary" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+    <span>🕒 System: <b id="sys-h">—</b></span>
+    <span>👷 Reported: <b id="rep-h">—</b></span>
+    <span id="match-pill"></span>
+  </div></div>
   <div class="row-actions">
     <button class="btn primary" type="submit">Save</button>
     <a class="btn" href="{{ url_for('.timecards') }}">Cancel</a>
   </div>
 </form>
+<script>
+(function(){
+  var dateEl=document.querySelector('input[name="date"]'),
+      inEl=document.querySelector('input[name="clock_in"]'),
+      outEl=document.querySelector('input[name="clock_out"]'),
+      repEl=document.getElementById('reported_hours'),
+      sysEl=document.getElementById('sys-h'),
+      repOut=document.getElementById('rep-h'),
+      pill=document.getElementById('match-pill');
+  function mins(t){ if(!t) return null; var p=t.split(':'); return (+p[0])*60+(+p[1]); }
+  function calc(){
+    var d=dateEl.value, i=mins(inEl.value), o=mins(outEl.value), sys=null;
+    if(d&&i!==null&&o!==null){
+      var h=(o-i)/60; if(h<0)h+=24;
+      if(h>=5)h-=1;
+      sys=Math.max(0,Math.round(h*100)/100);
+    }
+    sysEl.textContent=sys===null?'—':sys+'h';
+    var rv=parseFloat(repEl.value), hasRep=!isNaN(rv);
+    repOut.textContent=hasRep?rv+'h':'—';
+    pill.innerHTML='';
+    if(sys!==null&&hasRep){
+      if(Math.abs(sys-rv)>=0.5){
+        pill.innerHTML='<span class="pill pill-low small">⚠️ differs by '+Math.abs(Math.round((sys-rv)*10)/10)+'h</span>';
+      }else{
+        pill.innerHTML='<span class="small muted">✓ match</span>';
+      }
+    }
+  }
+  [dateEl,inEl,outEl,repEl].forEach(function(el){el.addEventListener('input',calc);el.addEventListener('change',calc);});
+  calc();
+})();
+</script>
 {% endblock %}
