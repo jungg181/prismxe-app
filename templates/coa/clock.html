@@ -9,37 +9,54 @@
 <link rel="apple-touch-icon" href="/static/coa/icon-180.png">
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
-.coa-head{background:linear-gradient(135deg,#0d4f3c 0%,#093b2c 100%);color:#fff;padding:28px 16px 22px;text-align:center;border-radius:0 0 24px 24px;box-shadow:0 4px 20px rgba(13,79,60,.25)}
-.logo-badge{display:inline-block;background:#fff;border-radius:16px;padding:10px 20px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
-.logo-badge img{display:block;max-width:180px;width:100%;height:auto;border-radius:8px}
-.coa-head h1{margin:0;font-size:1.45rem;font-weight:800;letter-spacing:.5px}
-.coa-head p{margin:6px 0 0;color:#a7e3c9;font-size:.85rem}
-.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:16px;margin:10px 0;border:none;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:transform .1s}
+*{box-sizing:border-box}
+body{background:#e8f0ec;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a2e25}
+.coa-head{background:#fff;color:#1a2e25;padding:32px 20px 26px;text-align:center;border-radius:0 0 28px 28px;box-shadow:0 4px 24px rgba(13,79,60,.12)}
+.coa-head img{display:block;max-width:220px;width:75%;height:auto;margin:0 auto 14px}
+.coa-head h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:.5px;color:#0d4f3c}
+.coa-head p{margin:8px 0 0;color:#6b8a7d;font-size:.88rem}
+.coa-head #head-worker{color:#0d4f3c;font-weight:600}
+.container.narrow{max-width:520px;margin:0 auto;padding:0 16px 40px}
+.card{background:#fff;border:none;border-radius:18px;box-shadow:0 2px 12px rgba(13,79,60,.08);margin-top:14px}
+.card-body{padding:20px}
+.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:16px;margin:12px 0 4px;border:none;cursor:pointer;box-shadow:0 3px 12px rgba(13,79,60,.2);transition:transform .1s}
 .scan-btn:active{transform:scale(.98)}
-.btn.primary.scan-btn{background:linear-gradient(135deg,#0d9b6c,#0d4f3c);color:#fff}
-#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;color:#fff!important;border:none!important}
-.card{border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
-.card-body{padding:18px}
-input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:10px!important;border:1px solid var(--line);padding:10px 12px!important;font-size:1rem}
-label b{display:block;margin-bottom:4px;font-size:.9rem}
-h3{font-size:1.05rem;font-weight:700}
-.status-big{font-size:1.15rem;font-weight:800}
-.tc-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem;align-items:center}
+.btn.primary.scan-btn{background:linear-gradient(135deg,#0ea968,#0d4f3c);color:#fff}
+#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;color:#fff!important}
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:12px!important;border:1.5px solid #d4e2da;padding:12px!important;font-size:1rem;background:#fafdfb;width:100%}
+input:focus,select:focus{outline:none;border-color:#0d9b6c;box-shadow:0 0 0 3px rgba(13,155,108,.12)}
+label{display:block;margin:10px 0}
+label b{display:block;margin-bottom:6px;font-size:.9rem;color:#0d4f3c}
+h3{font-size:1.08rem;font-weight:700;color:#0d4f3c;margin-top:0}
+.muted{color:#6b8a7d}
+.small{font-size:.82rem}
+.status-big{font-size:1.2rem;font-weight:800;color:#0d4f3c}
+.tc-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e8f0ec;font-size:.9rem;align-items:center}
 .msg{padding:12px 14px;border-radius:12px;margin:8px 0;font-size:.9rem}
 .msg.ok{background:#dcfce7;color:#166534}
 .msg.err{background:#fee2e2;color:#991b1b}
 .msg.info{background:#dbeafe;color:#1e40af}
 .hidden{display:none!important}
-#hours-modal .card{border-radius:20px}
-#hours-input{border:2px solid #0d4f3c!important;font-weight:700}
+#install-card,#ios-install-hint{background:#fff!important;border:1.5px solid #0d9b6c!important;border-radius:14px!important}
+#offline-bar{border-radius:14px!important}
+#hours-modal .card{border-radius:22px}
+#hours-input{border:2px solid #0d4f3c!important;font-weight:700;text-align:center}
+.pill{border-radius:20px;padding:3px 10px;font-size:.75rem;font-weight:700}
+.pill-active{background:#dcfce7;color:#166534}
+.pill-low{background:#fee2e2;color:#991b1b}
+.btn{border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer;border:1.5px solid #d4e2da;background:#fff;color:#0d4f3c}
+.btn.primary{background:linear-gradient(135deg,#0ea968,#0d4f3c);color:#fff;border:none}
+.btn.small{padding:6px 12px;font-size:.82rem}
+.btn.big{padding:14px 24px;font-size:1rem}
+.row-actions{display:flex;gap:10px;margin-top:14px}
 </style>
 </head>
 <body>
 <div class="coa-head">
-  <div class="logo-badge"><img src="/static/coa/logo.jpg" alt="Prism Multiple Entertainment LLC"></div>
+  <img src="/static/coa/logo.jpg" alt="Prism Multiple Entertainment LLC">
   <h1>COA Time Clock</h1>
   <p>Cleaners of America</p>
-  <p id="head-worker" class="hidden" style="margin:8px 0 0;font-size:.88rem">👷 <b id="head-worker-name"></b></p>
+  <p id="head-worker" class="hidden" style="margin:10px 0 0;font-size:.9rem">👷 <b id="head-worker-name"></b></p>
 </div>
 
 <main class="container narrow">
