@@ -23,11 +23,33 @@
   {% if preview %}
   <h3>2 · Preview — {{ preview|length }} worker(s) with hours in this period</h3>
   <div class="table-wrap"><table class="tbl">
-    <tr><th>Worker</th><th>Email</th><th>Hours</th><th>Shifts</th></tr>
+    <tr><th>Worker</th><th>Email</th><th>System</th><th>Reported</th><th>Shifts</th></tr>
     {% for r in preview %}
-    <tr><td><b>{{ r.worker_name }}</b></td>
+    {% set ns = namespace(rep=0.0, rep_n=0) %}
+    {% for d in r.details %}{% if d.reported_hours is not none %}{% set ns.rep = ns.rep + (d.reported_hours or 0) %}{% set ns.rep_n = ns.rep_n + 1 %}{% endif %}{% endfor %}
+    <tr><td><b>{{ r.worker_name }}</b>
+        <details class="small" style="margin-top:4px">
+          <summary class="muted" style="cursor:pointer">shift breakdown</summary>
+          <div style="margin-top:6px">
+          {% for d in r.details %}
+          <div class="tc-row" style="font-size:.78rem"><span><b>{{ d.date }}</b> · {{ d.site }}<br>
+            <span class="muted">{{ (d.clock_in or '')[5:16].replace('T',' ') }} – {{ (d.clock_out or '')[5:16].replace('T',' ') }}</span>
+            {% if d.reported_hours is not none and d.hours is not none %}<br>
+            <span>reported <b>{{ d.reported_hours }}h</b>
+              {% if ((d.reported_hours or 0) - (d.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">⚠️ differs</span>
+              {% else %}<span class="pill pill-active small">✓ match</span>{% endif %}</span>
+            {% endif %}</span>
+            <b>{% if d.hours is not none %}{{ d.hours }}h{% else %}—{% endif %}</b></div>
+          {% endfor %}
+          </div>
+        </details></td>
         <td>{% if r.email %}{{ r.email }}{% else %}<span class="pill pill-low small">no email</span>{% endif %}</td>
-        <td><b>{{ r.hours }}h</b></td><td>{{ r.details|length }}</td></tr>
+        <td><b>{{ r.hours }}h</b></td>
+        <td>{% if ns.rep_n %}<b>{{ ns.rep|round(2) }}h</b>
+          {% if (ns.rep - (r.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">⚠️</span>
+          {% else %}<span class="pill pill-active small">✓</span>{% endif %}
+        {% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{{ r.details|length }}</td></tr>
     {% endfor %}
   </table></div>
   <form method="post" action="{{ url_for('coa.confirmations_send') }}" style="margin-top:10px"
