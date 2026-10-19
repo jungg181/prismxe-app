@@ -8,6 +8,10 @@
   <div class="stat"><div class="num">{{ total }}</div><div class="lbl">Total records</div></div>
   <div class="stat"><div class="num">{{ gps_pct }}%</div><div class="lbl">GPS captured</div></div>
 </div>
+<div class="card" style="margin:12px 0"><div class="card-body" style="display:flex;gap:16px;align-items:center">
+  <img src="{{ url_for('coa.qr_clock') }}" alt="Clock Page QR" style="width:120px;height:120px">
+  <div><b>Clock Page QR</b><br><span class="muted small">New workers scan this to open the clock page and register. Print it and post it at the jobsite.</span></div>
+</div></div>
 <form class="filters" method="get">
   <div class="grid3">
     <select name="site" onchange="this.form.submit()">
