@@ -310,6 +310,23 @@ def service_worker():
                      mimetype='application/javascript')
 
 
+@bp.route('/qr/clock.png')
+def qr_clock():
+    """Printable QR code for the Clock Page. Workers scan it to open the COA
+    clock directly — first-time workers register there, returning workers
+    clock in/out."""
+    try:
+        import qrcode
+    except ImportError:
+        abort(500, 'qrcode library not installed')
+    url = BASE_URL.rstrip('/') + '/coa/clock'
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
+
+
 @bp.route('/qr/<site_id>.png')
 def qr_image(site_id):
     """Printable QR code for a jobsite. Workers scan it to open the COA
