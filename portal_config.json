@@ -1,1 +1,82 @@
-{"companies": [{"apps": [{"desc": "Equipment patrol timetable & shift monitoring", "icon": "\ud83d\udccb", "name": "Patrol Board", "url": "/patrol/"}, {"desc": "Photograph gauges, auto-read needles, log measurements", "icon": "\ud83d\udd27", "name": "Hanseong Check List", "url": "/gauge/"}], "icon": "\ud83c\udfe2", "name": "Hanseong"}, {"apps": [{"desc": "Sites, workers, timecards, incidents, QA/QC", "icon": "\ud83c\udfd7\ufe0f", "name": "Construction Manager", "url": "/cm/"}], "icon": "\ud83c\udfd7\ufe0f", "name": "Construction"}]}
+{
+  "companies": [
+    {
+      "apps": [
+        {
+          "desc": "Equipment patrol timetable & shift monitoring",
+          "icon": "📋",
+          "name": "Patrol Board",
+          "url": "/patrol/"
+        },
+        {
+          "desc": "Photograph gauges, auto-read needles, log measurements",
+          "icon": "🔧",
+          "name": "Hanseong Check List",
+          "url": "/gauge/"
+        }
+      ],
+      "icon": "🏢",
+      "name": "Hanseong"
+    },
+    {
+      "apps": [
+        {
+          "desc": "Sites, workers, timecards, incidents, QA/QC",
+          "icon": "🏗️",
+          "name": "Construction Manager",
+          "url": "/cm/"
+        }
+      ],
+      "icon": "🏗️",
+      "name": "Construction"
+    },
+    {
+      "name": "COA",
+      "icon": "🧹",
+      "apps": [
+        {
+          "name": "COA Dashboard",
+          "desc": "Cleaners of America · Admin",
+          "icon": "📊",
+          "url": "/coa/"
+        },
+        {
+          "name": "COA Time Clock",
+          "desc": "Worker clock in/out",
+          "icon": "⏱️",
+          "url": "/coa/clock"
+        },
+        {
+          "name": "COA Contacts",
+          "desc": "Tap to call workers",
+          "icon": "📞",
+          "url": "/coa/contacts"
+        },
+        {
+          "name": "Patrol COA",
+          "desc": "COA patrol board",
+          "icon": "📋",
+          "url": "/patrol-coa/"
+        }
+      ]
+    },
+    {
+      "name": "Tools",
+      "icon": "🔧",
+      "apps": [
+        {
+          "name": "Bible",
+          "desc": "Bible reading",
+          "icon": "📖",
+          "url": "/bible/"
+        },
+        {
+          "name": "Burner Guide",
+          "desc": "Burner guide",
+          "icon": "🔥",
+          "url": "/burner/"
+        }
+      ]
+    }
+  ]
+}
