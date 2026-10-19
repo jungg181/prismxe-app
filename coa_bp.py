@@ -670,17 +670,33 @@ def _confirm_url(rec):
     return BASE_URL.rstrip('/') + '/coa/confirm/' + rec['token']
 
 
+def _reported_cell(t):
+    rep = t.get('reported_hours')
+    if rep is None:
+        return '—'
+    try:
+        h = t.get('hours')
+        if h is None:
+            h = compute_hours(t.get('clock_in'), t.get('clock_out'))
+        mark = '⚠️' if abs(float(rep) - float(h or 0)) >= 0.5 else '✓'
+    except (TypeError, ValueError):
+        mark = ''
+    return f'{rep} h {mark}'
+
+
 def _confirmation_email(rec):
     link = _confirm_url(rec)
     shift_rows = ''.join(
         '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">%s</td>'
         '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s</td>'
         '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s – %s</td>'
-        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s h</td></tr>'
+        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s h</td>'
+        '<td style="padding:6px 10px;border-bottom:1px solid #eee">%s</td></tr>'
         % ((t.get('clock_in') or '')[:10], _site_name(t.get('site_id')),
            fmt_dt(t.get('clock_in')), fmt_dt(t.get('clock_out')),
            t.get('hours') if t.get('hours') is not None
-           else compute_hours(t.get('clock_in'), t.get('clock_out')))
+           else compute_hours(t.get('clock_in'), t.get('clock_out')),
+           _reported_cell(t))
         for t in rec['details'])
     subject = f"Please confirm your hours — {rec['period_start']} to {rec['period_end']}"
     body = (f"Hi {rec['worker_name']},\n\n"
@@ -696,7 +712,8 @@ def _confirmation_email(rec):
             f"<tr><th style='text-align:left;padding:6px 10px'>Date</th>"
             f"<th style='text-align:left;padding:6px 10px'>Jobsite</th>"
             f"<th style='text-align:left;padding:6px 10px'>Shift</th>"
-            f"<th style='text-align:left;padding:6px 10px'>Hours</th></tr>"
+            f"<th style='text-align:left;padding:6px 10px'>Hours</th>"
+            f"<th style='text-align:left;padding:6px 10px'>Reported</th></tr>"
             f"{shift_rows}</table>"
             f"<p><b>Total: {rec['hours']} hours</b></p>"
             f"<p><a href='{link}' style='display:inline-block;background:#0d4f3c;"
