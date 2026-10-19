@@ -9,25 +9,37 @@
 <link rel="apple-touch-icon" href="/static/coa/icon-180.png">
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
-.coa-head{background:#0d4f3c;color:#fff;padding:16px;text-align:center;border-radius:0 0 16px 16px}
-.coa-head h1{margin:0;font-size:1.3rem}
-.coa-head p{margin:4px 0 0;color:#a7e3c9;font-size:.8rem}
-.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:14px;margin:10px 0}
-.status-big{font-size:1.05rem;font-weight:700}
-.tc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem}
-.msg{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:.88rem}
+.coa-head{background:linear-gradient(135deg,#0d4f3c 0%,#093b2c 100%);color:#fff;padding:28px 16px 22px;text-align:center;border-radius:0 0 24px 24px;box-shadow:0 4px 20px rgba(13,79,60,.25)}
+.logo-badge{display:inline-block;background:#fff;border-radius:16px;padding:10px 20px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.logo-badge img{display:block;max-width:180px;width:100%;height:auto;border-radius:8px}
+.coa-head h1{margin:0;font-size:1.45rem;font-weight:800;letter-spacing:.5px}
+.coa-head p{margin:6px 0 0;color:#a7e3c9;font-size:.85rem}
+.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:16px;margin:10px 0;border:none;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:transform .1s}
+.scan-btn:active{transform:scale(.98)}
+.btn.primary.scan-btn{background:linear-gradient(135deg,#0d9b6c,#0d4f3c);color:#fff}
+#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;color:#fff!important;border:none!important}
+.card{border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.card-body{padding:18px}
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:10px!important;border:1px solid var(--line);padding:10px 12px!important;font-size:1rem}
+label b{display:block;margin-bottom:4px;font-size:.9rem}
+h3{font-size:1.05rem;font-weight:700}
+.status-big{font-size:1.15rem;font-weight:800}
+.tc-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem;align-items:center}
+.msg{padding:12px 14px;border-radius:12px;margin:8px 0;font-size:.9rem}
 .msg.ok{background:#dcfce7;color:#166534}
 .msg.err{background:#fee2e2;color:#991b1b}
 .msg.info{background:#dbeafe;color:#1e40af}
 .hidden{display:none!important}
+#hours-modal .card{border-radius:20px}
+#hours-input{border:2px solid #0d4f3c!important;font-weight:700}
 </style>
 </head>
 <body>
 <div class="coa-head">
-  <img src="/static/coa/logo.jpg" alt="Prism Multiple Entertainment LLC" style="max-width:200px;width:60%;height:auto;margin-bottom:8px">
-  <h1>🧹 COA Time Clock</h1>
+  <div class="logo-badge"><img src="/static/coa/logo.jpg" alt="Prism Multiple Entertainment LLC"></div>
+  <h1>COA Time Clock</h1>
   <p>Cleaners of America</p>
-  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-worker-name"></b></p>
+  <p id="head-worker" class="hidden" style="margin:8px 0 0;font-size:.88rem">👷 <b id="head-worker-name"></b></p>
 </div>
 
 <main class="container narrow">
@@ -72,7 +84,7 @@
     </div></div>
 
     <div class="card" style="margin-top:12px"><div class="card-body">
-      <h3 style="margin-top:0">⏱️ Clock In / Out</h3>
+      <h3 style="margin-top:0">Clock In / Out</h3>
       <p class="muted small" style="margin-top:0">Tap below when you arrive at the jobsite. Your location is captured automatically.</p>
       <div id="dc-in-ui">
         {% if fixed_site %}
@@ -86,11 +98,11 @@
         </label>
         {% endif %}
         {% if not sites %}<p class="msg err">No jobsites registered. Ask your supervisor.</p>{% endif %}
-        <button class="btn primary scan-btn" id="dc-in-btn" onclick="coaClockIn()">🟢 Clock In</button>
+        <button class="btn primary scan-btn" id="dc-in-btn" onclick="coaClockIn()">Clock In</button>
       </div>
       <div id="dc-out-ui" class="hidden">
         <p style="margin-top:0"><b>Jobsite:</b> <span id="dc-site-name"></span></p>
-        <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()" style="background:#dc2626;color:#fff;border-color:#dc2626">🔴 Clock Out</button>
+        <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()">Clock Out</button>
       </div>
       <p class="muted small" id="dc-geo"></p>
     </div></div>
