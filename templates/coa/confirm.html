@@ -33,7 +33,12 @@ textarea{width:100%;min-height:90px;border-radius:10px;padding:10px;font-size:.9
     <div style="font-size:1.6rem;font-weight:800;margin:8px 0">{{ rec.hours }} hours</div>
     {% for d in rec.details %}
     <div class="tc-row"><span><b>{{ d.date }}</b> · {{ d.site }}<br>
-      <span class="muted small">{{ d.clock_in[5:16].replace('T',' ') if d.clock_in }} – {{ d.clock_out[5:16].replace('T',' ') if d.clock_out }}</span></span>
+      <span class="muted small">{{ d.clock_in[5:16].replace('T',' ') if d.clock_in }} – {{ d.clock_out[5:16].replace('T',' ') if d.clock_out }}</span>
+      {% if d.reported_hours is not none %}<br>
+      <span class="small">I reported <b>{{ d.reported_hours }}h</b>
+        {% if d.hours is not none and ((d.reported_hours or 0) - (d.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">⚠️ differs</span>
+        {% elif d.hours is not none %}<span class="pill pill-active small">✓ matches</span>{% endif %}</span>
+      {% endif %}</span>
       <b>{{ d.hours }}h</b></div>
     {% endfor %}
 
