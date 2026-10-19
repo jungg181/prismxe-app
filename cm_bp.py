@@ -1401,6 +1401,7 @@ def _timecard_from_form(form):
             'clock_in_lat': None, 'clock_in_lng': None,
             'clock_out': clock_out, 'clock_out_lat': None, 'clock_out_lng': None,
             'hours': hours, 'status': status,
+            'reported_hours': float(form.get('reported_hours') or 0) or None,
             'notes': form.get('notes', '').strip()}
 
 
@@ -1444,6 +1445,7 @@ def timecard_edit(tid):
             if t['status'] == 'clocked_in':
                 t['status'] = 'clocked_out'
         t['notes'] = upd['notes']
+        t['reported_hours'] = upd['reported_hours']
         save_db()
         flash('Timecard updated.')
         return redirect(url_for('cm.timecards'))
