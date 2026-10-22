@@ -116,17 +116,22 @@ function doPost(e) {
       }
     } else if (data.action === "uploadPlan") {
       // data: {image_base64, mime, filename, site_id, floor}
-      var folders = DriveApp.getFoldersByName("CM Plans");
-      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("CM Plans");
-      var blob = Utilities.newBlob(Utilities.base64Decode(data.image_base64),
-                                   data.mime || "image/jpeg",
-                                   data.filename || "plan.jpg");
-      var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      file.setDescription("site=" + (data.site_id || "") + " floor=" + (data.floor || ""));
-      out = { ok: true,
-              url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
-              file_id: file.getId() };
+      // {probe:true} just checks the action exists (uploads nothing).
+      if (data.probe) {
+        out = { ok: true, probe: true };
+      } else {
+        var folders = DriveApp.getFoldersByName("CM Plans");
+        var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("CM Plans");
+        var blob = Utilities.newBlob(Utilities.base64Decode(data.image_base64),
+                                     data.mime || "image/jpeg",
+                                     data.filename || "plan.jpg");
+        var file = folder.createFile(blob);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        file.setDescription("site=" + (data.site_id || "") + " floor=" + (data.floor || ""));
+        out = { ok: true,
+                url: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w2000",
+                file_id: file.getId() };
+      }
     } else if (data.action === "saveCoaBackup") {
       // data: {coa_json, coa_csv, folder_id} — durable backup of the COA
       // database into the user's Drive folder, so nothing is lost when
