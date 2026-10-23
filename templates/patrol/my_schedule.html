@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Schedule</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='patrol/style.css') }}">
+<style>
+.pc-head{background:#1e40af;color:#fff;padding:14px 16px;border-radius:0 0 16px 16px;text-align:center}
+.pc-head h1{margin:0;font-size:1.25rem}
+.pc-head p{margin:4px 0 0;color:#bfdbfe;font-size:.8rem}
+.dayrow{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+.daychip{flex:1;min-width:44px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px 2px;background:#fff}
+.daychip .dow{font-size:.68rem;color:#64748b;font-weight:700}
+.daychip .dt{font-size:.8rem;font-weight:800}
+.daychip.today{border-color:#f59e0b;background:#fffbeb}
+label{display:block;margin:10px 0;font-weight:600;font-size:.9rem}
+select,input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;margin-top:4px}
+.req{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff}
+.st-pending{color:#b45309;font-weight:800}.st-approved{color:#16a34a;font-weight:800}.st-rejected{color:#991b1b;font-weight:800}
+</style>
+</head>
+<body>
+<div class="pc-head">
+  <h1>📅 My Schedule</h1>
+  <p>See your shifts · ask for a change (a manager must approve it)</p>
+</div>
+<main style="max-width:560px;margin:0 auto;padding:14px">
+  {% with msgs = get_flashed_messages() %}
+  {% if msgs %}<div style="background:#dcfce7;color:#166534;padding:10px 12px;border-radius:10px;margin-bottom:10px">{{ msgs[0] }}</div>{% endif %}
+  {% endwith %}
+
+  <form method="get" action="{{ url_for('.my_schedule') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px">
+    <label style="margin-top:0">Your email (the one you clock in with)
+      <input type="email" name="email" value="{{ email }}" placeholder="you@example.com" required>
+    </label>
+    <button class="btn" type="submit" style="width:100%">Show my schedule</button>
+  </form>
+
+  {% if worker %}
+  <h3 style="margin:18px 0 4px">👷 {{ worker.name }}{% if worker.role %} <span class="muted small">{{ worker.role }}</span>{% endif %}</h3>
+  {% for wk in weeks %}
+  <div class="dayrow">
+    {% for d, v in wk %}
+    <div class="daychip {{ 'today' if d.isoformat()==today_str else '' }}">
+      <div class="dow">{{ d.strftime('%a') }}</div>
+      <div class="dt">{{ d.strftime('%m/%d') }}</div>
+      {% if v == 'OFF' %}<div style="font-weight:800;color:#94a3b8">OFF</div>
+      {% elif v %}{% set sh = shifts|selectattr('id','equalto',v)|first %}<div style="font-weight:800;color:{{ sh.color if sh else '#334155' }}">{{ v }}</div>
+      {% else %}<div style="color:#cbd5e1">–</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <form method="post" action="{{ url_for('.my_schedule_request') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px">
+    <h4 style="margin:2px 0 6px">Request a change</h4>
+    <input type="hidden" name="email" value="{{ worker.email }}">
+    <label>Date
+      <input type="date" name="date" min="{{ today_str }}" max="{{ max_date }}" required>
+    </label>
+    <label>I want
+      <select name="to_shift" required>
+        {% for s in shifts %}<option value="{{ s.id }}">Shift {{ s.name }}</option>{% endfor %}
+        <option value="OFF">Day off (OFF)</option>
+      </select>
+    </label>
+    <label>Note (optional)
+      <textarea name="note" rows="2" placeholder="Reason for the change"></textarea>
+    </label>
+    <button class="btn" type="submit" style="width:100%">Send request</button>
+    <p class="muted small" style="margin:8px 0 0">Your schedule does <b>not</b> change right away — it changes only after a manager approves the request.</p>
+  </form>
+
+  {% if my_requests %}
+  <h4 style="margin:16px 0 4px">My requests</h4>
+  {% for r in my_requests %}
+  <div class="req">
+    <b>{{ r.date }}</b> → {{ r.to_shift }}
+    <span class="st-{{ r.status }}" style="float:right">{{ r.status }}</span>
+    {% if r.note %}<div class="muted small">“{{ r.note }}”</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% elif email %}
+  <p style="background:#fee2e2;color:#991b1b;padding:10px 12px;border-radius:10px">No worker found for that email. Use the email you clock in with.</p>
+  {% endif %}
+  <p style="text-align:center;margin-top:16px"><a href="{{ url_for('.patrol_clock') }}">← Back to Clock In / Out</a></p>
+</main>
+</body>
+</html>

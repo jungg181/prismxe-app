@@ -83,6 +83,24 @@
   </div>
 </div>
 
+<div class="card">
+  <h3>Today's Schedule <span class="muted small">{{ now.strftime('%A, %b %d') }} · who is on today</span></h3>
+  {% if roster %}
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    {% for r in roster %}
+    <span style="display:inline-flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:99px;padding:6px 14px 6px 8px">
+      <span class="wpers" style="background:{{ r.color }}">👷</span><b>{{ r.worker.name }}</b>{% if r.role %}<span class="muted small">{{ r.role }}</span>{% endif %}
+      {% if r.shift == 'OFF' %}<span class="badge" style="background:#f1f5f9;color:#64748b">OFF</span>
+      {% else %}{% set sh = shifts|selectattr('id','equalto',r.shift)|first %}<span class="badge" style="background:{{ sh.color if sh else '#475569' }};color:#fff">Shift {{ r.shift }}</span>
+      <span class="small" style="color:{{ '#16a34a' if r.clocked_in else '#94a3b8' }};font-weight:700">{{ '● clocked in' if r.clocked_in else '○ not yet' }}</span>{% endif %}
+    </span>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No schedule set for today yet — open <a href="{{ url_for('.schedule_page') }}">Schedule</a> to plan the week.</p>
+  {% endif %}
+</div>
+
 <div class="card" id="tcard" style="overflow-x:auto">
   <h3>Full Timetable</h3>
   <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>

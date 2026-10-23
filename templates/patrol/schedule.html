@@ -1,0 +1,130 @@
+{% extends "patrol/base.html" %}
+{% set nav='schedule' %}
+{% block title %}Schedule · Equipment Patrol Timetable{% endblock %}
+{% block wrapclass %}wide{% endblock %}
+{% block body %}
+<div class="card">
+  <h2>Staff Schedule
+    <span class="muted small">Week of {{ days[0].strftime('%b %d') }} – {{ days[6].strftime('%b %d, %Y') }}</span>
+  </h2>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+    <a class="btn small" href="{{ url_for('.schedule_page', week=prev_week) }}">← Prev week</a>
+    <a class="btn small" href="{{ url_for('.schedule_page') }}">This week</a>
+    <a class="btn small" href="{{ url_for('.schedule_page', week=next_week) }}">Next week →</a>
+    <span class="muted small">Tap a cell to change: blank → {% for s in shifts %}{{ s.name }} → {% endfor %}OFF → blank. Changes save right away.</span>
+  </div>
+  <div style="overflow-x:auto;margin-bottom:12px">
+  <table class="grid">
+    <tr><th style="text-align:left">Coverage — every shift needs 1 Supervisor · 1 Foreman · 1 Helper</th>
+      {% for s in shifts %}<th>Shift {{ s.name }}</th>{% endfor %}
+    </tr>
+    {% for d in days %}
+    {% set cov = coverage.get(d.isoformat(), {}) %}
+    <tr>
+      <td style="text-align:left;font-weight:700;white-space:nowrap">{{ d.strftime('%a %m/%d') }}{{ ' (today)' if d.isoformat()==today_str else '' }}</td>
+      {% for s in shifts %}
+      {% set sc = cov.get(s.id, {}) %}
+      <td style="text-align:left;font-size:.78rem;line-height:1.5">
+        {% if not sc %}<span class="muted">— not scheduled</span>{% else %}
+        {% for r in roles %}
+          {% set names = sc.get(r, []) %}
+          {% if names %}<span style="color:#16a34a">✓</span> {{ r }}: {{ names|join(', ') }}{% if not loop.last %}<br>{% endif %}
+          {% else %}<span style="color:#dc2626;font-weight:800">✗ no {{ r }}</span>{% if not loop.last %}<br>{% endif %}{% endif %}
+        {% endfor %}
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  <div style="overflow-x:auto">
+  <table class="grid">
+    <tr>
+      <th style="text-align:left">Worker</th>
+      {% for d in days %}
+      <th class="{{ 'today-col' if d.isoformat()==today_str else '' }}" style="{{ 'background:#fef9c3' if d.isoformat()==today_str else '' }}">{{ d.strftime('%a') }}<br>{{ d.strftime('%m/%d') }}</th>
+      {% endfor %}
+    </tr>
+    {% for w in workers %}
+    <tr>
+      <td style="text-align:left;font-weight:700;white-space:nowrap">{{ w.name }}<div class="muted small">{{ w.role if w.role else 'no role' }} · {{ w.email }}</div></td>
+      {% for d in days %}
+      {% set v = schedule.get(d.isoformat(), {}).get(w.id, '') %}
+      <td style="padding:2px">
+        <button type="button" class="scell" data-w="{{ w.id }}" data-d="{{ d.isoformat() }}" data-v="{{ v }}"
+          style="width:100%;min-height:38px;border-radius:8px;border:1px solid #e2e8f0;font-weight:800;cursor:pointer;
+          {% if v=='OFF' %}background:#f1f5f9;color:#64748b
+          {% elif v %}{% set sh = shifts|selectattr('id','equalto',v)|first %}background:{{ sh.color if sh else '#475569' }};color:#fff
+          {% else %}background:#fff;color:#cbd5e1{% endif %}">{{ v if v else '·' }}</button>
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  <p class="muted small">Workers see their own schedule on the clock page (My Schedule). A worker's change request never edits this table directly — it lands below and applies only when you approve it.</p>
+</div>
+
+<div class="card">
+  <h3>Change Requests {% if pending %}<span class="badge" style="background:#dc2626;color:#fff">{{ pending|length }} pending</span>{% endif %}</h3>
+  {% if pending %}
+    {% for r in pending %}
+    <div class="rowline" style="align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div class="grow">
+        <b>{{ r.name }}</b> · {{ r.date }}
+        — {{ r.from_shift if r.from_shift else 'not scheduled' }} → <b>{{ r.to_shift }}</b>
+        {% if r.note %}<div class="muted small">“{{ r.note }}”</div>{% endif %}
+        <div class="muted small">requested {{ (r.created or '')[:16].replace('T',' ') }}</div>
+      </div>
+      <button type="button" class="btn small" style="background:#16a34a;color:#fff" onclick="decide('{{ r.id }}','approved')">Approve</button>
+      <button type="button" class="btn small" style="background:#f1f5f9;color:#991b1b" onclick="decide('{{ r.id }}','rejected')">Reject</button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No pending requests.</p>
+  {% endif %}
+  {% if history %}
+  <h4 style="margin:14px 0 6px">Recent decisions</h4>
+    {% for r in history %}
+    <div class="small" style="padding:3px 0;border-bottom:1px solid #f1f5f9">
+      {{ r.date }} · <b>{{ r.name }}</b> → {{ r.to_shift }} —
+      {% if r.status=='approved' %}<span style="color:#16a34a;font-weight:700">approved</span>{% else %}<span style="color:#991b1b;font-weight:700">rejected</span>{% endif %}
+      <span class="muted">{{ (r.decided_at or '')[:16].replace('T',' ') }}</span>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const ORDER = ['', {% for s in shifts %}'{{ s.id }}', {% endfor %}'OFF'];
+const COLORS = { {% for s in shifts %}'{{ s.id }}': '{{ s.color }}', {% endfor %}'OFF': '' };
+function paint(btn, v) {
+  btn.dataset.v = v;
+  btn.textContent = v ? v : '·';
+  if (v === 'OFF') { btn.style.background = '#f1f5f9'; btn.style.color = '#64748b'; }
+  else if (v) { btn.style.background = COLORS[v] || '#475569'; btn.style.color = '#fff'; }
+  else { btn.style.background = '#fff'; btn.style.color = '#cbd5e1'; }
+}
+document.querySelectorAll('.scell').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const cur = btn.dataset.v || '';
+    const nxt = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length];
+    fetch("{{ url_for('.schedule_set') }}", {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({worker_id: btn.dataset.w, date: btn.dataset.d, shift: nxt})
+    }).then(r => r.json()).then(j => { if (j.ok) { sessionStorage.setItem('schedScroll', window.scrollY); location.reload(); } else alert('Could not save — open the Schedule page again (password) and retry.'); })
+      .catch(() => alert('Could not save.'));
+  });
+});
+(function(){ const y = sessionStorage.getItem('schedScroll'); if (y) { window.scrollTo(0, parseInt(y, 10)); sessionStorage.removeItem('schedScroll'); } })();
+function decide(rid, decision) {
+  fetch("{{ url_for('.schedule_decide', rid='__RID__') }}".replace('__RID__', rid), {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({decision: decision})
+  }).then(r => r.json()).then(j => { if (j.ok) location.reload(); else alert('Could not save the decision.'); })
+    .catch(() => alert('Could not save the decision.'));
+}
+</script>
+{% endblock %}
