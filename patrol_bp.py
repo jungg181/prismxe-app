@@ -469,6 +469,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             val = w.get('shift_id') or ''
             if val not in shift_ids:
                 continue
+            if (w.get('role') or '') == 'Supervisor':
+                continue  # supervisors work 12h across shifts - not shown
             cin, _ = punch_status(w.get('email') or '')
             roster.append({"worker": w, "shift": val, "clocked_in": cin,
                            "role": w.get('role', ''),
@@ -479,7 +481,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         shift_gaps = {}
         for sid in shift_ids:
             have = {r['role'] for r in roster if r['shift'] == sid}
-            missing = [r for r in ROLES if r not in have]
+            missing = [r for r in ROLES
+                       if r != 'Supervisor' and r not in have]
             if missing:
                 shift_gaps[sid] = missing
         return render_template('patrol/dashboard.html', now=now, slot_idx=idx,
@@ -981,7 +984,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return render_template('patrol/schedule.html', workers=workers,
                                shifts=DB['shifts'], pending=pending,
                                history=history[:10],
-                               coverage=_standing_coverage(), roles=ROLES)
+                               coverage=_standing_coverage(), roles=ROLES,
+                               cov_roles=[r for r in ROLES
+                                          if r != 'Supervisor'])
 
     @bp.route('/schedule/assign', methods=['POST'])
     @visit_action_required('schedule_page')
