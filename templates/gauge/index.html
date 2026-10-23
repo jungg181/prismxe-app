@@ -54,6 +54,7 @@
     cursor: pointer;
   }
   .toggles button.on { background: #1976d2; border-color: #1976d2; color: #fff; }
+  #burners-FAN button { flex: 1 1 45%; font-size: 14px; }
   .toggles.pump button.on { background: #2e7d32; border-color: #2e7d32; color: #fff; }
   .empty-note {
     font-size: 14px;
@@ -106,10 +107,10 @@
     {% set cat_burners = boilers | selectattr("system", "equalto", cat) | list %}
     {% set cat_pumps = pumps | selectattr("system", "equalto", cat) | list %}
     {% if cat_burners %}
-    <div class="grp-label">Burners</div>
+    <div class="grp-label">{{ "Fans" if cat == "FAN" else "Burners" }}</div>
     <div class="toggles" id="burners-{{ cat }}">
       {% for b in cat_burners %}
-      <button data-id="{{ b.id }}">{{ b.id }}</button>
+      <button data-id="{{ b.id }}">{{ b.name if cat == "FAN" else b.id }}</button>
       {% endfor %}
     </div>
     {% endif %}
