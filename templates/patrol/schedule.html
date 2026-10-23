@@ -11,7 +11,7 @@
     <span class="badge" style="background:{{ s.color }};color:#fff;font-size:.95rem;padding:4px 12px">Shift {{ s.name }}</span>
     <span class="muted small">{% for iv in s.intervals %}{{ iv.start }}–{{ iv.end }}{{ ' · ' if not loop.last else '' }}{% endfor %}</span>
     <span style="font-size:.85rem">
-      {% for r in roles %}
+      {% for r in cov_roles %}
         {% set names = sc.get(r, []) %}
         {% if names %}<span style="color:#16a34a">✓</span> {{ r }}: <b>{{ names|join(', ') }}</b>{% else %}<span style="color:#dc2626;font-weight:800">✗ no {{ r }}</span>{% endif %}{{ ' · ' if not loop.last else '' }}
       {% endfor %}
