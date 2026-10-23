@@ -92,9 +92,16 @@
     <button class="btn" style="background:#2e7d32" onclick="location.href='/gauge/upload'">Open Upload Page</button>
   </div>
   <div class="card">
+    <h2>🕐 Patrol Time</h2>
+    <p>Which patrol round is this? Pick the system and round time first — every reading in this round is saved under that time.</p>
+    <div class="toggles" id="slotSystems"></div>
+    <div class="toggles" id="slotTimes" style="margin-top:8px"></div>
+    <p id="slotSummary" style="margin:10px 0 0;font-weight:600;color:#1976d2"></p>
+  </div>
+  <div class="card">
     <h2>Start Inspection</h2>
     <p>Select the burners and pumps currently running. One pump per burner — tapping another pump switches to it.</p>
-    {% for cat in ["HOB", "SRP", "RO"] %}
+    {% for cat in ["HOB", "SRP", "RO", "FAN"] %}
     <div class="cat">{{ cat }}</div>
     {% set cat_burners = boilers | selectattr("system", "equalto", cat) | list %}
     {% set cat_pumps = pumps | selectattr("system", "equalto", cat) | list %}
@@ -197,9 +204,76 @@ function refresh() {
     : `Start Inspection (${burnerSel.size} Burner${burnerSel.size === 1 ? "" : "s"}, ${pumpSel.size} Pump${pumpSel.size === 1 ? "" : "s"})`;
 }
 startBtn.onclick = () => {
-  const q = "boilers=" + [...burnerSel].join(",") + "&pumps=" + [...pumpSel].join(",");
+  const dt = slotDateTime(slotSys, slotTime);
+  const q = "boilers=" + [...burnerSel].join(",") + "&pumps=" + [...pumpSel].join(",")
+    + "&slot=" + encodeURIComponent(dt) + "&slot_system=" + encodeURIComponent(slotSys);
   location.href = "/gauge/inspect?" + q;
 };
+
+// ---- Patrol time picker ----
+const PATROL_SLOTS = {{ patrol_slots|tojson }};
+let slotSys = "HOB";
+let slotTime = "";
+function slotDateTime(sys, time) {
+  // Most recent occurrence of HH:MM (today, or yesterday if that time is still ahead)
+  const now = new Date();
+  const parts = time.split(":").map(Number);
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parts[0], parts[1]);
+  if (d > now) d.setDate(d.getDate() - 1);
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())
+    + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function currentRound(sys) {
+  let best = "", bestDt = "";
+  (PATROL_SLOTS[sys] || []).forEach(t => {
+    const dt = slotDateTime(sys, t);
+    if (dt > bestDt) { bestDt = dt; best = t; }
+  });
+  return best;
+}
+function saveSlot() {
+  try {
+    localStorage.setItem("hc_patrol", JSON.stringify({
+      system: slotSys, time: slotTime,
+      dt: slotDateTime(slotSys, slotTime), savedAt: Date.now()
+    }));
+  } catch (e) {}
+}
+function renderSlots() {
+  const sysBox = document.getElementById("slotSystems");
+  sysBox.innerHTML = "";
+  Object.keys(PATROL_SLOTS).forEach(sys => {
+    const b = document.createElement("button");
+    b.textContent = sys;
+    if (sys === slotSys) b.classList.add("on");
+    b.onclick = () => { slotSys = sys; slotTime = currentRound(sys); saveSlot(); renderSlots(); };
+    sysBox.appendChild(b);
+  });
+  const timeBox = document.getElementById("slotTimes");
+  timeBox.innerHTML = "";
+  (PATROL_SLOTS[slotSys] || []).forEach(t => {
+    const b = document.createElement("button");
+    b.textContent = t;
+    if (t === slotTime) b.classList.add("on");
+    b.onclick = () => { slotTime = t; saveSlot(); renderSlots(); };
+    timeBox.appendChild(b);
+  });
+  document.getElementById("slotSummary").textContent =
+    "Patrol: " + slotSys + " · " + slotDateTime(slotSys, slotTime);
+}
+(function initSlot() {
+  let restored = false;
+  try {
+    const sv = JSON.parse(localStorage.getItem("hc_patrol") || "null");
+    if (sv && PATROL_SLOTS[sv.system] && (Date.now() - (sv.savedAt || 0)) < 16 * 3600 * 1000
+        && (PATROL_SLOTS[sv.system] || []).includes(sv.time)) {
+      slotSys = sv.system; slotTime = sv.time; restored = true;
+    }
+  } catch (e) {}
+  if (!restored) { slotTime = currentRound(slotSys); saveSlot(); }
+  renderSlots();
+})();
 </script>
 </body>
 </html>

@@ -156,7 +156,16 @@ const BOILERS = (params.get("boilers") || "").split(",").filter(Boolean);
 const PUMPS = (params.get("pumps") || "").split(",").filter(Boolean);
 const HAS_PUMPS_PARAM = params.has("pumps");
 const TODAY = new Date().toISOString().slice(0, 10);
-const DONE_KEY = "done_inspect_" + TODAY;
+// Patrol round chosen on the home screen (or restored from the last round)
+let SLOT = params.get("slot") || "";
+let SLOT_SYS = params.get("slot_system") || "";
+if (!SLOT) {
+  try {
+    const sv = JSON.parse(localStorage.getItem("hc_patrol") || "null");
+    if (sv && sv.dt) { SLOT = sv.dt; SLOT_SYS = sv.system || ""; }
+  } catch (e) {}
+}
+const DONE_KEY = "done_inspect_" + (SLOT ? SLOT.replace(/[^0-9]/g, "") : TODAY);
 let doneSet = new Set(JSON.parse(localStorage.getItem(DONE_KEY) || "[]"));
 let items = [];
 let gaugeMap = {};
@@ -181,7 +190,8 @@ function updateProg() {
 async function load() {
   if (!BOILERS.length && !PUMPS.length) { location.href = "/"; return; }
   document.getElementById("subtitle").textContent =
-    "Burners: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
+    (SLOT ? "🕐 Patrol " + SLOT + (SLOT_SYS ? " (" + SLOT_SYS + ")" : "") + " · " : "")
+    + "Burners: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
   const q = "boilers=" + BOILERS.join(",") + (HAS_PUMPS_PARAM ? "&pumps=" + PUMPS.join(",") : "");
   const r = await fetch("/gauge/api/inspect?" + q);
   const d = await r.json();
@@ -403,7 +413,7 @@ function quickSave(gid, unit) {
   fetch('/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({gauge_id: gid, value: val, unit: unit})
+    body: JSON.stringify({equip_id: (gaugeMap[gid] || {}).equip ? gaugeMap[gid].equip.id : "", gauge_id: gid, value: val, unit: unit, slot: SLOT})
   }).then(() => {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
@@ -491,7 +501,7 @@ function calcTicksSlider(gid) {
   fetch('/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({gauge_id: gid, value: value, unit: unit})
+    body: JSON.stringify({equip_id: (gaugeMap[gid] || {}).equip ? gaugeMap[gid].equip.id : "", gauge_id: gid, value: value, unit: unit, slot: SLOT})
   }).then(() => {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
@@ -532,7 +542,7 @@ async function onPhoto(gid, file, fname, stampLines) {
         gaugeId: gid, gaugeName: (g && g.name) || gid,
         equipId: equip.id, equipName: equip.name,
         filename: fname || ("photo_" + Date.now() + ".jpg"),
-        blob: small, ts: new Date().toISOString(),
+        blob: small, ts: new Date().toISOString(), slot: SLOT,
         stampLines: stampLines || [], reading: reading
       });
     } catch (e) { toast("Could not save to phone: " + e); return; }
@@ -576,7 +586,8 @@ async function confirmReading(gid, manual) {
     equip_id: equip.id, gauge_id: gid, value: value,
     unit: g.unit || data.unit || "",
     angle_deg: data.angle_deg || "", state: "Running",
-    worker: worker.value || "", photo: data.photo || "", manual: manual
+    worker: worker.value || "", photo: data.photo || "", manual: manual,
+    slot: SLOT
   };
   try {
     await fetch("/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });

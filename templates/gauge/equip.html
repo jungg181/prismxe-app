@@ -93,6 +93,11 @@
     <div class="muted" style="font-size:14px;margin-bottom:4px">Worker name</div>
     <input type="text" id="worker" placeholder="e.g. John" style="margin-top:0">
   </div>
+  <div class="card" id="slotCard">
+    <div style="font-weight:bold;font-size:15px">🕐 Patrol Time</div>
+    <div class="muted" id="slotText" style="font-size:14px;margin:4px 0 8px">Select the patrol round first.</div>
+    <div class="toggle" id="slotChips" style="flex-wrap:wrap;margin-bottom:0"></div>
+  </div>
   <div class="toggle">
     <button id="btnRun" class="on">Running</button>
     <button id="btnStop">Stopped</button>
@@ -125,26 +130,88 @@ function toast(msg) {
   setTimeout(() => t.style.display = "none", 2000);
 }
 
+// ---- Patrol time (chosen before any photo, per the round) ----
+let SYS_NAME = "";
+let equipSlotDt = "";
+let pendingQrOpen = false;
+function slotDateTime(time) {
+  const now = new Date();
+  const parts = time.split(":").map(Number);
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parts[0], parts[1]);
+  if (d > now) d.setDate(d.getDate() - 1);
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())
+    + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+async function initSlot() {
+  let times = [];
+  try {
+    const r = await fetch("/gauge/api/slots");
+    const d = await r.json();
+    times = (d.slots || {})[SYS_NAME] || [];
+  } catch (e) {}
+  const box = document.getElementById("slotChips");
+  box.innerHTML = "";
+  // Restore the round already chosen for this system (home screen or earlier QR)
+  let restored = "";
+  try {
+    const sv = JSON.parse(localStorage.getItem("hc_patrol") || "null");
+    if (sv && sv.system === SYS_NAME && (Date.now() - (sv.savedAt || 0)) < 16 * 3600 * 1000
+        && times.includes(sv.time)) restored = sv.time;
+  } catch (e) {}
+  times.forEach(t => {
+    const b = document.createElement("button");
+    b.textContent = t;
+    b.style.flex = "1 1 28%";
+    if (t === restored) b.classList.add("on");
+    b.onclick = () => pickSlot(t, b);
+    box.appendChild(b);
+  });
+  if (restored) {
+    equipSlotDt = slotDateTime(restored);
+    document.getElementById("slotText").textContent = "Patrol: " + equipSlotDt + " — tap a time to change";
+  }
+  if (pendingQrOpen) tryOpenQrGauge();
+}
+function pickSlot(t, btn) {
+  equipSlotDt = slotDateTime(t);
+  document.querySelectorAll("#slotChips button").forEach(b => b.classList.toggle("on", b === btn));
+  document.getElementById("slotText").textContent = "Patrol: " + equipSlotDt + " — tap a time to change";
+  try {
+    localStorage.setItem("hc_patrol", JSON.stringify({
+      system: SYS_NAME, time: t, dt: equipSlotDt, savedAt: Date.now()
+    }));
+  } catch (e) {}
+  if (pendingQrOpen) tryOpenQrGauge();
+}
+function tryOpenQrGauge() {
+  if (!equipSlotDt) {
+    pendingQrOpen = true;
+    toast("Pick the patrol time first 🕐");
+    document.getElementById("slotCard").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  pendingQrOpen = false;
+  const card = document.getElementById("card-" + GAUGE_PARAM);
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.style.outline = "3px solid #2e7d32";
+    setTimeout(() => card.style.outline = "", 4000);
+    const g = gauges.find(x => x.id === GAUGE_PARAM);
+    if (g) openCam(GAUGE_PARAM, g);
+  }
+}
+
 async function load() {
   const r = await fetch("/gauge/api/equipment/" + EQUIP_ID);
   const d = await r.json();
   document.getElementById("title").textContent = d.name;
   document.getElementById("subtitle").textContent = d.system + " · " + d.id;
+  SYS_NAME = d.system;
   gauges = d.gauges;
   render();
-  if (GAUGE_PARAM) {
-    const card = document.getElementById("card-" + GAUGE_PARAM);
-    if (card) {
-      setTimeout(() => {
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        card.style.outline = "3px solid #2e7d32";
-        setTimeout(() => card.style.outline = "", 4000);
-        // Auto-open camera for the QR-linked gauge
-        const g = gauges.find(x => x.id === GAUGE_PARAM);
-        if (g) openCam(GAUGE_PARAM, g);
-      }, 300);
-    }
-  }
+  initSlot();
+  if (GAUGE_PARAM) setTimeout(tryOpenQrGauge, 300);
 }
 
 function visibleGauges() {
@@ -314,7 +381,7 @@ function quickSave(gid, unit) {
   fetch('/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({gauge_id: gid, value: val, unit: unit})
+    body: JSON.stringify({equip_id: EQUIP_ID, gauge_id: gid, value: val, unit: unit, slot: equipSlotDt})
   }).then(() => {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
@@ -403,7 +470,7 @@ function calcTicksSlider(gid) {
   fetch('/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({gauge_id: gid, value: value, unit: unit})
+    body: JSON.stringify({equip_id: EQUIP_ID, gauge_id: gid, value: value, unit: unit, slot: equipSlotDt})
   }).then(() => {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
@@ -433,7 +500,8 @@ async function confirmReading(gid, manual) {
     equip_id: EQUIP_ID, gauge_id: gid, value: value,
     unit: g.unit || last.unit || "",
     angle_deg: last.angle_deg || "", state: state === "run" ? "Running" : "Stopped",
-    worker: worker.value || "", photo: last.photo || "", manual: manual
+    worker: worker.value || "", photo: last.photo || "", manual: manual,
+    slot: equipSlotDt
   };
   try {
     await fetch("/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
