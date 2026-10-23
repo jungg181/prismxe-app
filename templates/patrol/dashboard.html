@@ -84,25 +84,19 @@
 </div>
 
 <div class="card">
-  <h3>On Shift <span class="muted small">{{ now.strftime('%A, %b %d') }} · set on the Schedule page</span></h3>
-  {% if roster %}
-    {% for s in shifts %}
-    {% set rs = roster|selectattr('shift','equalto',s.id)|list %}
-    {% if rs %}
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0">
-      <span class="badge" style="background:{{ s.color }};color:#fff;padding:4px 12px">Shift {{ s.name }}</span>
-      {% for r in rs %}
-      <span style="display:inline-flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:99px;padding:6px 14px 6px 8px">
-        <span class="wpers" style="background:{{ r.color }}">👷</span><b>{{ r.worker.name }}</b>{% if r.role %}<span class="muted small">{{ r.role }}</span>{% endif %}
-        <span class="small" style="color:{{ '#16a34a' if r.clocked_in else '#94a3b8' }};font-weight:700">{{ '● clocked in' if r.clocked_in else '○ not yet' }}</span>
-      </span>
-      {% endfor %}
-      {% if shift_gaps.get(s.id) %}<span class="small" style="color:#dc2626;font-weight:800">✗ missing: {{ shift_gaps[s.id]|join(', ') }}</span>{% endif %}
-    </div>
-    {% endif %}
+  <h3>On Shift <span class="muted small">{{ now.strftime('%A, %b %d') }} · {{ crew_slot_label }} crew · from the 2-week plan</span></h3>
+  {% if crew %}
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    {% for r in crew %}
+    <span style="display:inline-flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:99px;padding:6px 14px 6px 8px">
+      <span class="wpers" style="background:{{ r.color }}">👷</span><b>{{ r.worker.name }}</b>{% if r.role %}<span class="muted small">{{ r.role }}</span>{% endif %}
+      <span class="small" style="color:{{ '#16a34a' if r.clocked_in else '#94a3b8' }};font-weight:700">{{ '● clocked in' if r.clocked_in else '○ not yet' }}</span>
+    </span>
     {% endfor %}
+    {% if slot_missing %}<span class="small" style="color:#dc2626;font-weight:800">✗ missing: {{ slot_missing|join(', ') }}</span>{% endif %}
+  </div>
   {% else %}
-  <p class="muted">No one is assigned to a shift yet — open <a href="{{ url_for('.schedule_page') }}">Schedule</a> to assign shifts.</p>
+  <p class="muted">No one is assigned to this time slot — assign workers in <b>Settings → Time Slots &amp; Shifts</b>.</p>
   {% endif %}
 </div>
 

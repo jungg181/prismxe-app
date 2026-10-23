@@ -10,16 +10,16 @@
 .pc-head h1{margin:0;font-size:1.25rem}
 .pc-head p{margin:4px 0 0;color:#bfdbfe;font-size:.8rem}
 label{display:block;margin:10px 0;font-weight:600;font-size:.9rem}
-select,input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;margin-top:4px}
+input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;margin-top:4px}
 .req{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff}
+.day{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .st-pending{color:#b45309;font-weight:800}.st-approved{color:#16a34a;font-weight:800}.st-rejected{color:#991b1b;font-weight:800}
-.shiftcard{border-radius:14px;padding:16px;color:#fff;text-align:center;margin:12px 0}
 </style>
 </head>
 <body>
 <div class="pc-head">
   <h1>📅 My Schedule</h1>
-  <p>See your shift · ask for a change (a manager must approve it)</p>
+  <p>Your hours for the next 2 weeks · ask for a change below</p>
 </div>
 <main style="max-width:560px;margin:0 auto;padding:14px">
   {% with msgs = get_flashed_messages() %}
@@ -35,49 +35,33 @@ select,input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-ra
 
   {% if worker %}
   <h3 style="margin:18px 0 4px">👷 {{ worker.name }}{% if worker.role %} <span class="muted small">{{ worker.role }}</span>{% endif %}</h3>
-  {% if my_shift %}
-  <div class="shiftcard" style="background:{{ my_shift.color }}">
-    <div style="font-size:.8rem;opacity:.85">YOUR SHIFT</div>
-    <div style="font-size:2rem;font-weight:800">Shift {{ my_shift.name }}</div>
-    <div>{% for iv in my_shift.intervals %}{{ iv.start }} – {{ iv.end }}{{ ' · ' if not loop.last else '' }}{% endfor %}</div>
-  </div>
-  {% elif worker.shift_id == 'OFF' %}
-  <div class="shiftcard" style="background:#64748b">
-    <div style="font-size:.8rem;opacity:.85">YOUR SHIFT</div>
-    <div style="font-size:2rem;font-weight:800">OFF</div>
-    <div>You are not on a shift right now.</div>
-  </div>
+  {% if my_days %}
+    {% for d in my_days %}
+    <div class="day" {{ 'style="border-color:#2563eb;background:#eff6ff"' if d.today }}>
+      <b>{{ d.label }}</b>{% if d.today %}<span class="badge" style="background:#2563eb;color:#fff">TODAY</span>{% endif %}
+      <span style="color:#1d4ed8;font-weight:700">{% for r in d.ranges %}{{ r[0] }} – {{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</span>
+    </div>
+    {% endfor %}
   {% else %}
-  <div class="shiftcard" style="background:#94a3b8">
-    <div style="font-size:.8rem;opacity:.9">YOUR SHIFT</div>
-    <div style="font-size:1.4rem;font-weight:800">Not assigned yet</div>
-    <div>Ask a manager to put you on a shift.</div>
-  </div>
+  <p style="background:#f1f5f9;padding:12px;border-radius:10px">No hours assigned to you in the next 2 weeks yet.</p>
   {% endif %}
 
-  <form method="post" action="{{ url_for('.my_schedule_request') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px">
+  <form method="post" action="{{ url_for('.my_schedule_request') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-top:14px">
     <h4 style="margin:2px 0 6px">Request a change</h4>
     <input type="hidden" name="email" value="{{ worker.email }}">
-    <label>I want
-      <select name="to_shift" required>
-        {% for s in shifts %}<option value="{{ s.id }}">Shift {{ s.name }}</option>{% endfor %}
-        <option value="OFF">OFF (no shift)</option>
-      </select>
-    </label>
-    <label>Note (optional)
-      <textarea name="note" rows="2" placeholder="Reason for the change"></textarea>
+    <label>What do you need changed?
+      <textarea name="note" rows="3" required placeholder="e.g. Please move me off Friday 10/30, family matter"></textarea>
     </label>
     <button class="btn" type="submit" style="width:100%">Send request</button>
-    <p class="muted small" style="margin:8px 0 0">Your shift does <b>not</b> change right away — it changes only after a manager approves the request.</p>
+    <p class="muted small" style="margin:8px 0 0">A manager reviews requests and updates the schedule.</p>
   </form>
 
   {% if my_requests %}
   <h4 style="margin:16px 0 4px">My requests</h4>
   {% for r in my_requests %}
   <div class="req">
-    → <b>{{ 'OFF' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }}</b>
+    {% if r.note %}“{{ r.note }}”{% elif r.to_shift %}→ {{ 'OFF' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }}{% endif %}
     <span class="st-{{ r.status }}" style="float:right">{{ r.status }}</span>
-    {% if r.note %}<div class="muted small">“{{ r.note }}”</div>{% endif %}
   </div>
   {% endfor %}
   {% endif %}

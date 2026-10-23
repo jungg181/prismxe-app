@@ -98,9 +98,19 @@ function saveDisplay(){
 
 <div class="card">
   <h2><span class="muted">03</span> Time Slots &amp; Shifts</h2>
+  <p class="muted small" style="margin-top:0">You plan <b>2 weeks at a time</b>. Pick a day, then put worker names on the hours — no shift groups for people. The A/B/C tag only colors the timetable. The Dashboard shows the names on the current hour.</p>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+    <button type="button" class="btn small" onclick="shiftPeriod(-1)">← Prev 2 weeks</button>
+    <b id="period-label"></b>
+    <button type="button" class="btn small" onclick="shiftPeriod(1)">Next 2 weeks →</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn small" onclick="copyDayTomorrow()">Copy day → tomorrow</button>
+    <button type="button" class="btn small" onclick="copyWeek()">Copy Week 1 → Week 2</button>
+  </div>
+  <div id="day-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
   <div id="slot-list">
     {% for s in slots %}
-    <div class="rowline slot-row">
+    <div class="rowline slot-row" style="flex-wrap:wrap;gap:8px">
       <span class="num">{{ '%02d'|format(loop.index) }}</span>
       <input type="text" class="slot-label" value="{{ s.label }}" style="width:80px">
       <span class="seg-wrap" data-cur="{{ s.shift }}">
@@ -108,10 +118,16 @@ function saveDisplay(){
         <button class="seg-btn {{ 'on' if sh.id==s.shift else '' }}" data-shift="{{ sh.id }}" style="{{ 'background:'+sh.color if sh.id==s.shift else '' }}">{{ sh.name }}</button>
         {% endfor %}
       </span>
+      <span class="slot-workers" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
+      <select class="slot-add" onchange="addToSlot(this)" style="padding:7px;border-radius:8px">
+        <option value="">+ worker…</option>
+        {% for w in workers %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}
+      </select>
+      <button type="button" class="btn small" title="Copy these workers to the next hour" onclick="copySlotDown(this)">copy ↓</button>
     </div>
     {% endfor %}
   </div>
-  <button class="btn primary" onclick="saveSlots()">Save slots</button>
+  <button class="btn primary" onclick="saveSlots()">Save slots &amp; plan</button>
   <span class="muted small" id="slot-msg"></span>
 </div>
 
@@ -234,12 +250,100 @@ document.querySelectorAll('.seg-wrap').forEach(wrap=>{
     };
   });
 });
+// --- 2-week plan: worker names per day per hour ---
+const PLAN_WORKERS = [{% for w in workers %}{"id": {{ w.id|tojson }}, "name": {{ w.name|tojson }}}{{ ', ' if not loop.last else '' }}{% endfor %}];
+let PLAN = {{ slot_plan|tojson }};
+const PLAN_TODAY = {{ plan_start|tojson }};  // a Monday; page opens on this period
+let planStart = PLAN_TODAY;
+let curDate = sessionStorage.getItem('planDate') || {{ today_str|tojson }};
+if (curDate < planStart || curDate >= addDays(planStart, 14)) {
+  planStart = mondayOf(curDate);
+}
+function addDays(s, n){ const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function mondayOf(s){ const d = new Date(s + 'T12:00:00'); const off = (d.getDay() + 6) % 7; return addDays(s, -off); }
+function fmtDay(s){ const d = new Date(s + 'T12:00:00'); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate(); }
+function chipEl(wid){
+  const w = PLAN_WORKERS.find(x => x.id === wid);
+  const s = document.createElement('span');
+  s.className = 'wchip'; s.dataset.wid = wid;
+  s.style.cssText = 'background:#dbeafe;border-radius:99px;padding:3px 6px 3px 10px;font-size:.85rem;font-weight:600';
+  s.innerHTML = (w ? w.name : wid) + ' <a href="#" style="color:#991b1b;text-decoration:none;font-weight:800">×</a>';
+  s.querySelector('a').onclick = e => { e.preventDefault(); s.remove(); };
+  return s;
+}
+function collectDay(){
+  const day = {};
+  document.querySelectorAll('#slot-list .slot-row').forEach((row, i) => {
+    const wids = [...row.querySelectorAll('.wchip')].map(c => c.dataset.wid);
+    if (wids.length) day[i] = wids;
+  });
+  PLAN[curDate] = day;
+}
+function renderDay(){
+  document.querySelectorAll('#slot-list .slot-row').forEach((row, i) => {
+    const box = row.querySelector('.slot-workers');
+    box.innerHTML = '';
+    ((PLAN[curDate] || {})[i] || []).forEach(wid => box.appendChild(chipEl(wid)));
+  });
+  renderTabs();
+  sessionStorage.setItem('planDate', curDate);
+}
+function renderTabs(){
+  const t = document.getElementById('day-tabs');
+  t.innerHTML = '';
+  for (let i = 0; i < 14; i++) {
+    const s = addDays(planStart, i);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn small' + (s === curDate ? ' primary' : '');
+    b.textContent = fmtDay(s) + (s === {{ today_str|tojson }} ? ' •' : '');
+    if (PLAN[s] && Object.keys(PLAN[s]).length) b.style.boxShadow = 'inset 0 -3px 0 #16a34a';
+    b.onclick = () => { collectDay(); curDate = s; renderDay(); };
+    t.appendChild(b);
+  }
+  document.getElementById('period-label').textContent = fmtDay(planStart) + ' – ' + fmtDay(addDays(planStart, 13));
+}
+function shiftPeriod(n){ collectDay(); planStart = addDays(planStart, 14 * n); curDate = planStart; renderDay(); }
+function copyDayTomorrow(){
+  collectDay();
+  const nxt = addDays(curDate, 1);
+  PLAN[nxt] = JSON.parse(JSON.stringify(PLAN[curDate] || {}));
+  curDate = nxt;
+  if (curDate >= addDays(planStart, 14)) planStart = addDays(planStart, 14);
+  renderDay();
+}
+function copyWeek(){
+  collectDay();
+  for (let i = 0; i < 7; i++) {
+    PLAN[addDays(planStart, i + 7)] = JSON.parse(JSON.stringify(PLAN[addDays(planStart, i)] || {}));
+  }
+  renderTabs();
+  document.getElementById('slot-msg').textContent = 'Week 1 copied to Week 2 — press Save to keep it.';
+}
+function addToSlot(sel){
+  if (!sel.value) return;
+  const row = sel.closest('.slot-row');
+  if (![...row.querySelectorAll('.wchip')].some(c => c.dataset.wid === sel.value)) {
+    row.querySelector('.slot-workers').appendChild(chipEl(sel.value));
+  }
+  sel.value = '';
+}
+function copySlotDown(btn){
+  const row = btn.closest('.slot-row');
+  const next = row.nextElementSibling;
+  if (!next || !next.classList.contains('slot-row')) return;
+  const box = next.querySelector('.slot-workers');
+  box.innerHTML = '';
+  [...row.querySelectorAll('.wchip')].map(c => c.dataset.wid).forEach(wid => box.appendChild(chipEl(wid)));
+}
+renderDay();
 async function saveSlots(){
+  collectDay();
   const slots = [...document.querySelectorAll('#slot-list .slot-row')].map(row=>({
     label: row.querySelector('.slot-label').value,
     shift: row.querySelector('.seg-wrap').dataset.cur
   }));
-  await post("{{ url_for('.settings_slots_save') }}", {slots});
+  await post("{{ url_for('.settings_slots_save') }}", {slots, slot_plan: PLAN});
   document.getElementById('slot-msg').textContent = 'Saved ✓';
   setTimeout(()=>location.reload(), 600);
 }

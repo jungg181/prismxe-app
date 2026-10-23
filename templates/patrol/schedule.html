@@ -3,47 +3,28 @@
 {% block title %}Schedule · Equipment Patrol Timetable{% endblock %}
 {% block body %}
 <div class="card">
-  <h2>Staff Shifts</h2>
-  <p class="muted small" style="margin-top:0">Set each person's role and shift right next to their name — it saves right away and this exact list is what the Dashboard shows.</p>
-  {% for s in shifts %}
-  {% set sc = coverage.get(s.id, {}) %}
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin:8px 0">
-    <span class="badge" style="background:{{ s.color }};color:#fff;font-size:.95rem;padding:4px 12px">Shift {{ s.name }}</span>
-    <span class="muted small">{% for iv in s.intervals %}{{ iv.start }}–{{ iv.end }}{{ ' · ' if not loop.last else '' }}{% endfor %}</span>
-    <span style="font-size:.85rem">
-      {% for r in cov_roles %}
-        {% set names = sc.get(r, []) %}
-        {% if names %}<span style="color:#16a34a">✓</span> {{ r }}: <b>{{ names|join(', ') }}</b>{% else %}<span style="color:#dc2626;font-weight:800">✗ no {{ r }}</span>{% endif %}{{ ' · ' if not loop.last else '' }}
-      {% endfor %}
-    </span>
-  </div>
-  {% endfor %}
-
-  <div style="margin-top:14px">
-  {% for w in workers %}
-    <div class="rowline" style="gap:10px;flex-wrap:wrap">
-      <span class="wpers" style="background:{{ '#64748b' }}">👷</span>
-      <div class="grow" style="min-width:180px"><b>{{ w.name }}</b>
-        <div class="muted small">{{ w.email }}{% if w.phone %} · 📞 {{ w.phone }}{% endif %}</div>
-      </div>
-      <label class="small muted">ROLE<br>
-        <select class="as-role" data-w="{{ w.id }}" style="padding:8px;border-radius:8px;font-size:1rem">
-          <option value="" {{ 'selected' if not w.role else '' }}>—</option>
-          {% for r in roles %}<option value="{{ r }}" {{ 'selected' if w.role==r else '' }}>{{ r }}</option>{% endfor %}
-        </select>
-      </label>
-      <label class="small muted">SHIFT<br>
-        <select class="as-shift" data-w="{{ w.id }}" style="padding:8px;border-radius:8px;font-size:1rem;font-weight:700">
-          <option value="" {{ 'selected' if not w.shift_id else '' }}>— not assigned</option>
-          {% for s in shifts %}<option value="{{ s.id }}" {{ 'selected' if w.shift_id==s.id else '' }}>Shift {{ s.name }}</option>{% endfor %}
-          <option value="OFF" {{ 'selected' if w.shift_id=='OFF' else '' }}>OFF</option>
-        </select>
-      </label>
-      <span class="as-msg small" style="color:#16a34a;font-weight:700"></span>
+  <h2>2-Week Schedule</h2>
+  <p class="muted small" style="margin-top:0">Who works which hours for the next two weeks. To change it, open <b>Settings → Time Slots &amp; Shifts</b>, pick a day, and put names on the hours. The Dashboard shows the crew of the current hour from this plan.</p>
+  {% for d in days %}
+  <div style="border:1px solid {{ '#2563eb' if d.today else '#e2e8f0' }};border-radius:10px;padding:8px 12px;margin:8px 0;{{ 'background:#eff6ff' if d.today else '' }}">
+    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+      <b style="font-size:1.02rem">{{ d.label }}</b>{% if d.today %}<span class="badge" style="background:#2563eb;color:#fff">TODAY</span>{% endif %}
+      {% if not d.planned %}<span class="muted small">not planned yet</span>{% endif %}
     </div>
-  {% endfor %}
+    {% if d.entries %}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      {% for e in d.entries %}
+      <span style="display:inline-flex;gap:6px;align-items:center;border:1px solid #e2e8f0;border-radius:99px;padding:4px 12px;background:#fff">
+        <b>{{ e.worker.name }}</b>{% if e.worker.role %}<span class="muted small">{{ e.worker.role }}</span>{% endif %}
+        <span class="small" style="color:#1d4ed8;font-weight:700">{% for r in e.ranges %}{{ r[0] }}–{{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</span>
+      </span>
+      {% endfor %}
+    </div>
+    {% elif d.planned %}
+    <div class="muted small" style="margin-top:4px">No one assigned.</div>
+    {% endif %}
   </div>
-  <p class="muted small">Workers see their own shift on the clock page (My Schedule). A worker's change request never edits this list directly — it lands below and applies only when you approve it.</p>
+  {% endfor %}
 </div>
 
 <div class="card">
@@ -52,14 +33,15 @@
     {% for r in pending %}
     <div class="rowline" style="align-items:flex-start;gap:10px;flex-wrap:wrap">
       <div class="grow">
-        <b>{{ r.name }}</b> — {{ r.from_shift if r.from_shift else 'not assigned' }} → <b>{{ 'OFF (no shift)' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }}</b>
-        {% if r.note %}<div class="muted small">“{{ r.note }}”</div>{% endif %}
+        <b>{{ r.name }}</b>{% if r.to_shift %} — {{ r.from_shift if r.from_shift else 'not assigned' }} → <b>{{ 'OFF (no shift)' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }}</b>{% endif %}
+        {% if r.note %}<div>“{{ r.note }}”</div>{% endif %}
         <div class="muted small">requested {{ (r.created or '')[:16].replace('T',' ') }}</div>
       </div>
-      <button type="button" class="btn small" style="background:#16a34a;color:#fff" onclick="decide('{{ r.id }}','approved')">Approve</button>
+      <button type="button" class="btn small" style="background:#16a34a;color:#fff" onclick="decide('{{ r.id }}','approved')">Done ✓</button>
       <button type="button" class="btn small" style="background:#f1f5f9;color:#991b1b" onclick="decide('{{ r.id }}','rejected')">Reject</button>
     </div>
     {% endfor %}
+    <p class="muted small">Approving marks the request done — apply the actual change in Settings → Time Slots &amp; Shifts.</p>
   {% else %}
     <p class="muted">No pending requests.</p>
   {% endif %}
@@ -67,8 +49,8 @@
   <h4 style="margin:14px 0 6px">Recent decisions</h4>
     {% for r in history %}
     <div class="small" style="padding:3px 0;border-bottom:1px solid #f1f5f9">
-      <b>{{ r.name }}</b> → {{ 'OFF' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }} —
-      {% if r.status=='approved' %}<span style="color:#16a34a;font-weight:700">approved</span>{% else %}<span style="color:#991b1b;font-weight:700">rejected</span>{% endif %}
+      <b>{{ r.name }}</b>{% if r.note %} — “{{ r.note }}”{% endif %} —
+      {% if r.status=='approved' %}<span style="color:#16a34a;font-weight:700">done</span>{% else %}<span style="color:#991b1b;font-weight:700">rejected</span>{% endif %}
       <span class="muted">{{ (r.decided_at or '')[:16].replace('T',' ') }}</span>
     </div>
     {% endfor %}
@@ -77,21 +59,6 @@
 {% endblock %}
 {% block scripts %}
 <script>
-function assign(sel, field) {
-  const row = sel.closest('.rowline');
-  const msg = row.querySelector('.as-msg');
-  const body = {worker_id: sel.dataset.w};
-  body[field] = sel.value;
-  fetch("{{ url_for('.schedule_assign') }}", {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(body)
-  }).then(r => r.json()).then(j => {
-    if (j.ok) { msg.textContent = 'Saved ✓'; setTimeout(() => location.reload(), 500); }
-    else alert('Could not save — open the Schedule page again (password) and retry.');
-  }).catch(() => alert('Could not save.'));
-}
-document.querySelectorAll('.as-shift').forEach(s => s.addEventListener('change', () => assign(s, 'shift')));
-document.querySelectorAll('.as-role').forEach(s => s.addEventListener('change', () => assign(s, 'role')));
 function decide(rid, decision) {
   fetch("{{ url_for('.schedule_decide', rid='__RID__') }}".replace('__RID__', rid), {
     method: 'POST', headers: {'Content-Type': 'application/json'},
