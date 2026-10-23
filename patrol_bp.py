@@ -499,6 +499,33 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         have_roles = {r['role'] for r in crew}
         slot_missing = [r for r in ROLES
                         if r != 'Supervisor' and r not in have_roles]
+        # Crew bars for the Full Timetable: every worker on today's
+        # plan, with the set of slot indexes they work (colored band
+        # across the hour columns). Same fallback as the crew card.
+        bars_map = {}
+        if day_plan is None:
+            for i, s in enumerate(DB['slots']):
+                for w in DB['workers']:
+                    if (w.get('shift_id') or '') == (s.get('shift') or ''):
+                        bars_map.setdefault(w['id'], set()).add(i)
+        else:
+            for idx_s, wids in day_plan.items():
+                for wid in wids or []:
+                    try:
+                        bars_map.setdefault(wid, set()).add(int(idx_s))
+                    except (TypeError, ValueError):
+                        pass
+        crew_bars = []
+        for wid, hrs in bars_map.items():
+            w = find('workers', wid)
+            if not w or (w.get('role') or '') == 'Supervisor':
+                continue
+            crew_bars.append({"worker": w, "role": w.get('role', ''),
+                              "color": worker_color(
+                                  w.get('email') or w.get('name', '')),
+                              "hours": hrs})
+        crew_bars.sort(key=lambda b: (min(b['hours']) if b['hours'] else 99,
+                                      b['worker'].get('name', '')))
         return render_template('patrol/dashboard.html', now=now, slot_idx=idx,
                                shift=shift, due=due, nxt=nxt, nxt_list=nxt_list,
                                slots=DB['slots'], equipment=DB['equipment'],
@@ -506,7 +533,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                on_patrol=on_patrol_now(), located=located,
                                shift_tints=shift_tints, crew=crew,
                                crew_slot_label=crew_slot.get('label', ''),
-                               slot_missing=slot_missing,
+                               slot_missing=slot_missing, crew_bars=crew_bars,
                                zipcode=DB.get('config', {}).get('zipcode', ''))
 
 
