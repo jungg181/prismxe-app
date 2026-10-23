@@ -250,6 +250,14 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             {"id": "C", "name": "C", "color": "#7c3aed",
              "intervals": [{"start": "21:00", "end": "04:00"}]},
         ]
+        # The day runs 0:00 -> 23:00: rotate the slots (authored in
+        # 7:00-first order above) so index 0 is the 0:00 slot, and
+        # remap the equipment check indexes to match.
+        _p = next(i for i, s in enumerate(slots) if s["label"] == "0:00")
+        slots = slots[_p:] + slots[:_p]
+        for _e in equipment:
+            _e["checks"] = {str((int(k) - _p) % 24): v
+                            for k, v in _e["checks"].items()}
         return {"slots": slots, "equipment": equipment, "shifts": shifts,
                 "workers": [], "punches": []}
 
@@ -323,9 +331,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
 
     def shift_for_hour(h):
-        # Derived from Time Slots (single source of truth): slots[0] = 7:00
-        idx = (h - 7) % 24
-        if 0 <= idx < len(DB['slots']):
+        # Derived from Time Slots (single source of truth): find the
+        # slot whose label hour matches.
+        idx = next((i for i, s in enumerate(DB['slots'])
+                    if slot_hour(s.get('label', '')) == h), None)
+        if idx is not None and 0 <= idx < len(DB['slots']):
             key = DB['slots'][idx].get('shift')
             for sh in DB['shifts']:
                 if sh.get('id') == key or sh.get('name') == key:
@@ -437,6 +447,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     # ================= DASHBOARD =================
 
     @bp.route('/')
+    @login_required
     def dashboard():
         idx = current_slot_index()
         now = local_now()
@@ -464,6 +475,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         # shift of the slot so the board never goes blank by surprise.
         _ensure_schedule_seed()
         _migrate_shift_ids()
+        _midnight_rebase()
         _seed_slot_plan()
         crew = []
         crew_slot = DB['slots'][idx] if DB['slots'] else {}
@@ -537,6 +549,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 auto_managed = True
         except Exception:
             pass
+        _midnight_rebase()
         _seed_slot_plan()
         plan_monday = _sched_week(local_now().date())[0]
         return render_template('patrol/settings.html', slots=DB['slots'],
@@ -987,6 +1000,54 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         if changed:
             save_db()
 
+    def _midnight_rebase():
+        """One-time: rotate the 24 slots so the day starts at 0:00 and
+        ends at 23:00 (was 7:00 -> 6:00). Equipment check indexes are
+        remapped, and the 2-week plan is rebuilt so each hour lands on
+        its real calendar date (post-midnight hours move back a day)."""
+        if DB.get('_midnight_rebase'):
+            return
+        DB['_midnight_rebase'] = True
+        slots = DB['slots']
+        p = next((i for i, s in enumerate(slots)
+                  if slot_hour(s.get('label', '')) == 0), None)
+        if p is None or p == 0:
+            save_db()
+            return
+        n = len(slots)
+        DB['slots'] = slots[p:] + slots[:p]
+
+        def new_idx(old):
+            return (old - p) % n
+        for e in DB['equipment']:
+            ch = e.get('checks') or {}
+            e['checks'] = {str(new_idx(int(k))): v
+                           for k, v in ch.items() if str(k).lstrip('-').isdigit()}
+        old_plan = DB.get('slot_plan') or {}
+        if old_plan:
+            from datetime import date as _d
+            new_plan = {}
+            dates = sorted(old_plan)
+            cur = _d.fromisoformat(dates[0]) - timedelta(days=1)
+            last = _d.fromisoformat(dates[-1]) + timedelta(days=1)
+            while cur <= last:
+                ds = cur.isoformat()
+                prev = (cur - timedelta(days=1)).isoformat()
+                day = {}
+                for oi_s, wids in (old_plan.get(ds) or {}).items():
+                    oi = int(oi_s)
+                    if oi < p:
+                        day[str(new_idx(oi))] = wids
+                for oi_s, wids in (old_plan.get(prev) or {}).items():
+                    oi = int(oi_s)
+                    if oi >= p:
+                        day[str(new_idx(oi))] = wids
+                if ds in old_plan or day:
+                    new_plan[ds] = day
+                cur += timedelta(days=1)
+            DB['slot_plan'] = new_plan
+        save_db()
+
     def _seed_slot_plan():
         """One-time: build the first 2-week plan (from this week's
         Monday) out of the standing shift assignments - each hour gets
@@ -1024,8 +1085,6 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 runs[-1].append(i)
             else:
                 runs.append([i])
-        if len(runs) > 1 and runs[0][0] == 0 and runs[-1][-1] == len(slots) - 1:
-            runs = [runs[-1] + runs[0]] + runs[1:-1]
         out = []
         for run in runs:
             start = slots[run[0]].get('label', '')
@@ -1066,6 +1125,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def schedule_page():
         _ensure_schedule_seed()
         _migrate_shift_ids()
+        _midnight_rebase()
         _seed_slot_plan()
         monday = _sched_week(local_now().date())[0]
         pending = sorted(
@@ -1100,9 +1160,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return jsonify({'ok': True})
 
     @bp.route('/my-schedule')
+    @login_required
     def my_schedule():
         _ensure_schedule_seed()
         _migrate_shift_ids()
+        _midnight_rebase()
         _seed_slot_plan()
         email = request.args.get('email', '')
         worker = _worker_by_email(email)
