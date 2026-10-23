@@ -130,10 +130,17 @@ function saveDisplay(){
       <span class="num">{{ '%02d'|format(loop.index) }}</span>
       <div class="grow"><div class="small muted">NAME</div><input type="text" class="wk-name" value="{{ w.name }}" style="width:100%"></div>
       <div class="grow"><div class="small muted">EMAIL</div><input type="email" class="wk-email" value="{{ w.email }}" style="width:100%"></div>
+      <div class="grow"><div class="small muted">PHONE</div><input type="tel" class="wk-phone" value="{{ w.phone or '' }}" style="width:100%"></div>
       <div><div class="small muted">SHIFT</div>
         <select class="wk-shift">
           <option value="">—</option>
           {% for sh in shifts %}<option value="{{ sh.id }}" {{ 'selected' if w.shift_id==sh.id else '' }}>{{ sh.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><div class="small muted">ROLE</div>
+        <select class="wk-role">
+          <option value="">—</option>
+          {% for r in ['Supervisor','Foreman','Helper'] %}<option value="{{ r }}" {{ 'selected' if w.role==r else '' }}>{{ r }}</option>{% endfor %}
         </select>
       </div>
       <div><div class="small muted">&nbsp;</div><button class="btn small danger" onclick="delWorker('{{ w.id }}')">Delete</button></div>
@@ -272,7 +279,9 @@ async function saveWorkers(){
     id: row.dataset.id,
     name: row.querySelector('.wk-name').value,
     email: row.querySelector('.wk-email').value,
-    shift_id: row.querySelector('.wk-shift').value
+    phone: row.querySelector('.wk-phone') ? row.querySelector('.wk-phone').value : '',
+    shift_id: row.querySelector('.wk-shift').value,
+    role: row.querySelector('.wk-role') ? row.querySelector('.wk-role').value : ''
   }));
   await post("{{ url_for('.settings_workers_save') }}", {workers: rows});
   document.getElementById('wk-msg').textContent = 'Saved ✓';
