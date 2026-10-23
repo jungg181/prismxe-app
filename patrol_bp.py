@@ -703,6 +703,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             w['shift_id'] = item.get('shift_id', '')
             if 'role' in item:
                 w['role'] = item.get('role', '')
+            if 'phone' in item:
+                w['phone'] = item.get('phone', '')
         save_db()
         return jsonify({'ok': True})
 
