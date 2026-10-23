@@ -937,7 +937,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         save_db()
 
     @bp.route('/schedule', methods=['GET', 'POST'])
-    @visit_gate('schedule', 'Schedule')
+    @visit_gate('schedule_page', 'Schedule')
     def schedule_page():
         _ensure_schedule_seed()
         wk = request.args.get('week', '')
@@ -964,7 +964,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                next_week=(days[0] + timedelta(days=7)).isoformat())
 
     @bp.route('/schedule/set', methods=['POST'])
-    @visit_action_required('schedule')
+    @visit_action_required('schedule_page')
     def schedule_set():
         d = request.get_json(force=True)
         wid, dstr, val = d.get('worker_id'), d.get('date'), d.get('shift')
@@ -984,7 +984,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return jsonify({'ok': True})
 
     @bp.route('/schedule/requests/<rid>/decide', methods=['POST'])
-    @visit_action_required('schedule')
+    @visit_action_required('schedule_page')
     def schedule_decide(rid):
         d = request.get_json(force=True)
         req = next((r for r in DB['schedule_requests'] if r['id'] == rid), None)
