@@ -105,7 +105,17 @@
   <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
   <div id="nowline"></div>
   <table class="grid" id="ttable">
-    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ (7+loop.index0)%24 }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
+    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
+    {% if crew_bars %}
+    <tr><td colspan="25" style="background:#e2e8f0;text-align:left;font-weight:800">👷 Crew today <span class="muted small" style="font-weight:400">— each person's working hours, from the 2-week plan</span></td></tr>
+    {% for b in crew_bars %}
+    <tr>
+      <td style="text-align:left;white-space:nowrap"><span class="wpers" style="background:{{ b.color }}">👷</span> <b>{{ b.worker.name }}</b>{% if b.role %} <span class="muted small">{{ b.role }}</span>{% endif %}</td>
+      {% for s in slots %}<td style="{{ 'background:' + b.color if loop.index0 in b.hours else '' }}"></td>{% endfor %}
+    </tr>
+    {% endfor %}
+    <tr><td colspan="25" style="background:#f8fafc;text-align:left" class="muted small">Equipment checks ↓</td></tr>
+    {% endif %}
     {% for e in equipment %}
     <tr id="eq-{{ e.id }}" class="{{ 'dim' if not e.active else '' }}">
       <td style="text-align:left;font-weight:700;white-space:nowrap">{{ e.name }}{% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}</td>
