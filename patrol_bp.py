@@ -458,40 +458,43 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                    for w in DB.get('workers', [])
                    if w.get('last_lat') is not None and w.get('last_lng') is not None]
         shift_tints = {s['id']: lighten(s.get('color')) for s in DB['shifts']}
-        # Staff roster from each worker's standing shift (set next to
-        # their name on the Schedule page / Settings): who works which
-        # shift, and whether they have clocked in yet.
+        # On-duty crew for the CURRENT time slot, from the 2-week plan
+        # (Settings -> Time Slots & Shifts, names per hour). Supervisors
+        # (12h) are not shown. Unplanned dates fall back to the standing
+        # shift of the slot so the board never goes blank by surprise.
         _ensure_schedule_seed()
         _migrate_shift_ids()
-        shift_ids = [s['id'] for s in DB['shifts']]
-        roster = []
-        for w in sorted(DB['workers'], key=lambda x: x.get('name', '')):
-            val = w.get('shift_id') or ''
-            if val not in shift_ids:
+        _seed_slot_plan()
+        crew = []
+        crew_slot = DB['slots'][idx] if DB['slots'] else {}
+        day_plan = DB.get('slot_plan', {}).get(now.date().isoformat())
+        if day_plan is None:
+            crew_ids = [w['id'] for w in DB['workers']
+                        if (w.get('shift_id') or '') ==
+                        (crew_slot.get('shift') or '')]
+        else:
+            crew_ids = day_plan.get(str(idx), [])
+        for wid in crew_ids:
+            w = find('workers', wid)
+            if not w or (w.get('role') or '') == 'Supervisor':
                 continue
-            if (w.get('role') or '') == 'Supervisor':
-                continue  # supervisors work 12h across shifts - not shown
             cin, _ = punch_status(w.get('email') or '')
-            roster.append({"worker": w, "shift": val, "clocked_in": cin,
-                           "role": w.get('role', ''),
-                           "color": worker_color(
-                               w.get('email') or w.get('name', ''))})
-        roster.sort(key=lambda r: (shift_ids.index(r['shift']),
-                                   r['worker'].get('name', '')))
-        shift_gaps = {}
-        for sid in shift_ids:
-            have = {r['role'] for r in roster if r['shift'] == sid}
-            missing = [r for r in ROLES
-                       if r != 'Supervisor' and r not in have]
-            if missing:
-                shift_gaps[sid] = missing
+            crew.append({"worker": w, "clocked_in": cin,
+                         "role": w.get('role', ''),
+                         "color": worker_color(
+                             w.get('email') or w.get('name', ''))})
+        crew.sort(key=lambda r: r['worker'].get('name', ''))
+        have_roles = {r['role'] for r in crew}
+        slot_missing = [r for r in ROLES
+                        if r != 'Supervisor' and r not in have_roles]
         return render_template('patrol/dashboard.html', now=now, slot_idx=idx,
                                shift=shift, due=due, nxt=nxt, nxt_list=nxt_list,
                                slots=DB['slots'], equipment=DB['equipment'],
                                shifts=DB['shifts'], counts=slot_counts,
                                on_patrol=on_patrol_now(), located=located,
-                               shift_tints=shift_tints, roster=roster,
-                               shift_gaps=shift_gaps,
+                               shift_tints=shift_tints, crew=crew,
+                               crew_slot_label=crew_slot.get('label', ''),
+                               slot_missing=slot_missing,
                                zipcode=DB.get('config', {}).get('zipcode', ''))
 
 
@@ -534,9 +537,14 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 auto_managed = True
         except Exception:
             pass
+        _seed_slot_plan()
+        plan_monday = _sched_week(local_now().date())[0]
         return render_template('patrol/settings.html', slots=DB['slots'],
                                equipment=DB['equipment'], shifts=DB['shifts'],
                                workers=DB['workers'],
+                               slot_plan=DB.get('slot_plan', {}),
+                               plan_start=plan_monday.isoformat(),
+                               today_str=local_now().date().isoformat(),
                                zipcode=cfg.get('zipcode', ''),
                                app_version=eff_version,
                                apk_url=eff_url,
@@ -662,10 +670,31 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     @visit_action_required('settings')
     def settings_slots_save():
         data = request.get_json(force=True)
+        valid_w = {w['id'] for w in DB['workers']}
         for i, s in enumerate(data.get('slots', [])):
             if i < len(DB['slots']):
                 DB['slots'][i]['label'] = s.get('label', DB['slots'][i]['label'])
                 DB['slots'][i]['shift'] = s.get('shift', DB['slots'][i]['shift'])
+        plan = data.get('slot_plan')
+        if isinstance(plan, dict):
+            clean = {}
+            for date_s, per_slot in plan.items():
+                if not isinstance(per_slot, dict):
+                    continue
+                day = {}
+                for idx_s, wids in per_slot.items():
+                    try:
+                        idx = int(idx_s)
+                    except (TypeError, ValueError):
+                        continue
+                    seen = []
+                    for wid in wids or []:
+                        if wid in valid_w and wid not in seen:
+                            seen.append(wid)
+                    if seen:
+                        day[str(idx)] = seen
+                clean[date_s] = day
+            DB['slot_plan'] = clean
         save_db()
         return jsonify({'ok': True})
 
@@ -958,54 +987,96 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         if changed:
             save_db()
 
-    def _standing_coverage():
-        """shift_id -> {role: [names]} from standing shift assignments."""
-        cov = {}
-        for w in DB['workers']:
-            sid = w.get('shift_id') or ''
-            if not sid or sid == 'OFF':
+    def _seed_slot_plan():
+        """One-time: build the first 2-week plan (from this week's
+        Monday) out of the standing shift assignments - each hour gets
+        the workers of the shift that hour belongs to. After that the
+        plan is edited directly in Settings -> Time Slots & Shifts."""
+        if DB.get('_slot_plan_seeded'):
+            return
+        DB['_slot_plan_seeded'] = True
+        plan = DB.setdefault('slot_plan', {})
+        monday = _sched_week(local_now().date())[0]
+        for off in range(14):
+            d = (monday + timedelta(days=off)).isoformat()
+            if d in plan:
                 continue
-            cov.setdefault(sid, {}).setdefault(
-                w.get('role') or '', []).append(w.get('name', ''))
-        return cov
+            day = {}
+            for i, s in enumerate(DB['slots']):
+                wids = [w['id'] for w in DB['workers']
+                        if (w.get('shift_id') or '') == (s.get('shift') or '')]
+                if wids:
+                    day[str(i)] = wids
+            plan[d] = day
+        save_db()
+
+    def _ranges_for(day_plan, wid):
+        """Merge a worker's slot indexes in one day into hour ranges,
+        e.g. [('7:00', '12:00'), ('13:00', '20:00')]."""
+        slots = DB['slots']
+        idxs = sorted(int(k) for k, v in (day_plan or {}).items()
+                      if wid in (v or []))
+        if not idxs:
+            return []
+        runs = [[idxs[0]]]
+        for i in idxs[1:]:
+            if i == runs[-1][-1] + 1:
+                runs[-1].append(i)
+            else:
+                runs.append([i])
+        if len(runs) > 1 and runs[0][0] == 0 and runs[-1][-1] == len(slots) - 1:
+            runs = [runs[-1] + runs[0]] + runs[1:-1]
+        out = []
+        for run in runs:
+            start = slots[run[0]].get('label', '')
+            end = slots[(run[-1] + 1) % len(slots)].get('label', '')
+            out.append((start, end))
+        return out
+
+    def _two_weeks(monday):
+        """14 day summaries from the given Monday:
+        [{date, label, today, planned, entries: [{worker, ranges}]}]"""
+        plan = DB.get('slot_plan', {})
+        days = []
+        for off in range(14):
+            d = monday + timedelta(days=off)
+            day_plan = plan.get(d.isoformat())
+            entries = []
+            if day_plan:
+                wids = []
+                for v in day_plan.values():
+                    for wid in v or []:
+                        if wid not in wids:
+                            wids.append(wid)
+                for wid in wids:
+                    w = find('workers', wid)
+                    if w is not None:
+                        entries.append({"worker": w,
+                                        "ranges": _ranges_for(day_plan, wid)})
+                entries.sort(key=lambda e: e['worker'].get('name', ''))
+            days.append({"date": d.isoformat(),
+                         "label": d.strftime('%a %m/%d'),
+                         "today": d == local_now().date(),
+                         "planned": day_plan is not None,
+                         "entries": entries})
+        return days
 
     @bp.route('/schedule', methods=['GET', 'POST'])
     @visit_gate('schedule_page', 'Schedule')
     def schedule_page():
         _ensure_schedule_seed()
         _migrate_shift_ids()
-        workers = sorted(DB['workers'], key=lambda w: w.get('name', ''))
+        _seed_slot_plan()
+        monday = _sched_week(local_now().date())[0]
         pending = sorted(
             [r for r in DB['schedule_requests'] if r.get('status') == 'pending'],
             key=lambda r: r.get('created', ''))
         history = sorted(
             [r for r in DB['schedule_requests'] if r.get('status') != 'pending'],
             key=lambda r: r.get('decided_at', ''), reverse=True)
-        return render_template('patrol/schedule.html', workers=workers,
-                               shifts=DB['shifts'], pending=pending,
-                               history=history[:10],
-                               coverage=_standing_coverage(), roles=ROLES,
-                               cov_roles=[r for r in ROLES
-                                          if r != 'Supervisor'])
-
-    @bp.route('/schedule/assign', methods=['POST'])
-    @visit_action_required('schedule_page')
-    def schedule_assign():
-        d = request.get_json(force=True)
-        w = find('workers', d.get('worker_id'))
-        if not w:
-            return jsonify({'ok': False}), 404
-        if 'shift' in d:
-            valid = {s['id'] for s in DB['shifts']} | {'OFF', ''}
-            if d['shift'] not in valid:
-                return jsonify({'ok': False}), 400
-            w['shift_id'] = d['shift']
-        if 'role' in d:
-            if d['role'] not in ROLES + ['']:
-                return jsonify({'ok': False}), 400
-            w['role'] = d['role']
-        save_db()
-        return jsonify({'ok': True})
+        return render_template('patrol/schedule.html',
+                               days=_two_weeks(monday),
+                               pending=pending, history=history[:10])
 
     @bp.route('/schedule/requests/<rid>/decide', methods=['POST'])
     @visit_action_required('schedule_page')
@@ -1020,9 +1091,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         req['status'] = decision
         req['decided_at'] = now_iso()
         if decision == 'approved':
-            w = find('workers', req['worker_id'])
-            if w is not None:
-                w['shift_id'] = req['to_shift']
+            valid = {s['id'] for s in DB['shifts']} | {'OFF'}
+            if req.get('to_shift') in valid:
+                w = find('workers', req['worker_id'])
+                if w is not None:
+                    w['shift_id'] = req['to_shift']
         save_db()
         return jsonify({'ok': True})
 
@@ -1030,21 +1103,29 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def my_schedule():
         _ensure_schedule_seed()
         _migrate_shift_ids()
+        _seed_slot_plan()
         email = request.args.get('email', '')
         worker = _worker_by_email(email)
         reqs = []
-        my_shift = None
+        my_days = []
         if worker:
             reqs = sorted(
                 [r for r in DB['schedule_requests']
                  if r.get('worker_id') == worker['id']],
                 key=lambda r: r.get('created', ''), reverse=True)
-            my_shift = next((s for s in DB['shifts']
-                             if s['id'] == (worker.get('shift_id') or '')),
-                            None)
+            monday = _sched_week(local_now().date())[0]
+            plan = DB.get('slot_plan', {})
+            for off in range(14):
+                d = monday + timedelta(days=off)
+                ranges = _ranges_for(plan.get(d.isoformat()),
+                                     worker['id'])
+                if ranges:
+                    my_days.append({"label": d.strftime('%a %m/%d'),
+                                    "today": d == local_now().date(),
+                                    "ranges": ranges})
         return render_template('patrol/my_schedule.html', worker=worker,
-                               email=email, shifts=DB['shifts'],
-                               my_shift=my_shift, my_requests=reqs[:8])
+                               email=email, my_days=my_days,
+                               my_requests=reqs[:8])
 
     @bp.route('/my-schedule/request', methods=['POST'])
     def my_schedule_request():
@@ -1053,11 +1134,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         if not worker:
             flash('Email not found. Use the email you clock in with.')
             return redirect(url_for(BP + '.my_schedule', email=email))
-        to_shift = request.form.get('to_shift', '')
         note = (request.form.get('note') or '').strip()
-        valid = {s['id'] for s in DB['shifts']} | {'OFF'}
-        if to_shift not in valid:
-            flash('Pick a shift.')
+        if not note:
+            flash('Write what change you need.')
             return redirect(url_for(BP + '.my_schedule', email=email))
         DB['schedule_requests'] = [
             r for r in DB['schedule_requests']
@@ -1067,14 +1146,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             "id": new_id(), "worker_id": worker['id'],
             "name": worker.get('name', ''), "email": worker.get('email', ''),
             "date": local_now().date().isoformat(),
-            "from_shift": worker.get('shift_id') or '',
-            "to_shift": to_shift, "note": note,
+            "from_shift": "", "to_shift": "", "note": note,
             "status": "pending", "created": now_iso(), "decided_at": ""})
         save_db()
-        flash('Request sent. Your shift changes only after a manager '
-              'approves it.')
+        flash('Request sent. A manager will review it.')
         return redirect(url_for(BP + '.my_schedule', email=email))
-
 
     # ================= PATROL CLOCK (phone page) =================
 
