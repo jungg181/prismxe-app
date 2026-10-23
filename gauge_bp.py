@@ -121,6 +121,7 @@ def api_drive_upload():
                     value=value,
                     unit=request.form.get("unit", ""),
                     photo=filename,
+                    slot=request.form.get("slot", ""),
                 )
                 logged = True
             except Exception:
@@ -131,7 +132,7 @@ def api_drive_upload():
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
 
-def log_reading(equip_id="", gauge_id="", value="", unit="", photo="", state="", worker="", manual=True):
+def log_reading(equip_id="", gauge_id="", value="", unit="", photo="", state="", worker="", manual=True, slot=""):
     """Shared reading logger used by /api/log and /api/drive-upload."""
     sys, dev = find_equipment(equip_id)
     gauge = next((g for g in (dev["gauges"] if dev else [])
@@ -150,6 +151,7 @@ def log_reading(equip_id="", gauge_id="", value="", unit="", photo="", state="",
         "manual": "Y" if manual else "",
         "worker": worker,
         "photo": photo,
+        "slot": slot,
     }
     new_file = not LOG_CSV.exists()
     with open(LOG_CSV, "a", newline="", encoding="utf-8-sig") as fo:
@@ -270,7 +272,18 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 LOG_CSV.parent.mkdir(parents=True, exist_ok=True)
 LOG_FIELDS = ["time", "system", "equip_id", "equip_name", "gauge_id",
               "gauge_name", "state", "value", "unit", "angle_deg",
-              "manual", "worker", "photo"]
+              "manual", "worker", "photo", "slot"]
+
+# Patrol round times per system (from the Daily Check List rev3 sheets).
+# The worker picks the round first; every reading in that round is logged
+# with slot = "YYYY-MM-DD HH:MM" (the round's date + start time).
+PATROL_SLOTS = {
+    "HOB": ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00",
+            "19:00", "21:00", "23:00", "01:00", "03:00", "05:00"],
+    "SRP": ["08:00", "12:00", "16:00", "20:00", "00:00", "04:00"],
+    "RO": ["10:00", "14:00", "18:00", "22:00", "02:00", "06:00"],
+    "FAN": ["09:00", "17:00", "01:00"],
+}
 
 
 def find_equipment(equip_id):
@@ -372,7 +385,12 @@ def index():
                                   "name": dev["name"],
                                   "boilers": dev.get("boilers", [])})
     return render_template("index.html", items=items, boilers=boilers,
-                           pumps=pumps)
+                           pumps=pumps, patrol_slots=PATROL_SLOTS)
+
+
+@bp.get("/api/slots")
+def api_slots():
+    return jsonify({"slots": PATROL_SLOTS})
 
 
 def _equip_payload(sys, dev, kind):
@@ -489,6 +507,7 @@ def api_log():
         state=body.get("state", ""),
         worker=body.get("worker", ""),
         manual=bool(body.get("manual")),
+        slot=body.get("slot", ""),
     )
     return jsonify({"ok": True})
 
