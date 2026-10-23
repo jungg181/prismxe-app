@@ -102,8 +102,9 @@
 
 <div class="card" id="tcard" style="overflow-x:auto">
   <h3>Full Timetable</h3>
-  <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
+  <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · <span style="color:#dc2626;font-weight:700">red box</span> = this hour's patrol column · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
   <div id="nowline"></div>
+  <div id="nowbox"></div>
   <table class="grid" id="ttable">
     <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
     {% if crew_bars %}
@@ -269,18 +270,27 @@ setTimeout(function(){ location.reload(); }, 60000);
   window.addEventListener('offline', upd);
   upd();
 })();
-// sweeping "now" line across the timetable, like a clock hand
+// sweeping "now" line across the timetable, like a clock hand,
+// plus a full outline box around the current hour's column
 function moveNowLine(){
   var line = document.getElementById('nowline');
+  var box = document.getElementById('nowbox');
   var table = document.getElementById('ttable');
   if(!line || !table){ return; }
   var d = new Date();
   var th = document.querySelector('#ttable th[data-h="' + d.getHours() + '"]');
-  if(!th){ line.style.display = 'none'; return; }
+  if(!th){ line.style.display = 'none'; if(box) box.style.display = 'none'; return; }
   var frac = (d.getMinutes()*60 + d.getSeconds())/3600;
   line.style.display = 'block';
   line.style.top = table.offsetTop + 'px';
   line.style.left = (table.offsetLeft + th.offsetLeft + th.offsetWidth*frac) + 'px';
+  if(box){
+    box.style.display = 'block';
+    box.style.top = table.offsetTop + 'px';
+    box.style.left = (table.offsetLeft + th.offsetLeft) + 'px';
+    box.style.width = th.offsetWidth + 'px';
+    box.style.height = table.offsetHeight + 'px';
+  }
 }
 moveNowLine(); setInterval(moveNowLine, 30000);
 {% if located %}
