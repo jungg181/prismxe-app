@@ -100,6 +100,9 @@ tr.dim{opacity:.55}
   box-shadow:0 0 10px rgba(239,68,68,.85);z-index:5;pointer-events:none;display:none}
 #nowline::before{content:'';position:absolute;top:-3px;left:50%;transform:translateX(-50%);
   border:7px solid transparent;border-top:10px solid #ef4444}
+/* full outline around the current hour's column on the timetable */
+#nowbox{position:absolute;border:3px solid #dc2626;border-radius:6px;box-sizing:border-box;
+  background:rgba(220,38,38,.05);z-index:4;pointer-events:none;display:none}
 
 /* ---- interactive dashboard ---- */
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
