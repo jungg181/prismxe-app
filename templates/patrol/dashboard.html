@@ -104,27 +104,28 @@
   <h3>Full Timetable</h3>
   <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · <span style="color:#dc2626;font-weight:700">red box</span> = this hour's patrol column · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
   <div id="nowline"></div>
-  <div id="nowbox"></div>
   <table class="grid" id="ttable">
-    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
+    {% set NOWB = 'border-left:3px solid #dc2626;border-right:3px solid #dc2626;' %}
+    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }};{{ NOWB + 'border-top:3px solid #dc2626;' if loop.index0==slot_idx else '' }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
     {% if crew_bars %}
     <tr><td colspan="25" style="background:#e2e8f0;text-align:left;font-weight:800">👷 Crew today <span class="muted small" style="font-weight:400">— each person's working hours, from the 2-week plan</span></td></tr>
     {% for b in crew_bars %}
     <tr>
       <td style="text-align:left;white-space:nowrap"><span class="wpers" style="background:{{ b.color }}">👷</span> <b>{{ b.worker.name }}</b>{% if b.role %} <span class="muted small">{{ b.role }}</span>{% endif %}</td>
-      {% for s in slots %}<td style="{{ 'background:' + b.color if loop.index0 in b.hours else '' }}"></td>{% endfor %}
+      {% for s in slots %}<td style="{{ 'background:' + b.color if loop.index0 in b.hours else '' }}{{ ';' + NOWB if loop.index0==slot_idx else '' }}"></td>{% endfor %}
     </tr>
     {% endfor %}
     <tr><td colspan="25" style="background:#f8fafc;text-align:left" class="muted small">Equipment checks ↓</td></tr>
     {% endif %}
     {% for e in equipment %}
+    {% set eq_last = loop.last %}
     <tr id="eq-{{ e.id }}" class="{{ 'dim' if not e.active else '' }}">
       <td style="text-align:left;font-weight:700;white-space:nowrap">{{ e.name }}{% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}</td>
       {% for s in slots %}
       {% set k = e.checks.get(loop.index0|string) %}
       {% set is_now = loop.index0==slot_idx %}
       {% set bg = '#fef9c3' if is_now else '' %}
-      <td style="{{ 'background:'+bg if bg else '' }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
+      <td style="{{ 'background:'+bg if bg else '' }}{{ ';' + NOWB if is_now else '' }}{{ 'border-bottom:3px solid #dc2626;' if is_now and eq_last else '' }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
       {% endfor %}
     </tr>
     {% endfor %}
@@ -270,27 +271,18 @@ setTimeout(function(){ location.reload(); }, 60000);
   window.addEventListener('offline', upd);
   upd();
 })();
-// sweeping "now" line across the timetable, like a clock hand,
-// plus a full outline box around the current hour's column
+// sweeping "now" line across the timetable, like a clock hand
 function moveNowLine(){
   var line = document.getElementById('nowline');
-  var box = document.getElementById('nowbox');
   var table = document.getElementById('ttable');
   if(!line || !table){ return; }
   var d = new Date();
   var th = document.querySelector('#ttable th[data-h="' + d.getHours() + '"]');
-  if(!th){ line.style.display = 'none'; if(box) box.style.display = 'none'; return; }
+  if(!th){ line.style.display = 'none'; return; }
   var frac = (d.getMinutes()*60 + d.getSeconds())/3600;
   line.style.display = 'block';
   line.style.top = table.offsetTop + 'px';
   line.style.left = (table.offsetLeft + th.offsetLeft + th.offsetWidth*frac) + 'px';
-  if(box){
-    box.style.display = 'block';
-    box.style.top = table.offsetTop + 'px';
-    box.style.left = (table.offsetLeft + th.offsetLeft) + 'px';
-    box.style.width = th.offsetWidth + 'px';
-    box.style.height = table.offsetHeight + 'px';
-  }
 }
 moveNowLine(); setInterval(moveNowLine, 30000);
 {% if located %}
