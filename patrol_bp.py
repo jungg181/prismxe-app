@@ -20,8 +20,10 @@ from zoneinfo import ZoneInfo
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    jsonify, send_file, abort, flash, session, make_response)
 
-# Stable per-worker colors: hash the worker's email to pick from this palette.
-# Same worker always gets the same color; distinct workers get distinct colors.
+# Per-worker colors: workers are assigned palette entries by their
+# position in the workers list (see _worker_color in the factory), so
+# every worker gets a DISTINCT color. The hash pick below is only a
+# fallback for identifiers that are not in the workers list.
 WORKER_COLORS = [
     '#dc2626',  # strong red
     '#2563eb',  # strong blue
@@ -30,6 +32,23 @@ WORKER_COLORS = [
     '#7c3aed',  # vivid purple
     '#0d9488',  # teal
     '#92400e',  # brown
+    '#db2777',  # pink
+    '#4f46e5',  # indigo
+    '#0891b2',  # cyan
+    '#65a30d',  # lime green
+    '#ca8a04',  # goldenrod
+    '#9333ea',  # purple
+    '#0f766e',  # dark teal
+    '#b91c1c',  # dark red
+    '#1d4ed8',  # royal blue
+    '#15803d',  # forest green
+    '#c2410c',  # burnt orange
+    '#a21caf',  # fuchsia
+    '#0369a1',  # sky blue
+    '#3f6212',  # olive
+    '#854d0e',  # dark gold
+    '#be185d',  # raspberry
+    '#334155',  # slate
 ]
 
 def worker_color(key):
@@ -301,6 +320,17 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def find(coll, _id):
         return next((r for r in DB[coll] if r.get('id') == _id), None)
 
+    def _worker_color(w):
+        """Distinct color per worker: palette entry by the worker's
+        position in the workers list (unique while <= palette size)."""
+        if w is not None:
+            ids = [x.get('id') for x in DB['workers']]
+            if w.get('id') in ids:
+                return WORKER_COLORS[ids.index(w['id']) % len(WORKER_COLORS)]
+            return worker_color(w.get('email') or w.get('name', ''))
+        return WORKER_COLORS[0]
+
+
 
     def slot_hour(label):
         try:
@@ -378,7 +408,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         for em, p in seen.items():
             if p.get('action') == 'in':
                 p = dict(p)
-                p['color'] = worker_color(em)
+                _w = _worker_by_email(em)
+                p['color'] = _worker_color(_w) if _w else worker_color(em)
                 out.append(p)
         out.sort(key=lambda p: p.get('ts') or '')
         return out
@@ -464,7 +495,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         slot_counts = [len(patrols_at(i)) for i in range(24)]
         located = [{"name": w.get("name", ""),
                     "lat": w["last_lat"], "lng": w["last_lng"],
-                    "color": worker_color(w.get("email") or w.get("name", "")),
+                    "color": _worker_color(w),
                     "ts": (w.get("last_loc_ts") or "")[:16].replace("T", " ")}
                    for w in DB.get('workers', [])
                    if w.get('last_lat') is not None and w.get('last_lng') is not None]
@@ -493,8 +524,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             cin, _ = punch_status(w.get('email') or '')
             crew.append({"worker": w, "clocked_in": cin,
                          "role": w.get('role', ''),
-                         "color": worker_color(
-                             w.get('email') or w.get('name', ''))})
+                         "color": _worker_color(w)})
         crew.sort(key=lambda r: r['worker'].get('name', ''))
         have_roles = {r['role'] for r in crew}
         slot_missing = [r for r in ROLES
@@ -521,8 +551,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             if not w or (w.get('role') or '') == 'Supervisor':
                 continue
             crew_bars.append({"worker": w, "role": w.get('role', ''),
-                              "color": worker_color(
-                                  w.get('email') or w.get('name', '')),
+                              "color": _worker_color(w),
                               "hours": hrs})
         crew_bars.sort(key=lambda b: (min(b['hours']) if b['hours'] else 99,
                                       b['worker'].get('name', '')))
