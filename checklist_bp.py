@@ -29,6 +29,7 @@ bp = Blueprint("checklist", __name__, url_prefix="/checklist")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data_checklist.json")
 DEFS_PATH = os.path.join(BASE_DIR, "checklist_defs.json")
+PHOTOS_DIR = os.path.join(BASE_DIR, "checklist_photos")
 _lock = threading.Lock()
 
 
