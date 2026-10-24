@@ -15,8 +15,11 @@ Endpoints:
   GET  /checklist/data/backup  full data backup (JSON download)
 """
 import os
+import re
 import json
+import base64
 import threading
+import urllib.request
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify
@@ -182,3 +185,113 @@ def backup():
     with _lock:
         d = _load()
     return jsonify(d)
+
+
+# ---------------- monitor photo auto-read (vision) ----------------
+VISION_MODEL = os.environ.get("CHECKLIST_VISION_MODEL", "claude-sonnet-4-5")
+
+_SCREEN_HINTS = {
+    "RO": ("The photo shows the SRP RO (reverse osmosis) HMI screen. On this screen some labels differ from the "
+           "checklist tags: PI-01 is checklist PT-01, PI-02 is PT-02, FI-01 is FT-01, FI-02 is FIT-02, "
+           "FI-03 is FIT-03, FI-04 is FIT-04 (Supply Flow). LT-01, AIT-01, AIT-02 and LT-02 use the same labels."),
+    "NMP": ("The photo shows one page of the SRP NMP Recovery HMI (the Control page or the Transfer page). "
+            "Screen tags are written WITHOUT dashes: TE005A means checklist tag TE-005A, LT001A means LT-001A, "
+            "PUM006A means PUM-006A, and so on. Only one page is visible, so return only the tags you can actually see. "
+            "For checklist item #51 the screen shows PUM-012 and PUM-013 separately: return the running (non-zero) "
+            "one, or 0 if both are 0. For FT-002 return the instantaneous flow value, NOT the accumulated totalizer."),
+    "HOB": ("The photo shows a hot oil heater burner HMI screen. The screen title names the heater: "
+            "'#1 ANODE' = EAB01, '#2 ANODE' = EAB02, '#1 CATHODE' = ECB01, '#2 CATHODE' = ECB02, '#3 CATHODE' = ECB03. "
+            "Also return \"screen_equipment\" with that equipment id. On this screen: FI-001 is the gas flow, "
+            "the TIC-009 MV percent is checklist FCV-001 (linkage open rate), and the O2 percent value is O2I-001. "
+            "FI-002 is shown in gal/h on this screen; SKIP FI-002 (do not return it). "
+            "Return only items you can actually read."),
+}
+
+
+def _monitor_items(system_id):
+    try:
+        with open(DEFS_PATH) as f:
+            defs = json.load(f)
+    except Exception:
+        return None
+    for s in defs.get("systems", []):
+        if s.get("id") == system_id:
+            return [it for sec in s.get("sections", []) for it in sec.get("items", []) if it.get("monitor")]
+    return None
+
+
+@bp.post("/api/read-photo")
+def read_photo():
+    """Read monitor values from an HMI photo with the vision API.
+
+    Multipart form: photo (jpeg), system (HOB|NMP|RO), equipment (optional).
+    -> {ok, values: {"<sheet_row>": number, ...}, screen_equipment}
+    The app fills the matching fields; the worker reviews before saving.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify({"ok": False, "error": "vision not configured"}), 503
+    system_id = (request.form.get("system") or "").strip().upper()
+    f = request.files.get("photo")
+    if f is None or not system_id:
+        return jsonify({"ok": False, "error": "photo and system required"}), 400
+    items = _monitor_items(system_id)
+    if not items:
+        return jsonify({"ok": False, "error": "unknown system"}), 400
+    img = f.read()
+    if not img or len(img) > 6_000_000:
+        return jsonify({"ok": False, "error": "photo missing or too large"}), 400
+    lines = "\n".join(
+        '  row {}: #{} {} (tag {}, unit {})'.format(it["row"], it["no"], it["name"],
+                                                   it.get("tag", ""), it.get("unit", ""))
+        for it in items)
+    prompt = (
+        "You are reading a photo of an industrial monitor/HMI screen for a patrol checklist. "
+        + _SCREEN_HINTS.get(system_id, "")
+        + "\nRead these checklist items from the screen:\n" + lines
+        + "\nReply with ONLY a JSON object: {\"values\": {\"<row>\": <number>, ...}} using the row numbers "
+          "above as keys. Include only values you can actually read on the screen - never guess or invent "
+          "a value. Use plain numbers (no units, no thousands separators)."
+    )
+    payload = {
+        "model": VISION_MODEL,
+        "max_tokens": 1500,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                             "data": base64.b64encode(img).decode()}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    }
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode(),
+        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                 "content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return jsonify({"ok": False, "error": "vision request failed: {}".format(e)}), 502
+    text = "".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text")
+    m = re.search(r"\{.*\}", text, re.S)
+    if not m:
+        return jsonify({"ok": False, "error": "could not parse vision reply"}), 502
+    try:
+        parsed = json.loads(m.group(0))
+    except Exception:
+        return jsonify({"ok": False, "error": "could not parse vision reply"}), 502
+    allowed = {str(it["row"]) for it in items}
+    values = {}
+    for k, v in (parsed.get("values") or {}).items():
+        if str(k) not in allowed:
+            continue
+        try:
+            fv = float(str(v).replace(",", ""))
+        except Exception:
+            continue
+        values[str(k)] = int(fv) if fv == int(fv) else fv
+    return jsonify({"ok": True, "values": values,
+                    "screen_equipment": parsed.get("screen_equipment")})
