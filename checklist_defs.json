@@ -1750,7 +1750,7 @@
    "date_format": "Date : {m}/{d}/{Y}",
    "sections": [
     {
-     "title": "1. Cathode #1 – Set 1",
+     "title": "Cathode #1 – Set 1 — Supply Fan 1 – ECC-TSF-01-001B",
      "items": [
       {
        "no": 1,
@@ -1856,7 +1856,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 1 — Exhaust Fan 1 – ECC-TEF-01-001C",
+     "items": [
       {
        "no": 10,
        "row": 19,
@@ -1928,7 +1933,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 1 — Supply Fan 2 – ECC-BSF-02-001B",
+     "items": [
       {
        "no": 16,
        "row": 26,
@@ -2033,7 +2043,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 1 — Exhaust Fan 2 – ECC-TEF-03-002C",
+     "items": [
       {
        "no": 25,
        "row": 36,
@@ -2109,7 +2124,7 @@
      ]
     },
     {
-     "title": "2. Cathode #1 – Set 2",
+     "title": "Cathode #1 – Set 2 — Supply Fan 1 – ECC-TSF-03-002B",
      "items": [
       {
        "no": 31,
@@ -2215,7 +2230,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 2 — Exhaust Fan 1 – ECC-BEF-02-001C",
+     "items": [
       {
        "no": 40,
        "row": 54,
@@ -2287,7 +2307,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 2 — Supply Fan 2 – ECC-BSF-04-002B",
+     "items": [
       {
        "no": 46,
        "row": 61,
@@ -2392,7 +2417,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Cathode #1 – Set 2 — Exhaust Fan 2 – ECC-BEF-04-002C",
+     "items": [
       {
        "no": 55,
        "row": 71,
@@ -2468,7 +2498,7 @@
      ]
     },
     {
-     "title": "3. Anode #1",
+     "title": "Anode #1 — Supply Fan 1 – EAC01-BSF-01-001B",
      "items": [
       {
        "no": 61,
@@ -2574,7 +2604,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Anode #1 — Exhaust Fan 1 – EAC01-BEF-01-001C",
+     "items": [
       {
        "no": 70,
        "row": 89,
@@ -2646,7 +2681,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Anode #1 — Supply Fan 2 – EAC01-BSF-02-002B",
+     "items": [
       {
        "no": 76,
        "row": 96,
@@ -2751,7 +2791,12 @@
        "type": "number",
        "choices": [],
        "monitor": false
-      },
+      }
+     ]
+    },
+    {
+     "title": "Anode #1 — Exhaust Fan 2 – EAC01-BEF-02-002C",
+     "items": [
       {
        "no": 85,
        "row": 106,
