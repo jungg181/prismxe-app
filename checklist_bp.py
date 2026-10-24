@@ -100,6 +100,8 @@ def submit():
             accepted.append(e["id"])
         if accepted:
             _save(d)
+    if accepted and WRITE_SCRIPT_URL:
+        threading.Thread(target=_flush_written, daemon=True).start()
     return jsonify({"ok": True, "accepted": accepted, "duplicates": duplicates})
 
 
@@ -158,6 +160,52 @@ def _forward_photo_to_drive(stored, path, entry_id):
                 _save(d)
     except Exception as e:
         print("checklist photo drive forward failed: {}".format(e), flush=True)
+
+
+WRITE_SCRIPT_URL = os.environ.get("CHECKLIST_WRITE_SCRIPT_URL", "")
+
+
+def _flush_written():
+    """Send unwritten submissions to the Apps Script Excel writer; entries it
+    acknowledges are marked written. Failures leave flags untouched, so
+    nothing is lost — the values stay queued on the server."""
+    if not WRITE_SCRIPT_URL:
+        return {"ok": False, "error": "writer not configured"}
+    with _lock:
+        d = _load()
+        pending = [s for s in d["submissions"] if not s.get("written")]
+    if not pending:
+        return {"ok": True, "sent": 0, "marked": 0}
+    entries = [{
+        "id": s["id"], "system": s.get("system", ""), "equipment": s.get("equipment", ""),
+        "date": s.get("date", ""), "slot": s.get("slot", ""),
+        "target_file": s.get("target_file", ""), "values": s.get("values", {}),
+    } for s in pending[:5]]
+    payload = {"action": "write", "entries": entries}
+    req = urllib.request.Request(WRITE_SCRIPT_URL, data=json.dumps(payload).encode(),
+                                 headers={"content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            r = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return {"ok": False, "error": "writer request failed: {}".format(e)}
+    ok_ids = {x["id"] for x in r.get("results", []) if x.get("ok")}
+    if ok_ids:
+        now = datetime.now(timezone.utc).isoformat()
+        with _lock:
+            d = _load()
+            for s in d["submissions"]:
+                if s["id"] in ok_ids and not s.get("written"):
+                    s["written"] = True
+                    s["written_at"] = now
+            _save(d)
+    return {"ok": True, "sent": len(entries), "marked": len(ok_ids),
+            "results": r.get("results", [])}
+
+
+@bp.post("/api/flush")
+def flush():
+    return jsonify(_flush_written())
 
 
 @bp.get("/api/photo/<path:name>")
