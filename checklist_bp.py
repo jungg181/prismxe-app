@@ -123,7 +123,35 @@ def photo():
             if stored not in d["photo_index"][entry_id]:
                 d["photo_index"][entry_id].append(stored)
         _save(d)
+    threading.Thread(target=_forward_photo_to_drive,
+                     args=(stored, os.path.join(PHOTOS_DIR, stored), entry_id),
+                     daemon=True).start()
     return jsonify({"ok": True, "name": stored})
+
+
+PHOTO_SCRIPT_URL = os.environ.get("CHECKLIST_PHOTO_SCRIPT_URL", "")
+
+
+def _forward_photo_to_drive(stored, path, entry_id):
+    """Copy a stored photo to Google Drive via the Apps Script sink so it
+    survives Render disk wipes. No-op until CHECKLIST_PHOTO_SCRIPT_URL is set."""
+    if not PHOTO_SCRIPT_URL:
+        return
+    try:
+        with open(path, "rb") as fh:
+            b64 = base64.b64encode(fh.read()).decode()
+        payload = {"action": "photo", "name": stored, "entry_id": entry_id, "data_b64": b64}
+        req = urllib.request.Request(PHOTO_SCRIPT_URL, data=json.dumps(payload).encode(),
+                                     headers={"content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            r = json.loads(resp.read().decode("utf-8"))
+        if r.get("ok") and r.get("url"):
+            with _lock:
+                d = _load()
+                d.setdefault("photo_drive", {})[stored] = r["url"]
+                _save(d)
+    except Exception as e:
+        print("checklist photo drive forward failed: {}".format(e), flush=True)
 
 
 @bp.get("/api/photo/<path:name>")
@@ -274,7 +302,13 @@ def read_photo():
         with urllib.request.urlopen(req, timeout=90) as resp:
             result = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
-        return jsonify({"ok": False, "error": "vision request failed: {}".format(e)}), 502
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8")[:300]
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "vision request failed: {} | {} | key {} len {}".format(
+            e, detail, api_key[:13], len(api_key))}), 502
     text = "".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
