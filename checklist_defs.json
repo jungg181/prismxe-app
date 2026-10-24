@@ -50,7 +50,8 @@
        "unit": "Nm³/hr",
        "range": "300 ~ 500",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 2,
@@ -60,7 +61,8 @@
        "unit": "%",
        "range": "0 ~ 100",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 3,
@@ -70,7 +72,8 @@
        "unit": "%",
        "range": "0 ~ 100",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 4,
@@ -86,7 +89,8 @@
         "Red",
         "White",
         "Blue"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 5,
@@ -99,7 +103,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 6,
@@ -109,7 +114,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       }
      ]
     },
@@ -124,7 +130,8 @@
        "unit": "psi",
        "range": "Above 7.3 psi",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 8,
@@ -134,7 +141,8 @@
        "unit": "psi",
        "range": "72.5 ~ 101.5 psi",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 9,
@@ -144,7 +152,8 @@
        "unit": "psi",
        "range": "58.0 ~ 87.0 psi",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 10,
@@ -154,7 +163,8 @@
        "unit": "°C",
        "range": "240 ~ 260",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 11,
@@ -164,7 +174,8 @@
        "unit": "°C",
        "range": "250 ~ 270",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 12,
@@ -174,7 +185,8 @@
        "unit": "gal/hr",
        "range": "gal/hr",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 12,
@@ -184,7 +196,8 @@
        "unit": "Above 400 m³/hr",
        "range": "Above 400 m³/hr",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 13,
@@ -197,7 +210,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 14,
@@ -210,7 +224,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       }
      ]
     },
@@ -225,7 +240,8 @@
        "unit": "#",
        "range": "-",
        "type": "text",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 16,
@@ -238,7 +254,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 17,
@@ -251,7 +268,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 18,
@@ -261,7 +279,8 @@
        "unit": "A",
        "range": "120 ~ 140",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 19,
@@ -271,7 +290,8 @@
        "unit": "",
        "range": "1 ~ 2 bar",
        "type": "text",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 20,
@@ -281,7 +301,8 @@
        "unit": "bar",
        "range": "1 ~ 2 bar",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 21,
@@ -291,7 +312,8 @@
        "unit": "",
        "range": "TBD",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 22,
@@ -301,7 +323,8 @@
        "unit": "bar",
        "range": "5 ~ 7 bar",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 23,
@@ -314,7 +337,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       }
      ]
     },
@@ -329,7 +353,8 @@
        "unit": "%",
        "range": "Above 20%",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 25,
@@ -339,7 +364,8 @@
        "unit": "psi",
        "range": "10 ~ 30",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 26,
@@ -349,7 +375,8 @@
        "unit": "%",
        "range": "≤ 19.5",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 27,
@@ -362,7 +389,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 28,
@@ -375,7 +403,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 29,
@@ -388,7 +417,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 30,
@@ -398,7 +428,8 @@
        "unit": "psi",
        "range": "60 ~ 90",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     },
@@ -416,7 +447,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 32,
@@ -429,7 +461,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 33,
@@ -439,7 +472,8 @@
        "unit": "A",
        "range": "20 ~ 40",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 34,
@@ -449,7 +483,8 @@
        "unit": "kPa",
        "range": "2 ~ 5",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 35,
@@ -459,7 +494,8 @@
        "unit": "°C",
        "range": "Below 150",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 36,
@@ -472,7 +508,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 37,
@@ -485,7 +522,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 38,
@@ -495,7 +533,8 @@
        "unit": "A",
        "range": "20 ~ 40",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 39,
@@ -505,7 +544,8 @@
        "unit": "kPa",
        "range": "2 ~ 5",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 40,
@@ -515,7 +555,8 @@
        "unit": "°C",
        "range": "Below 150",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 41,
@@ -528,7 +569,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       }
      ]
     }
@@ -572,7 +614,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 2,
@@ -585,7 +628,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 3,
@@ -595,7 +639,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 4,
@@ -605,7 +650,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 5,
@@ -615,7 +661,8 @@
        "unit": "°C",
        "range": "≈ 100 (ref.)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 6,
@@ -628,7 +675,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 7,
@@ -641,7 +689,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 8,
@@ -651,7 +700,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 9,
@@ -661,7 +711,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 10,
@@ -671,7 +722,8 @@
        "unit": "°C",
        "range": "≈ 100 (ref.)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 11,
@@ -681,7 +733,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 12,
@@ -691,7 +744,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 13,
@@ -701,7 +755,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 14,
@@ -711,7 +766,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 15,
@@ -721,7 +777,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 16,
@@ -731,7 +788,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 17,
@@ -741,7 +799,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 18,
@@ -751,7 +810,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 19,
@@ -761,7 +821,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 20,
@@ -771,7 +832,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 21,
@@ -781,7 +843,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 22,
@@ -791,7 +854,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 23,
@@ -804,7 +868,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       }
      ]
     },
@@ -819,7 +884,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 25,
@@ -829,7 +895,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 26,
@@ -839,7 +906,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 27,
@@ -849,7 +917,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     },
@@ -867,7 +936,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 29,
@@ -880,7 +950,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 30,
@@ -890,7 +961,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 31,
@@ -900,7 +972,8 @@
        "unit": "%",
        "range": "≈ 80 (ref.)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 32,
@@ -913,7 +986,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 33,
@@ -926,7 +1000,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 34,
@@ -936,7 +1011,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 35,
@@ -949,7 +1025,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 36,
@@ -962,7 +1039,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 37,
@@ -972,7 +1050,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 38,
@@ -985,7 +1064,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 39,
@@ -998,7 +1078,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 40,
@@ -1008,7 +1089,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 41,
@@ -1018,7 +1100,8 @@
        "unit": "%",
        "range": "≈ 80 (ref.)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 42,
@@ -1031,7 +1114,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 43,
@@ -1044,7 +1128,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 44,
@@ -1054,7 +1139,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 45,
@@ -1067,7 +1153,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 46,
@@ -1080,7 +1167,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 47,
@@ -1090,7 +1178,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       }
      ]
     },
@@ -1105,7 +1194,8 @@
        "unit": "%",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 49,
@@ -1118,7 +1208,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 50,
@@ -1131,7 +1222,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 51,
@@ -1141,7 +1233,8 @@
        "unit": "A",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 52,
@@ -1151,7 +1244,8 @@
        "unit": "bar",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 53,
@@ -1161,7 +1255,8 @@
        "unit": "bar",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 54,
@@ -1171,7 +1266,8 @@
        "unit": "bar",
        "range": "TBD",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 55,
@@ -1181,7 +1277,8 @@
        "unit": "bar",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 56,
@@ -1191,7 +1288,8 @@
        "unit": "bar",
        "range": "TBD",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 57,
@@ -1201,7 +1299,8 @@
        "unit": "kg/h",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       }
      ]
     }
@@ -1245,7 +1344,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 2,
@@ -1258,7 +1358,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 3,
@@ -1268,7 +1369,8 @@
        "unit": "bar",
        "range": "< 5",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 4,
@@ -1278,7 +1380,8 @@
        "unit": "%",
        "range": "-",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 5,
@@ -1288,7 +1391,8 @@
        "unit": "µS/cm",
        "range": "< 1000",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       }
      ]
     },
@@ -1303,7 +1407,8 @@
        "unit": "bar",
        "range": "< 3",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 7,
@@ -1313,7 +1418,8 @@
        "unit": "bar",
        "range": "< 3",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 8,
@@ -1323,7 +1429,8 @@
        "unit": "bar",
        "range": "< 0.75",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 9,
@@ -1333,7 +1440,8 @@
        "unit": "bar",
        "range": "< 3",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 10,
@@ -1343,7 +1451,8 @@
        "unit": "bar",
        "range": "< 0.75",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 11,
@@ -1356,7 +1465,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 12,
@@ -1369,7 +1479,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 13,
@@ -1379,7 +1490,8 @@
        "unit": "bar",
        "range": "> 0.5",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 14,
@@ -1389,7 +1501,8 @@
        "unit": "m³/hr",
        "range": "25 ~ 35",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 15,
@@ -1399,7 +1512,8 @@
        "unit": "bar",
        "range": "< 20",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 16,
@@ -1409,7 +1523,8 @@
        "unit": "bar",
        "range": "< 20",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 17,
@@ -1419,7 +1534,8 @@
        "unit": "bar",
        "range": "< 20",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 18,
@@ -1429,7 +1545,8 @@
        "unit": "bar",
        "range": "< 20",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 19,
@@ -1439,7 +1556,8 @@
        "unit": "bar",
        "range": "< 5",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 20,
@@ -1449,7 +1567,8 @@
        "unit": "bar",
        "range": "< 1",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 21,
@@ -1459,7 +1578,8 @@
        "unit": "µS/cm",
        "range": "< 10",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 22,
@@ -1469,7 +1589,8 @@
        "unit": "m³/hr",
        "range": "16 ~ 20 (18)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 23,
@@ -1479,7 +1600,8 @@
        "unit": "m³/hr",
        "range": "10 ~ 14 (12)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       }
      ]
     },
@@ -1497,7 +1619,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 25,
@@ -1510,7 +1633,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 26,
@@ -1520,7 +1644,8 @@
        "unit": "%",
        "range": "-",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 27,
@@ -1530,7 +1655,8 @@
        "unit": "bar",
        "range": "< 10 (4)",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 28,
@@ -1540,7 +1666,8 @@
        "unit": "bar",
        "range": "< 10",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 29,
@@ -1550,7 +1677,8 @@
        "unit": "bar",
        "range": "< 10",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 30,
@@ -1560,7 +1688,8 @@
        "unit": "bar",
        "range": "< 0.75",
        "type": "formula",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 31,
@@ -1570,7 +1699,8 @@
        "unit": "m³/hr",
        "range": "0 ~ 30",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": true
       },
       {
        "no": 32,
@@ -1580,7 +1710,8 @@
        "unit": "%",
        "range": "-",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 33,
@@ -1590,7 +1721,8 @@
        "unit": "%",
        "range": "-",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     }
@@ -1628,7 +1760,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 2,
@@ -1641,7 +1774,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 3,
@@ -1651,7 +1785,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 4,
@@ -1661,7 +1796,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 5,
@@ -1671,7 +1807,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 6,
@@ -1681,7 +1818,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 7,
@@ -1691,7 +1829,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 8,
@@ -1701,7 +1840,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 9,
@@ -1711,7 +1851,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 10,
@@ -1724,7 +1865,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 11,
@@ -1737,7 +1879,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 12,
@@ -1747,7 +1890,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 13,
@@ -1757,7 +1901,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 14,
@@ -1767,7 +1912,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 15,
@@ -1777,7 +1923,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 16,
@@ -1790,7 +1937,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 17,
@@ -1803,7 +1951,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 18,
@@ -1813,7 +1962,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 19,
@@ -1823,7 +1973,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 20,
@@ -1833,7 +1984,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 21,
@@ -1843,7 +1995,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 22,
@@ -1853,7 +2006,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 23,
@@ -1863,7 +2017,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 24,
@@ -1873,7 +2028,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 25,
@@ -1886,7 +2042,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 26,
@@ -1899,7 +2056,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 27,
@@ -1909,7 +2067,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 28,
@@ -1919,7 +2078,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 29,
@@ -1929,7 +2089,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 30,
@@ -1939,7 +2100,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     },
@@ -1957,7 +2119,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 32,
@@ -1970,7 +2133,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 33,
@@ -1980,7 +2144,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 34,
@@ -1990,7 +2155,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 35,
@@ -2000,7 +2166,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 36,
@@ -2010,7 +2177,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 37,
@@ -2020,7 +2188,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 38,
@@ -2030,7 +2199,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 39,
@@ -2040,7 +2210,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 40,
@@ -2053,7 +2224,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 41,
@@ -2066,7 +2238,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 42,
@@ -2076,7 +2249,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 43,
@@ -2086,7 +2260,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 44,
@@ -2096,7 +2271,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 45,
@@ -2106,7 +2282,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 46,
@@ -2119,7 +2296,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 47,
@@ -2132,7 +2310,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 48,
@@ -2142,7 +2321,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 49,
@@ -2152,7 +2332,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 50,
@@ -2162,7 +2343,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 51,
@@ -2172,7 +2354,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 52,
@@ -2182,7 +2365,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 53,
@@ -2192,7 +2376,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 54,
@@ -2202,7 +2387,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 55,
@@ -2215,7 +2401,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 56,
@@ -2228,7 +2415,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 57,
@@ -2238,7 +2426,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 58,
@@ -2248,7 +2437,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 59,
@@ -2258,7 +2448,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 60,
@@ -2268,7 +2459,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     },
@@ -2286,7 +2478,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 62,
@@ -2299,7 +2492,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 63,
@@ -2309,7 +2503,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 64,
@@ -2319,7 +2514,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 65,
@@ -2329,7 +2525,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 66,
@@ -2339,7 +2536,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 67,
@@ -2349,7 +2547,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 68,
@@ -2359,7 +2558,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 69,
@@ -2369,7 +2569,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 70,
@@ -2382,7 +2583,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 71,
@@ -2395,7 +2597,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 72,
@@ -2405,7 +2608,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 73,
@@ -2415,7 +2619,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 74,
@@ -2425,7 +2630,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 75,
@@ -2435,7 +2641,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 76,
@@ -2448,7 +2655,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 77,
@@ -2461,7 +2669,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 78,
@@ -2471,7 +2680,8 @@
        "unit": "Good / Dirty",
        "range": "Good",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 79,
@@ -2481,7 +2691,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 80,
@@ -2491,7 +2702,8 @@
        "unit": "mmH2O",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 81,
@@ -2501,7 +2713,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 82,
@@ -2511,7 +2724,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 83,
@@ -2521,7 +2735,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 84,
@@ -2531,7 +2746,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 85,
@@ -2544,7 +2760,8 @@
        "choices": [
         "ON",
         "OFF"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 86,
@@ -2557,7 +2774,8 @@
        "choices": [
         "Ok",
         "NG"
-       ]
+       ],
+       "monitor": false
       },
       {
        "no": 87,
@@ -2567,7 +2785,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 88,
@@ -2577,7 +2796,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 89,
@@ -2587,7 +2807,8 @@
        "unit": "kPa",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       },
       {
        "no": 90,
@@ -2597,7 +2818,8 @@
        "unit": "°C",
        "range": "TBD",
        "type": "number",
-       "choices": []
+       "choices": [],
+       "monitor": false
       }
      ]
     }

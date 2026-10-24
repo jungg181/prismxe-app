@@ -74,6 +74,7 @@ def submit():
                 "date": e.get("date", ""),
                 "slot": e.get("slot", ""),
                 "values": e.get("values", {}),
+                "target_file": e.get("target_file", ""),
                 "saved_at": e.get("saved_at", ""),
                 "device": e.get("device", ""),
                 "received_at": now,
@@ -85,6 +86,33 @@ def submit():
         if accepted:
             _save(d)
     return jsonify({"ok": True, "accepted": accepted, "duplicates": duplicates})
+
+
+@bp.get("/api/day")
+def day():
+    """Merged values for one system/equipment/date, for the app viewer.
+    Later submissions override earlier ones per (slot, row)."""
+    system = request.args.get("system", "")
+    equipment = request.args.get("equipment", "")
+    date = request.args.get("date", "")
+    if not system or not date:
+        return jsonify({"ok": False, "error": "system and date required"}), 400
+    with _lock:
+        d = _load()
+    rounds = {}
+    latest = ""
+    for srec in sorted(d["submissions"], key=lambda x: x.get("received_at", "")):
+        if srec.get("system") != system or srec.get("date") != date:
+            continue
+        if equipment and srec.get("equipment", "") != equipment:
+            continue
+        slot = srec.get("slot", "")
+        if not slot:
+            continue
+        rounds.setdefault(slot, {}).update(srec.get("values", {}))
+        latest = max(latest, srec.get("received_at", ""))
+    return jsonify({"ok": True, "system": system, "equipment": equipment,
+                    "date": date, "rounds": rounds, "updated": latest})
 
 
 @bp.get("/api/pending")
