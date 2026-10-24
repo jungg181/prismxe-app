@@ -1,0 +1,2607 @@
+{
+ "systems": [
+  {
+   "id": "HOB",
+   "name": "Hot Oil Heater",
+   "file": "1._HOB_Daily_Check_List_rev3_2610.xlsx",
+   "template_sheet": "Daily Log",
+   "slots": [
+    "07:00",
+    "09:00",
+    "11:00",
+    "13:00",
+    "15:00",
+    "17:00",
+    "19:00",
+    "21:00",
+    "23:00",
+    "01:00",
+    "03:00",
+    "05:00"
+   ],
+   "slot_cols": {
+    "07:00": "G",
+    "09:00": "H",
+    "11:00": "I",
+    "13:00": "J",
+    "15:00": "K",
+    "17:00": "L",
+    "19:00": "M",
+    "21:00": "N",
+    "23:00": "O",
+    "01:00": "P",
+    "03:00": "Q",
+    "05:00": "R"
+   },
+   "equipments": [
+    "ECB03",
+    "EAB01"
+   ],
+   "date_format": "Date {m}/{d}/{Y}",
+   "sections": [
+    {
+     "title": "1. LNG Supply / Gas Train",
+     "items": [
+      {
+       "no": 1,
+       "row": 8,
+       "name": "NG Gas Flowrate",
+       "tag": "FI-001",
+       "unit": "Nm³/hr",
+       "range": "300 ~ 500",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 2,
+       "row": 9,
+       "name": "Linkage Open Rate (Burner Load)",
+       "tag": "FCV-001",
+       "unit": "%",
+       "range": "0 ~ 100",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 3,
+       "row": 10,
+       "name": "TIC-009 (MV)",
+       "tag": "TIC-009 (MV)",
+       "unit": "%",
+       "range": "0 ~ 100",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 4,
+       "row": 11,
+       "name": "Flame Detector (Color)",
+       "tag": "-",
+       "unit": "Color",
+       "range": "Normal color",
+       "type": "choice",
+       "choices": [
+        "Orange",
+        "Off",
+        "Red",
+        "White",
+        "Blue"
+       ]
+      },
+      {
+       "no": 5,
+       "row": 12,
+       "name": "LNG line leak check (valves, flanges)",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 6,
+       "row": 13,
+       "name": "O2 Concentration",
+       "tag": "O2I-001",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "2. Hot Oil Line",
+     "items": [
+      {
+       "no": 7,
+       "row": 15,
+       "name": "Heater Diff. Pressure (Inlet/Outlet)",
+       "tag": "DPI-002",
+       "unit": "psi",
+       "range": "Above 7.3 psi",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 8,
+       "row": 16,
+       "name": "Heater Inlet Pressure",
+       "tag": "PI-002",
+       "unit": "psi",
+       "range": "72.5 ~ 101.5 psi",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 9,
+       "row": 17,
+       "name": "Heater Outlet Pressure",
+       "tag": "PI-003",
+       "unit": "psi",
+       "range": "58.0 ~ 87.0 psi",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 10,
+       "row": 18,
+       "name": "Heater Inlet Temperature",
+       "tag": "TG-006",
+       "unit": "°C",
+       "range": "240 ~ 260",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 11,
+       "row": 19,
+       "name": "Heater Outlet Temperature",
+       "tag": "TG-007",
+       "unit": "°C",
+       "range": "250 ~ 270",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 12,
+       "row": 20,
+       "name": "Hot Oil Flow",
+       "tag": "FI-002",
+       "unit": "gal/hr",
+       "range": "gal/hr",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 12,
+       "row": 21,
+       "name": "Hot Oil Flow",
+       "tag": "FI-002",
+       "unit": "Above 400 m³/hr",
+       "range": "Above 400 m³/hr",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 13,
+       "row": 22,
+       "name": "Heater Inlet Valve Noise Check",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 14,
+       "row": 23,
+       "name": "Hot Oil Leakage Check (Visual)",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "3. Circulation Pump / Charge Pump",
+     "items": [
+      {
+       "no": 15,
+       "row": 25,
+       "name": "Running Pump No.",
+       "tag": "-",
+       "unit": "#",
+       "range": "-",
+       "type": "text",
+       "choices": []
+      },
+      {
+       "no": 16,
+       "row": 26,
+       "name": "Circ. Pump Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 17,
+       "row": 27,
+       "name": "Circ. Pump Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 18,
+       "row": 28,
+       "name": "Circ. Pump Motor Ampere",
+       "tag": "-",
+       "unit": "A",
+       "range": "120 ~ 140",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 19,
+       "row": 29,
+       "name": "Circ. Pump Upstream Strainer",
+       "tag": "",
+       "unit": "",
+       "range": "1 ~ 2 bar",
+       "type": "text",
+       "choices": []
+      },
+      {
+       "no": 20,
+       "row": 30,
+       "name": "Circ. Pump Inlet Pressure",
+       "tag": "-",
+       "unit": "bar",
+       "range": "1 ~ 2 bar",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 21,
+       "row": 31,
+       "name": "Strainer Diff. Pressure (Inlet/Outlet)",
+       "tag": "",
+       "unit": "",
+       "range": "TBD",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 22,
+       "row": 32,
+       "name": "Circ. Pump Outlet Pressure",
+       "tag": "-",
+       "unit": "bar",
+       "range": "5 ~ 7 bar",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 23,
+       "row": 33,
+       "name": "Circ. Pump / Line Leakage (Visual)",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "4. Expansion Tank / Buffer Tank / N2",
+     "items": [
+      {
+       "no": 24,
+       "row": 35,
+       "name": "Exp. Tank Level",
+       "tag": "LI-001",
+       "unit": "%",
+       "range": "Above 20%",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 25,
+       "row": 36,
+       "name": "Exp. Tank N2 Pressure",
+       "tag": "PI-06",
+       "unit": "psi",
+       "range": "10 ~ 30",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 26,
+       "row": 37,
+       "name": "Room O2 Concentration",
+       "tag": "-",
+       "unit": "%",
+       "range": "≤ 19.5",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 27,
+       "row": 38,
+       "name": "Exp. Tank Leakage (Visual)",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 28,
+       "row": 39,
+       "name": "Storage Tank Level",
+       "tag": "LG-002",
+       "unit": "%",
+       "range": "OK / 80 / 20",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 29,
+       "row": 40,
+       "name": "Storage Tank Leakage (Visual)",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 30,
+       "row": 41,
+       "name": "Main N2 Supply Pressure",
+       "tag": "-",
+       "unit": "psi",
+       "range": "60 ~ 90",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "5. Combustion Air / Flue Gas",
+     "items": [
+      {
+       "no": 31,
+       "row": 43,
+       "name": "F.D. Fan Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 32,
+       "row": 44,
+       "name": "F.D. Fan Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 33,
+       "row": 45,
+       "name": "F.D. Fan Motor Ampere",
+       "tag": "-",
+       "unit": "A",
+       "range": "20 ~ 40",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 34,
+       "row": 46,
+       "name": "F.D. Fan Pressure (Combustion Air)",
+       "tag": "PG-009",
+       "unit": "kPa",
+       "range": "2 ~ 5",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 35,
+       "row": 47,
+       "name": "F.D. Fan Temperature (Combustion Air)",
+       "tag": "TG-001",
+       "unit": "°C",
+       "range": "Below 150",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 36,
+       "row": 48,
+       "name": "F.G.R. Fan Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 37,
+       "row": 49,
+       "name": "F.G.R. Fan Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 38,
+       "row": 50,
+       "name": "F.G.R. Fan Motor Ampere",
+       "tag": "-",
+       "unit": "A",
+       "range": "20 ~ 40",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 39,
+       "row": 51,
+       "name": "F.G.R. Fan Pressure (Flue Gas)",
+       "tag": "PG-014",
+       "unit": "kPa",
+       "range": "2 ~ 5",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 40,
+       "row": 52,
+       "name": "F.G.R. Fan Temperature (Flue Gas)",
+       "tag": "TG-005",
+       "unit": "°C",
+       "range": "Below 150",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 41,
+       "row": 53,
+       "name": "Stack Exhaust",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "NMP",
+   "name": "NMP Recovery (SRP)",
+   "file": "2._NMP_Recovery_Daily_Check_List_rev3_2610.xlsx",
+   "template_sheet": "10.23.2026",
+   "slots": [
+    "08:00",
+    "12:00",
+    "16:00",
+    "20:00",
+    "00:00",
+    "04:00"
+   ],
+   "slot_cols": {
+    "08:00": "G",
+    "12:00": "H",
+    "16:00": "I",
+    "20:00": "J",
+    "00:00": "K",
+    "04:00": "L"
+   },
+   "equipments": [],
+   "date_format": "Date : {m}/{d}/{Y}",
+   "sections": [
+    {
+     "title": "1. Booster Fan / Coater Gas",
+     "items": [
+      {
+       "no": 1,
+       "row": 8,
+       "name": "Booster Fan Running Status - A",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 2,
+       "row": 9,
+       "name": "Booster Fan Noise - A",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 3,
+       "row": 10,
+       "name": "Booster Fan Motor Ampere - A",
+       "tag": "FAN-001A",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 4,
+       "row": 11,
+       "name": "Coater Gas Pressure – A (transmitter)",
+       "tag": "PT-001A",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 5,
+       "row": 12,
+       "name": "Coater Gas Temperature – A (transmitter)",
+       "tag": "TE-001A",
+       "unit": "°C",
+       "range": "≈ 100 (ref.)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 6,
+       "row": 13,
+       "name": "Booster Fan Running Status - B",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 7,
+       "row": 14,
+       "name": "Booster Fan Noise - B",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 8,
+       "row": 15,
+       "name": "Booster Fan Motor Ampere - B",
+       "tag": "FAN-001B",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 9,
+       "row": 16,
+       "name": "Coater Gas Pressure – B (transmitter)",
+       "tag": "PT-001B",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 10,
+       "row": 17,
+       "name": "Coater Gas Temperature – B (transmitter)",
+       "tag": "TE-001B",
+       "unit": "°C",
+       "range": "≈ 100 (ref.)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 11,
+       "row": 19,
+       "name": "Lower Tank Level – A (transmitter)",
+       "tag": "LT-001A",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 12,
+       "row": 20,
+       "name": "Lower Tank Temperature – A",
+       "tag": "TE-003A",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 13,
+       "row": 21,
+       "name": "Middle Tank Level – A",
+       "tag": "LT-002A",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 14,
+       "row": 22,
+       "name": "Middle Tank Temperature – A",
+       "tag": "TE-004A",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 15,
+       "row": 23,
+       "name": "Upper Tank Level – A",
+       "tag": "LT-003A",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 16,
+       "row": 24,
+       "name": "Upper Tank Temperature – A",
+       "tag": "TE-005A",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 17,
+       "row": 25,
+       "name": "Lower Tank Level – B (transmitter)",
+       "tag": "LT-001B",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 18,
+       "row": 26,
+       "name": "Lower Tank Temperature – B",
+       "tag": "TE-003B",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 19,
+       "row": 27,
+       "name": "Middle Tank Level – B",
+       "tag": "LT-002B",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 20,
+       "row": 28,
+       "name": "Middle Tank Temperature – B",
+       "tag": "TE-004B",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 21,
+       "row": 29,
+       "name": "Upper Tank Level – B",
+       "tag": "LT-003B",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 22,
+       "row": 30,
+       "name": "Upper Tank Temperature – B",
+       "tag": "TE-005B",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 23,
+       "row": 31,
+       "name": "Piping Leak Check",
+       "tag": "-",
+       "unit": "Ok / NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "3. NMP Solution Tank",
+     "items": [
+      {
+       "no": 24,
+       "row": 33,
+       "name": "Tank Level – A (transmitter)",
+       "tag": "LT-004A",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 25,
+       "row": 34,
+       "name": "Tank Temperature",
+       "tag": "TG-003A",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 26,
+       "row": 35,
+       "name": "Tank Level – B (transmitter)",
+       "tag": "LT-004B",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 27,
+       "row": 36,
+       "name": "Tank Temperature",
+       "tag": "TG-003B",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "4. Absorber Circulation Pumps",
+     "items": [
+      {
+       "no": 28,
+       "row": 38,
+       "name": "Lower Tank Pump Running Status - A",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 29,
+       "row": 39,
+       "name": "Lower Tank Pump Noise - A",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 30,
+       "row": 40,
+       "name": "Lower Tank Pump Motor Current – A",
+       "tag": "PUM-006A",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 31,
+       "row": 41,
+       "name": "Concentration (Tower BTM) – A",
+       "tag": "AT-001A",
+       "unit": "%",
+       "range": "≈ 80 (ref.)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 32,
+       "row": 42,
+       "name": "Middle Tank Pump Running Status - A",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 33,
+       "row": 43,
+       "name": "Middle Tank Pump Noise - A",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 34,
+       "row": 44,
+       "name": "Middle Tank Pump Motor Current – A",
+       "tag": "PUM-007A",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 35,
+       "row": 45,
+       "name": "Upper Tank Pump Running Status - A",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 36,
+       "row": 46,
+       "name": "Upper Tank Pump Noise - A",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 37,
+       "row": 47,
+       "name": "Upper Tank Pump Motor Current – A",
+       "tag": "PUM-008A",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 38,
+       "row": 48,
+       "name": "Lower Tank Pump Running Status - B",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 39,
+       "row": 49,
+       "name": "Lower Tank Pump Noise - B",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 40,
+       "row": 50,
+       "name": "Lower Tank Pump Motor Current – B",
+       "tag": "PUM-006B",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 41,
+       "row": 51,
+       "name": "Concentration (Tower BTM) – B",
+       "tag": "AT-001B",
+       "unit": "%",
+       "range": "≈ 80 (ref.)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 42,
+       "row": 52,
+       "name": "Middle Tank Pump Running Status - B",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 43,
+       "row": 53,
+       "name": "Middle Tank Pump Noise - B",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 44,
+       "row": 54,
+       "name": "Middle Tank Pump Motor Current – B",
+       "tag": "PUM-007B",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 45,
+       "row": 55,
+       "name": "Upper Tank Pump Running Status - B",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 46,
+       "row": 56,
+       "name": "Upper Tank Pump Noise - B",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 47,
+       "row": 57,
+       "name": "Upper Tank Pump Motor Current – B",
+       "tag": "PUM-008B",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "5. NMP Storage Tank / Transfer Pump (from original log)",
+     "items": [
+      {
+       "no": 48,
+       "row": 59,
+       "name": "NMP Storage Tank Level (transmitter)",
+       "tag": "LT-006",
+       "unit": "%",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 49,
+       "row": 60,
+       "name": "NMP Transfer Pump Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 50,
+       "row": 61,
+       "name": "NMP Transfer Pump Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 51,
+       "row": 62,
+       "name": "NMP Transfer Pump Motor Ampere",
+       "tag": "PUM-012\nor\nPUM-013",
+       "unit": "A",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 52,
+       "row": 63,
+       "name": "NMP Transfer Pump Pressure",
+       "tag": "PG-009\nor\nPG-010",
+       "unit": "bar",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 53,
+       "row": 64,
+       "name": "NMP Transfer Pump Pressure",
+       "tag": "PG-036",
+       "unit": "bar",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 54,
+       "row": 65,
+       "name": "NMP Filter Diff. Pressure (Inlet/Outlet)\n(PG-009/010 -PG-036)",
+       "tag": "cacl",
+       "unit": "bar",
+       "range": "TBD",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 55,
+       "row": 66,
+       "name": "NMP Transfer Pump Pressure",
+       "tag": "PG-011",
+       "unit": "bar",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 56,
+       "row": 67,
+       "name": "NMP Magnetic Filter Diff. Pressure (Inlet/Outlet)\n(PG-036 - PG011)",
+       "tag": "cacl",
+       "unit": "bar",
+       "range": "TBD",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 57,
+       "row": 68,
+       "name": "Flow Totalizer",
+       "tag": "FT-002",
+       "unit": "kg/h",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "RO",
+   "name": "SRP RO",
+   "file": "3._SRP_RO_Daily_Check_List_rev3_2610.xlsx",
+   "template_sheet": "10.23.2026",
+   "slots": [
+    "10:00",
+    "14:00",
+    "18:00",
+    "22:00",
+    "02:00",
+    "06:00"
+   ],
+   "slot_cols": {
+    "10:00": "G",
+    "14:00": "H",
+    "18:00": "I",
+    "22:00": "J",
+    "02:00": "K",
+    "06:00": "L"
+   },
+   "equipments": [],
+   "date_format": "Date : {m}/{d}/{Y}",
+   "sections": [
+    {
+     "title": "1. Raw Water",
+     "items": [
+      {
+       "no": 1,
+       "row": 8,
+       "name": "Raw Water Pump Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 2,
+       "row": 9,
+       "name": "Raw Water Pump Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 3,
+       "row": 10,
+       "name": "Raw Water Inlet Pressure (XV-01 open)",
+       "tag": "PG-01",
+       "unit": "bar",
+       "range": "< 5",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 4,
+       "row": 11,
+       "name": "Raw Tank Level",
+       "tag": "LT-01",
+       "unit": "%",
+       "range": "-",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 5,
+       "row": 12,
+       "name": "Raw Water Conductivity",
+       "tag": "AIT-01",
+       "unit": "µS/cm",
+       "range": "< 1000",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "2. Pre-treatment (ACF / MF)",
+     "items": [
+      {
+       "no": 6,
+       "row": 14,
+       "name": "ACF-101 Inlet Pressure",
+       "tag": "PG-03",
+       "unit": "bar",
+       "range": "< 3",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 7,
+       "row": 15,
+       "name": "ACF-101 Outlet Pressure",
+       "tag": "PG-04",
+       "unit": "bar",
+       "range": "< 3",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 8,
+       "row": 16,
+       "name": "ACF D/P (PG-03 − PG-04)",
+       "tag": "calc",
+       "unit": "bar",
+       "range": "< 0.75",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 9,
+       "row": 17,
+       "name": "MF-101 Outlet Pressure",
+       "tag": "PG-06",
+       "unit": "bar",
+       "range": "< 3",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 10,
+       "row": 18,
+       "name": "MF D/P (PG-04 − PG-06)",
+       "tag": "calc",
+       "unit": "bar",
+       "range": "< 0.75",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 11,
+       "row": 20,
+       "name": "Booster Pump Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 12,
+       "row": 21,
+       "name": "Booster Pump Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 13,
+       "row": 22,
+       "name": "RO HP Pump Inlet Pressure",
+       "tag": "PT-01",
+       "unit": "bar",
+       "range": "> 0.5",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 14,
+       "row": 23,
+       "name": "RO Inlet Flow",
+       "tag": "FT-01",
+       "unit": "m³/hr",
+       "range": "25 ~ 35",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 15,
+       "row": 24,
+       "name": "RO Inlet Pressure (transmitter)",
+       "tag": "PT-02",
+       "unit": "bar",
+       "range": "< 20",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 16,
+       "row": 25,
+       "name": "RO Inlet Pressure (local gauge)",
+       "tag": "PG-08",
+       "unit": "bar",
+       "range": "< 20",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 17,
+       "row": 26,
+       "name": "#2 RO Inlet Pressure",
+       "tag": "PG-09",
+       "unit": "bar",
+       "range": "< 20",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 18,
+       "row": 27,
+       "name": "RO Conc. Outlet Pressure",
+       "tag": "PG-11",
+       "unit": "bar",
+       "range": "< 20",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 19,
+       "row": 28,
+       "name": "RO D/P (PG-08 − PG-11)",
+       "tag": "calc",
+       "unit": "bar",
+       "range": "< 5",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 20,
+       "row": 29,
+       "name": "RO Product Outlet Pressure",
+       "tag": "PG-10",
+       "unit": "bar",
+       "range": "< 1",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 21,
+       "row": 30,
+       "name": "RO Product Conductivity",
+       "tag": "AIT-02",
+       "unit": "µS/cm",
+       "range": "< 10",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 22,
+       "row": 31,
+       "name": "RO Product Flow",
+       "tag": "FIT-02",
+       "unit": "m³/hr",
+       "range": "16 ~ 20 (18)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 23,
+       "row": 32,
+       "name": "RO Conc. Flow",
+       "tag": "FIT-03",
+       "unit": "m³/hr",
+       "range": "10 ~ 14 (12)",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "4. Pure Water Supply",
+     "items": [
+      {
+       "no": 24,
+       "row": 34,
+       "name": "Pure Water Pump Running Status",
+       "tag": "-",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 25,
+       "row": 35,
+       "name": "Pure Water Pump Noise",
+       "tag": "-",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 26,
+       "row": 36,
+       "name": "Pure Tank Level",
+       "tag": "LT-02",
+       "unit": "%",
+       "range": "-",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 27,
+       "row": 37,
+       "name": "Pure Water Pump Outlet Pressure",
+       "tag": "PG-12A/B",
+       "unit": "bar",
+       "range": "< 10 (4)",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 28,
+       "row": 38,
+       "name": "Final Filter Inlet Pressure",
+       "tag": "PG-13",
+       "unit": "bar",
+       "range": "< 10",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 29,
+       "row": 39,
+       "name": "Final Filter Outlet Pressure",
+       "tag": "PG-14",
+       "unit": "bar",
+       "range": "< 10",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 30,
+       "row": 40,
+       "name": "Final Filter D/P (PG-13 − PG-14)",
+       "tag": "calc",
+       "unit": "bar",
+       "range": "< 0.75",
+       "type": "formula",
+       "choices": []
+      },
+      {
+       "no": 31,
+       "row": 41,
+       "name": "Supply Flow",
+       "tag": "FIT-04",
+       "unit": "m³/hr",
+       "range": "0 ~ 30",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 32,
+       "row": 43,
+       "name": "Bio Cide Tank Level (CT-101)",
+       "tag": "-",
+       "unit": "%",
+       "range": "-",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 33,
+       "row": 44,
+       "name": "Antiscalant Tank Level (CT-102)",
+       "tag": "-",
+       "unit": "%",
+       "range": "-",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "FAN",
+   "name": "Supply / Exhaust Fan",
+   "file": "4._SupplyExhaust_Daily_Check_List_rev3_2610.xlsx",
+   "template_sheet": "10.23.2026",
+   "slots": [
+    "09:00",
+    "17:00",
+    "01:00"
+   ],
+   "slot_cols": {
+    "09:00": "F",
+    "17:00": "G",
+    "01:00": "H"
+   },
+   "equipments": [],
+   "date_format": "Date : {m}/{d}/{Y}",
+   "sections": [
+    {
+     "title": "1. Cathode #1 – Set 1",
+     "items": [
+      {
+       "no": 1,
+       "row": 9,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 2,
+       "row": 10,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 3,
+       "row": 11,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 4,
+       "row": 12,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 5,
+       "row": 13,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 6,
+       "row": 14,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 7,
+       "row": 15,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 8,
+       "row": 16,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 9,
+       "row": 17,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 10,
+       "row": 19,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 11,
+       "row": 20,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 12,
+       "row": 21,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 13,
+       "row": 22,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 14,
+       "row": 23,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 15,
+       "row": 24,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 16,
+       "row": 26,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 17,
+       "row": 27,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 18,
+       "row": 28,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 19,
+       "row": 29,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 20,
+       "row": 30,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 21,
+       "row": 31,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 22,
+       "row": 32,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 23,
+       "row": 33,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 24,
+       "row": 34,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 25,
+       "row": 36,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 26,
+       "row": 37,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 27,
+       "row": 38,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 28,
+       "row": 39,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 29,
+       "row": 40,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 30,
+       "row": 41,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "2. Cathode #1 – Set 2",
+     "items": [
+      {
+       "no": 31,
+       "row": 44,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 32,
+       "row": 45,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 33,
+       "row": 46,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 34,
+       "row": 47,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 35,
+       "row": 48,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 36,
+       "row": 49,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 37,
+       "row": 50,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 38,
+       "row": 51,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 39,
+       "row": 52,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 40,
+       "row": 54,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 41,
+       "row": 55,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 42,
+       "row": 56,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 43,
+       "row": 57,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 44,
+       "row": 58,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 45,
+       "row": 59,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 46,
+       "row": 61,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 47,
+       "row": 62,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 48,
+       "row": 63,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 49,
+       "row": 64,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 50,
+       "row": 65,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 51,
+       "row": 66,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 52,
+       "row": 67,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 53,
+       "row": 68,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 54,
+       "row": 69,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 55,
+       "row": 71,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 56,
+       "row": 72,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 57,
+       "row": 73,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 58,
+       "row": 74,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 59,
+       "row": 75,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 60,
+       "row": 76,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    },
+    {
+     "title": "3. Anode #1",
+     "items": [
+      {
+       "no": 61,
+       "row": 79,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 62,
+       "row": 80,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 63,
+       "row": 81,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 64,
+       "row": 82,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 65,
+       "row": 83,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 66,
+       "row": 84,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 67,
+       "row": 85,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 68,
+       "row": 86,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 69,
+       "row": 87,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 70,
+       "row": 89,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 71,
+       "row": 90,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 72,
+       "row": 91,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 73,
+       "row": 92,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 74,
+       "row": 93,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 75,
+       "row": 94,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 76,
+       "row": 96,
+       "name": "Supply Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 77,
+       "row": 97,
+       "name": "Supply Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 78,
+       "row": 98,
+       "name": "Intake Screen Condition",
+       "tag": "",
+       "unit": "Good / Dirty",
+       "range": "Good",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 79,
+       "row": 99,
+       "name": "Prefilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 80,
+       "row": 100,
+       "name": "Mediumfilter Diff. Pressure",
+       "tag": "",
+       "unit": "mmH2O",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 81,
+       "row": 101,
+       "name": "Supply Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 82,
+       "row": 102,
+       "name": "Supply Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 83,
+       "row": 103,
+       "name": "Supply Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 84,
+       "row": 104,
+       "name": "Supply Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 85,
+       "row": 106,
+       "name": "Exhaust Fan Motor Running Status",
+       "tag": "",
+       "unit": "ON/OFF",
+       "range": "ON",
+       "type": "choice",
+       "choices": [
+        "ON",
+        "OFF"
+       ]
+      },
+      {
+       "no": 86,
+       "row": 107,
+       "name": "Exhaust Fan Motor Noise",
+       "tag": "",
+       "unit": "Ok/NG",
+       "range": "Ok",
+       "type": "choice",
+       "choices": [
+        "Ok",
+        "NG"
+       ]
+      },
+      {
+       "no": 87,
+       "row": 108,
+       "name": "Exhaust Inlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 88,
+       "row": 109,
+       "name": "Exhaust Inlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 89,
+       "row": 110,
+       "name": "Exhaust Outlet Pressure",
+       "tag": "",
+       "unit": "kPa",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      },
+      {
+       "no": 90,
+       "row": 111,
+       "name": "Exhaust Outlet Temperature",
+       "tag": "",
+       "unit": "°C",
+       "range": "TBD",
+       "type": "number",
+       "choices": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
