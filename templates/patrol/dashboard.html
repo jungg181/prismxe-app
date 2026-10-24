@@ -83,6 +83,38 @@
   </div>
 </div>
 
+<div class="card" id="tcard" style="overflow-x:auto">
+  <h3>Full Timetable</h3>
+  <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · <span style="color:#dc2626;font-weight:700">red frame</span> = equipment due this hour · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
+  <div id="nowline"></div>
+  <table class="grid" id="ttable">
+    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
+    {% for e in equipment %}
+    {% if e.active %}
+    {% set due_now = e.checks.get(slot_idx|string) %}
+    <tr id="eq-{{ e.id }}">
+      <td style="text-align:left;font-weight:700;white-space:nowrap{{ ';border-top:3px solid #dc2626;border-bottom:3px solid #dc2626;border-left:3px solid #dc2626' if due_now else '' }}">{{ e.name }}{% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}</td>
+      {% for s in slots %}
+      {% set k = e.checks.get(loop.index0|string) %}
+      {% set is_now = loop.index0==slot_idx %}
+      {% set bg = '#fef9c3' if is_now else '' %}
+      <td style="{{ 'background:'+bg if bg else '' }}{{ ';border-top:3px solid #dc2626;border-bottom:3px solid #dc2626' if due_now else '' }}{{ ';border-right:3px solid #dc2626' if due_now and loop.last else '' }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
+      {% endfor %}
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% if crew_bars %}
+    <tr><td colspan="25" style="background:#e2e8f0;text-align:left;font-weight:800">👷 Crew today <span class="muted small" style="font-weight:400">— each person's working hours, from the 2-week plan</span></td></tr>
+    {% for b in crew_bars %}
+    <tr>
+      <td style="text-align:left;white-space:nowrap"><span class="wpers" style="background:{{ b.color }}">👷</span> <b>{{ b.worker.name }}</b>{% if b.role %} <span class="muted small">{{ b.role }}</span>{% endif %}</td>
+      {% for s in slots %}<td style="{{ 'background:' + b.color if loop.index0 in b.hours else '' }}"></td>{% endfor %}
+    </tr>
+    {% endfor %}
+    {% endif %}
+  </table>
+</div>
+
 <div class="card">
   <h3>On Shift <span class="muted small">{{ now.strftime('%A, %b %d') }} · {{ crew_slot_label }} crew · from the 2-week plan</span></h3>
   {% if crew %}
@@ -98,39 +130,6 @@
   {% else %}
   <p class="muted">No one is assigned to this time slot — assign workers in <b>Settings → Time Slots &amp; Shifts</b>.</p>
   {% endif %}
-</div>
-
-<div class="card" id="tcard" style="overflow-x:auto">
-  <h3>Full Timetable</h3>
-  <div class="muted small" style="margin-bottom:8px"><span class="dot hollow"></span> = patrol due · <span class="dot solid"></span> = photo report · yellow column = current hour · <span style="color:#ef4444;font-weight:700">red line</span> = now · <span style="color:#dc2626;font-weight:700">red frame</span> = equipment due this hour · {% for sh in shifts %}<span style="background:{{ shift_tints[sh.id] }};padding:1px 8px;border-radius:4px">{{ sh.name }}</span> {% endfor %}= shift</div>
-  <div id="nowline"></div>
-  <table class="grid" id="ttable">
-    <tr><th>Equipment</th>{% for s in slots %}<th data-h="{{ s.label.split(':')[0]|int }}" style="background:{{ shift_tints.get(s.shift,'') }}">{{ s.label }}<br><span class="muted">{{ s.shift }}</span></th>{% endfor %}</tr>
-    {% if crew_bars %}
-    <tr><td colspan="25" style="background:#e2e8f0;text-align:left;font-weight:800">👷 Crew today <span class="muted small" style="font-weight:400">— each person's working hours, from the 2-week plan</span></td></tr>
-    {% for b in crew_bars %}
-    <tr>
-      <td style="text-align:left;white-space:nowrap"><span class="wpers" style="background:{{ b.color }}">👷</span> <b>{{ b.worker.name }}</b>{% if b.role %} <span class="muted small">{{ b.role }}</span>{% endif %}</td>
-      {% for s in slots %}<td style="{{ 'background:' + b.color if loop.index0 in b.hours else '' }}"></td>{% endfor %}
-    </tr>
-    {% endfor %}
-    <tr><td colspan="25" style="background:#f8fafc;text-align:left" class="muted small">Equipment checks ↓</td></tr>
-    {% endif %}
-    {% for e in equipment %}
-    {% if e.active %}
-    {% set due_now = e.checks.get(slot_idx|string) %}
-    <tr id="eq-{{ e.id }}">
-      <td style="text-align:left;font-weight:700;white-space:nowrap{{ ';border-top:3px solid #dc2626;border-bottom:3px solid #dc2626;border-left:3px solid #dc2626' if due_now else '' }}">{{ e.name }}{% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}</td>
-      {% for s in slots %}
-      {% set k = e.checks.get(loop.index0|string) %}
-      {% set is_now = loop.index0==slot_idx %}
-      {% set bg = '#fef9c3' if is_now else '' %}
-      <td style="{{ 'background:'+bg if bg else '' }}{{ ';border-top:3px solid #dc2626;border-bottom:3px solid #dc2626' if due_now else '' }}{{ ';border-right:3px solid #dc2626' if due_now and loop.last else '' }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
-      {% endfor %}
-    </tr>
-    {% endif %}
-    {% endfor %}
-  </table>
 </div>
 
 <div class="card">
