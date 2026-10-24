@@ -216,7 +216,7 @@ def backup():
 
 
 # ---------------- monitor photo auto-read (vision) ----------------
-VISION_MODEL = os.environ.get("CHECKLIST_VISION_MODEL", "claude-sonnet-4-5")
+VISION_MODEL = os.environ.get("CHECKLIST_VISION_MODEL", "claude-sonnet-5-5")
 
 _SCREEN_HINTS = {
     "RO": ("The photo shows the SRP RO (reverse osmosis) HMI screen. On this screen some labels differ from the "
