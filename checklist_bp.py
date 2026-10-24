@@ -80,12 +80,53 @@ def submit():
                 "received_at": now,
                 "written": False,
             }
+            pending_photos = d.get("photo_index", {}).pop(rec["id"], [])
+            base_key = "|".join(rec["id"].split("|")[:4])
+            if base_key != rec["id"]:
+                pending_photos += d.get("photo_index", {}).pop(base_key, [])
+            if pending_photos:
+                rec["photos"] = pending_photos
             d["submissions"].append(rec)
             seen.add(e["id"])
             accepted.append(e["id"])
         if accepted:
             _save(d)
     return jsonify({"ok": True, "accepted": accepted, "duplicates": duplicates})
+
+
+@bp.post("/api/photo")
+def photo():
+    """Store one monitor photo for an entry (multipart: entry_id + file)."""
+    entry_id = request.form.get("entry_id", "")
+    f = request.files.get("file")
+    if not entry_id or f is None or not f.filename:
+        return jsonify({"ok": False, "error": "entry_id and file required"}), 400
+    import re as _re
+    safe_id = _re.sub(r"[^A-Za-z0-9_.-]+", "_", entry_id)
+    safe_name = _re.sub(r"[^A-Za-z0-9_.-]+", "_", os.path.basename(f.filename))
+    stored = safe_id + "__" + safe_name
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
+    f.save(os.path.join(PHOTOS_DIR, stored))
+    with _lock:
+        d = _load()
+        for srec in d["submissions"]:
+            if srec.get("id") == entry_id:
+                srec.setdefault("photos", [])
+                if stored not in srec["photos"]:
+                    srec["photos"].append(stored)
+                break
+        else:
+            d.setdefault("photo_index", {}).setdefault(entry_id, [])
+            if stored not in d["photo_index"][entry_id]:
+                d["photo_index"][entry_id].append(stored)
+        _save(d)
+    return jsonify({"ok": True, "name": stored})
+
+
+@bp.get("/api/photo/<path:name>")
+def photo_get(name):
+    from flask import send_from_directory
+    return send_from_directory(PHOTOS_DIR, os.path.basename(name))
 
 
 @bp.get("/api/day")
@@ -100,6 +141,7 @@ def day():
     with _lock:
         d = _load()
     rounds = {}
+    day_photos = {}
     latest = ""
     for srec in sorted(d["submissions"], key=lambda x: x.get("received_at", "")):
         if srec.get("system") != system or srec.get("date") != date:
@@ -111,8 +153,12 @@ def day():
             continue
         rounds.setdefault(slot, {}).update(srec.get("values", {}))
         latest = max(latest, srec.get("received_at", ""))
+        for ph in srec.get("photos", []):
+            day_photos.setdefault(slot, [])
+            if ph not in day_photos[slot]:
+                day_photos[slot].append(ph)
     return jsonify({"ok": True, "system": system, "equipment": equipment,
-                    "date": date, "rounds": rounds, "updated": latest})
+                    "date": date, "rounds": rounds, "photos": day_photos, "updated": latest})
 
 
 @bp.get("/api/pending")
