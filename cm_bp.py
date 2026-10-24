@@ -1,14 +1,13 @@
 """Construction Manager - standalone site management web app (Flask)."""
 import os
 import io
-import base64
 import csv
 import json
 import copy
 import uuid
 import threading
+import time
 import urllib.request
-import zlib
 from datetime import datetime, date, timedelta
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
@@ -17,9 +16,6 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data_cm.json')
-# COA module's DB file — its contents piggyback on the CM Sheets backup so
-# COA data survives Render deploys even before the Apps Script update.
-COA_DB_PATH = os.path.join(BASE_DIR, 'data_coa.json')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'static', 'cm', 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -57,11 +53,7 @@ def sheets_post(payload, timeout=12):
 
 
 def sheets_get_data(timeout=15):
-    """Fetch the persisted DB blob from Google Sheets.
-
-    Returns the stored value: a dict (blobs written by older code) or a
-    str (zlib+base64 packed blobs written by sheets_sync_db), or None.
-    """
+    """Fetch the persisted CM DB from Google Sheets. Returns dict or None."""
     if not CM_SHEETS_URL:
         return None
     try:
@@ -73,116 +65,75 @@ def sheets_get_data(timeout=15):
         return None
 
 
+# --- Durable-restore state (added 2026-10-24) --------------------------------
+# Render's disk is wiped on every deploy, so the Sheets copy is the real data.
+# The old boot path tried ONE 15s fetch and silently seeded demo workers when
+# it failed (and a later save could then push the demo data over the good
+# Sheets copy). Now: retry, never seed demo data when a Sheets URL exists,
+# block Sheets sync until a restore has succeeded, and keep retrying in the
+# background.
+RESTORE_OK = False
+DB_DIRTY = False
+_restore_lock = threading.Lock()
+
+
+def restore_from_sheets(attempts=2, timeout=12):
+    """Synchronous best-effort restore used at boot. Returns dict or None."""
+    for i in range(attempts):
+        data = sheets_get_data(timeout=timeout)
+        if data and isinstance(data, dict):
+            return data
+        if i + 1 < attempts:
+            time.sleep(2)
+    return None
+
+
+def _bg_restore():
+    """Keep retrying the Sheets restore after a failed boot restore.
+
+    Applies the restored data only if nothing was changed locally in the
+    meantime, and re-enables Sheets sync once data is back."""
+    global RESTORE_OK
+    for _ in range(30):
+        time.sleep(20)
+        if RESTORE_OK:
+            return
+        data = sheets_get_data(timeout=20)
+        if data and isinstance(data, dict):
+            with _restore_lock:
+                if DB_DIRTY:
+                    print("cm: sheets data found but local changes exist; "
+                          "keeping local DB, sync stays OFF", flush=True)
+                    return
+                for c in COLLECTIONS:
+                    data.setdefault(c, [])
+                DB.clear()
+                DB.update(data)
+                RESTORE_OK = True
+                try:
+                    with open(DB_PATH, 'w') as f:
+                        json.dump(DB, f, indent=2)
+                except Exception as e:  # noqa: BLE001
+                    print(f"cm: bg restore file write failed: {e}", flush=True)
+                print("cm: restored DB from Google Sheets (background)", flush=True)
+            return
+    print("cm: background restore gave up; Sheets sync stays OFF", flush=True)
+
+
 def sheets_post_async(payload):
     threading.Thread(target=sheets_post, args=(payload,), daemon=True).start()
 
 
-def _pack_blob(obj):
-    """Serialize + zlib-compress + base64 a DB blob for one Sheets cell."""
-    raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
-    return base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
-
-
-def _unpack_blob(stored):
-    """Inverse of _pack_blob. Returns the decoded object, or None."""
-    try:
-        return json.loads(zlib.decompress(base64.b64decode(stored)).decode("utf-8"))
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def sheets_sync_db():
-    """Push ALL module DBs to Google Sheets (async, best-effort).
-
-    The deployed Apps Script stores the saveData payload blindly in one
-    cell, so every module's database piggybacks here as
-    {"cm": ..., "coa": ..., "patrol": ..., ...}.
-    The blob is zlib+base64 packed: the CM DB alone is already ~48k chars
-    of JSON, so an uncompressed wrapped save would exceed the ~50k
-    per-cell Sheets limit and silently drop data every time.
-    Packed blobs restore via _unpack_blob; bare-CM dicts written by older
-    code still restore fine.
-    """
+    """Push the full CM DB to Google Sheets (async, best-effort)."""
     if not CM_SHEETS_URL:
         return
     try:
         # Copy to avoid mutation during async JSON encoding
         data = json.loads(json.dumps(DB))
-        blob = {"cm": data}
-        # Piggyback every other module's DB file
-        for key, fname in (("coa", "data_coa.json"),
-                           ("patrol", "data_patrol.json"),
-                           ("patrol_coa", "data_patrol_coa.json"),
-                           ("gauge", "data_gauge.json"),
-                           ("portal", "portal_config.json")):
-            p = os.path.join(BASE_DIR, fname)
-            if os.path.exists(p):
-                try:
-                    with open(p) as f:
-                        blob[key] = json.load(f)
-                except Exception:
-                    pass
-        packed = _pack_blob(blob)
-        # Google Sheets cell limit is ~50k chars — fall back to CM-only
-        # rather than losing the CM backup if the blob gets too big.
-        if len(packed) > 48000:
-            print("cm sheets_sync_db: packed blob too large, saving CM only", flush=True)
-            packed = _pack_blob(data)
-        if len(packed) > 48000:
-            print("cm sheets_sync_db: blob too large for Sheets cell, skipping", flush=True)
-            return
-        sheets_post_async({"action": "saveData", "data": packed})
+        sheets_post_async({"action": "saveData", "data": data})
     except Exception as e:  # noqa: BLE001
         print(f"cm sheets_sync_db failed: {e}", flush=True)
-
-
-def drive_upload_plan(raw, filename, site_id="", floor="", timeout=90):
-    """Upload a plan image to Google Drive via the Apps Script webhook.
-
-    Render's disk is ephemeral, so files in static/cm/uploads/ vanish on
-    every redeploy. Drive gives plans a permanent URL. Returns the public
-    thumbnail URL, or None on any failure (caller keeps the local path).
-    """
-    if not CM_SHEETS_URL:
-        return None
-    try:
-        from PIL import Image
-        im = Image.open(io.BytesIO(raw))
-        im.thumbnail((2000, 2000), Image.LANCZOS)
-        buf = io.BytesIO()
-        im.convert("RGB").save(buf, "JPEG", quality=82)
-        payload, mime = buf.getvalue(), "image/jpeg"
-        ext = ".jpg"
-    except Exception:  # noqa: BLE001
-        payload, mime, ext = raw, "image/png", ""
-    body = {
-        "action": "uploadPlan",
-        "image_base64": base64.b64encode(payload).decode("ascii"),
-        "mime": mime,
-        "filename": (secure_filename(filename) or "plan") + ext,
-        "site_id": site_id,
-        "floor": floor,
-    }
-    try:
-        req = urllib.request.Request(
-            CM_SHEETS_URL, data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            res = json.loads(resp.read().decode("utf-8"))
-        return res.get("url") if res.get("ok") else None
-    except Exception as e:  # noqa: BLE001
-        print(f"cm drive_upload_plan failed: {e}", flush=True)
-        return None
-
-
-def _drive_upload_plan_async(plan_id, raw, filename, site_id, floor):
-    url = drive_upload_plan(raw, filename, site_id, floor)
-    if not url:
-        return
-    plan = next((p for p in DB["plans"] if p.get("id") == plan_id), None)
-    if plan:
-        plan["image_url"] = url
-        save_db()
 
 
 def new_id():
@@ -240,38 +191,30 @@ def seed(db):
 
 
 def load_db():
+    global RESTORE_OK
     if not os.path.exists(DB_PATH):
-        # Fresh deploy (Render wiped the disk) — try to restore from Google Sheets first
-        restored = sheets_get_data()
-        if isinstance(restored, str):
-            # Packed (zlib+base64) blob written by sheets_sync_db
-            restored = _unpack_blob(restored)
-        if restored and isinstance(restored, dict):
-            # Wrapped format {"cm": {...}, "coa": {...}, ...} (packed or plain) —
-            # restore all modules. Old bare-CM blobs (just the CM DB) still load.
-            if isinstance(restored.get("cm"), dict):
-                for key, fname in (("coa", "data_coa.json"),
-                                   ("patrol", "data_patrol.json"),
-                                   ("patrol_coa", "data_patrol_coa.json"),
-                                   ("gauge", "data_gauge.json"),
-                                   ("portal", "portal_config.json")):
-                    mod_data = restored.get(key)
-                    if isinstance(mod_data, dict):
-                        try:
-                            with open(os.path.join(BASE_DIR, fname), 'w') as f:
-                                json.dump(mod_data, f, indent=2)
-                            print(f"cm: restored {key} DB from Google Sheets", flush=True)
-                        except Exception as e:  # noqa: BLE001
-                            print(f"cm: {key} restore failed: {e}", flush=True)
-                db = restored["cm"]
-            else:
+        # Fresh deploy (Render wiped the disk) — restore from Google Sheets.
+        if CM_SHEETS_URL:
+            restored = restore_from_sheets()
+            if restored and isinstance(restored, dict):
                 db = restored
-            for c in COLLECTIONS:
-                db.setdefault(c, [])
-            print("cm: restored DB from Google Sheets", flush=True)
+                for c in COLLECTIONS:
+                    db.setdefault(c, [])
+                RESTORE_OK = True
+                print("cm: restored DB from Google Sheets", flush=True)
+            else:
+                # NEVER seed demo data over a real deployment: boot empty,
+                # keep Sheets sync OFF, and let the background thread retry.
+                db = {c: [] for c in COLLECTIONS}
+                RESTORE_OK = False
+                print("cm: Sheets restore failed at boot; starting empty, "
+                      "background restore running, sync OFF", flush=True)
+                threading.Thread(target=_bg_restore, daemon=True).start()
         else:
+            # No Sheets configured (fresh local install): demo seed is fine.
             db = {c: [] for c in COLLECTIONS}
             seed(db)
+            RESTORE_OK = True
         with open(DB_PATH, 'w') as f:
             json.dump(db, f, indent=2)
         # Apply backfills below by falling through (don't return early)
@@ -291,21 +234,20 @@ def load_db():
             t['created_at'] = (exp - timedelta(minutes=10)).isoformat(timespec='seconds') if exp else now_iso()
     for t in db.get('timecards', []):
         t.setdefault('offline', False)
-        t.setdefault('company', '')
     return db
 
 
 def save_db():
+    global DB_DIRTY
+    DB_DIRTY = True
     with open(DB_PATH, 'w') as f:
         json.dump(DB, f, indent=2)
-    # Auto-sync to Google Sheets (survives Render deploys)
-    sheets_sync_db()
-    # Back up to Drive folder (survives Render deploys)
-    try:
-        import drive_backup
-        drive_backup.backup_one_async('data_cm.json')
-    except Exception:
-        pass
+    # Auto-sync to Google Sheets (survives Render deploys) — but never push
+    # an unrestored (empty/demo) DB over the good Sheets copy.
+    if RESTORE_OK:
+        sheets_sync_db()
+    else:
+        print("cm: save_db skipped Sheets sync (restore not OK)", flush=True)
 
 
 DB = load_db()
@@ -396,32 +338,6 @@ def gmaps_link(lat, lng):
     return f"https://www.google.com/maps?q={lat},{lng}"
 
 
-def haversine_km(lat1, lng1, lat2, lng2):
-    """Great-circle distance in km between two lat/lng points."""
-    try:
-        lat1, lng1, lat2, lng2 = map(float, (lat1, lng1, lat2, lng2))
-    except (TypeError, ValueError):
-        return None
-    import math
-    r = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlng = math.radians(lng2 - lng1)
-    a = (math.sin(dlat / 2) ** 2
-         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
-         * math.sin(dlng / 2) ** 2)
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-def clock_in_distance_km(t):
-    """Distance in km between a timecard's clock-in GPS and its site's
-    registered coordinates. None when either side has no coordinates."""
-    s = find('sites', t.get('site_id'))
-    if not s:
-        return None
-    return haversine_km(t.get('clock_in_lat'), t.get('clock_in_lng'),
-                        s.get('lat'), s.get('lng'))
-
-
 def needs_attention_count():
     return sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_out')
 
@@ -439,7 +355,6 @@ def register_jinja(app):
     app.jinja_env.globals.update(
         site_name=site_name, worker_name=worker_name, fmt_dt=fmt_dt,
         gmaps_link=gmaps_link, compute_hours=compute_hours,
-        clock_in_distance_km=clock_in_distance_km,
         days_remaining=days_remaining, today=today,
     )
 
@@ -607,29 +522,16 @@ def blueprints():
 def plan_upload():
     site_id = request.form.get('site_id')
     floor = request.form.get('floor', '1F').strip() or '1F'
-    f = request.files.get('plan')
-    img = save_upload(f)
+    img = save_upload(request.files.get('plan'))
     if not img:
         flash('No file uploaded.')
         return redirect(url_for('cm.blueprints', site_id=site_id))
-    try:
-        f.stream.seek(0)
-        raw = f.read()
-    except Exception:  # noqa: BLE001
-        raw = None
     old = next((p for p in DB['plans'] if p['site_id'] == site_id and p['floor'] == floor), None)
     if old:
         DB['plans'].remove(old)
-    plan = {'id': new_id(), 'site_id': site_id, 'floor': floor,
-            'image_path': img, 'image_url': '', 'bounds': None}
-    DB['plans'].append(plan)
+    DB['plans'].append({'id': new_id(), 'site_id': site_id, 'floor': floor,
+                        'image_path': img, 'bounds': None})
     save_db()
-    # Persist to Google Drive in the background: Render wipes local uploads
-    # on every redeploy, but the Drive URL survives.
-    if raw and CM_SHEETS_URL:
-        threading.Thread(target=_drive_upload_plan_async,
-                         args=(plan['id'], raw, f.filename, site_id, floor),
-                         daemon=True).start()
     flash(f'Plan uploaded for {floor}.')
     return redirect(url_for('cm.blueprints', site_id=site_id, floor=floor))
 
@@ -702,32 +604,12 @@ TRADES = ['Electrician', 'Carpenter', 'Plumber', 'Laborer', 'Welder',
 EMP_TYPES = ['Direct Team', 'Contract']
 WORKER_STATUSES = ['active', 'on_leave', 'inactive']
 
-# Priority companies shown first in dropdowns, filters and CSV exports.
-COMPANY_PRIORITY = ['Carpenter', 'KSR', 'Myungjin', 'Upper Concrete', 'Brian']
-
-
-def company_sort_key(name):
-    """Sort key: priority companies first (in listed order), then A-Z."""
-    n = (name or '').strip()
-    if n in COMPANY_PRIORITY:
-        return (0, COMPANY_PRIORITY.index(n))
-    return (1, n.lower())
-
-
-def all_companies():
-    """Priority companies first, then any other companies already in use."""
-    others = sorted({(w.get('company') or '').strip() for w in DB['workers']
-                     if (w.get('company') or '').strip() and w.get('company') not in COMPANY_PRIORITY},
-                    key=str.lower)
-    return COMPANY_PRIORITY + others
-
 
 @bp.route('/workers')
 def workers():
     q = (request.args.get('q') or '').lower()
     fsite = request.args.get('site') or 'all'
     ftrade = request.args.get('trade') or 'all'
-    fcompany = request.args.get('company') or 'all'
     fstatus = request.args.get('status') or 'all'
     rows = []
     for w in DB['workers']:
@@ -735,24 +617,20 @@ def workers():
             continue
         if ftrade != 'all' and w.get('trade') != ftrade:
             continue
-        if fcompany != 'all' and (w.get('company') or '') != fcompany:
-            continue
         if fstatus != 'all' and w.get('status') != fstatus:
             continue
-        if q and q not in f"{w['name']} {w.get('phone','')} {w.get('trade','')} {w.get('company','')}".lower():
+        if q and q not in f"{w['name']} {w.get('phone','')} {w.get('trade','')}".lower():
             continue
         w2 = dict(w)
         w2['clocked_in'] = open_timecard(w['id']) is not None
         rows.append(w2)
-    rows.sort(key=lambda w: (company_sort_key(w.get('company')), w['name'].lower()))
     total_hours = sum(t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
                       for t in DB['timecards'] if t.get('clock_out'))
     active_now = sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_in')
     return render_template('cm/workers.html', rows=rows,
                            q=request.args.get('q', ''), fsite=fsite,
-                           ftrade=ftrade, fcompany=fcompany, fstatus=fstatus,
+                           ftrade=ftrade, fstatus=fstatus,
                            sites=DB['sites'], trades=sorted({w.get('trade') for w in DB['workers'] if w.get('trade')} | set(TRADES)),
-                           companies=all_companies(),
                            total=len(DB['workers']), active_now=active_now,
                            total_hours=round(total_hours, 1))
 
@@ -766,7 +644,6 @@ def worker_new():
             'email': request.form.get('email', '').strip(),
             'phone': request.form.get('phone', '').strip(),
             'trade': request.form.get('trade', '').strip() or 'Other',
-            'company': request.form.get('company', '').strip(),
             'employment_type': request.form.get('employment_type', 'Contract'),
             'hourly_rate': _f(request.form.get('hourly_rate')) or 0.0,
             'site_id': request.form.get('site_id') or None,
@@ -780,8 +657,7 @@ def worker_new():
         flash(f"Worker '{w['name']}' registered.")
         return redirect(url_for('cm.workers'))
     return render_template('cm/worker_form.html', worker=None, sites=DB['sites'],
-                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES,
-                           companies=all_companies())
+                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES)
 
 
 @bp.route('/workers/<wid>/edit', methods=['GET', 'POST'])
@@ -794,7 +670,6 @@ def worker_edit(wid):
         w['email'] = request.form.get('email', '').strip()
         w['phone'] = request.form.get('phone', '').strip()
         w['trade'] = request.form.get('trade', '').strip() or 'Other'
-        w['company'] = request.form.get('company', '').strip()
         w['employment_type'] = request.form.get('employment_type', 'Contract')
         w['hourly_rate'] = _f(request.form.get('hourly_rate')) or 0.0
         w['site_id'] = request.form.get('site_id') or None
@@ -807,8 +682,7 @@ def worker_edit(wid):
         flash(f"Worker '{w['name']}' updated.")
         return redirect(url_for('cm.workers'))
     return render_template('cm/worker_form.html', worker=w, sites=DB['sites'],
-                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES,
-                           companies=all_companies())
+                           trades=TRADES, emp_types=EMP_TYPES, statuses=WORKER_STATUSES)
 
 
 @bp.route('/workers/<wid>/delete', methods=['POST'])
@@ -822,11 +696,11 @@ def worker_delete(wid):
 def workers_export():
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(['id', 'name', 'email', 'phone', 'trade', 'company', 'employment_type',
+    w.writerow(['id', 'name', 'email', 'phone', 'trade', 'employment_type',
                 'hourly_rate', 'site', 'status', 'emergency_contact', 'created_at'])
     for x in DB['workers']:
         w.writerow([x.get('id'), x.get('name'), x.get('email'), x.get('phone'),
-                    x.get('trade'), x.get('company', ''), x.get('employment_type'), x.get('hourly_rate'),
+                    x.get('trade'), x.get('employment_type'), x.get('hourly_rate'),
                     site_name(x.get('site_id')), x.get('status'),
                     x.get('emergency_contact'), x.get('created_at')])
     data = io.BytesIO(buf.getvalue().encode('utf-8'))
@@ -898,23 +772,15 @@ def clock_page(token):
 
 
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
-                   offline=False, reported_hours=None, note=None, company=None):
+                   offline=False):
     """Shared clock-in/out engine used by both the /clock page and the
     On Site worker app API. at_iso overrides the timestamp (used for
     offline-synced punches); offline marks the record as synced offline.
-    reported_hours is the worker-declared hours for the shift (excluding
-    meal break), captured at clock-out. company stamps the record with the
-    worker's company (e.g. 'COA'). Returns (ok, info dict)."""
+    Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
         return False, {'error': 'Worker not found.'}
     now = at_iso or now_iso()
-    try:
-        rh = float(reported_hours) if reported_hours not in (None, '') else None
-        if rh is not None and (rh < 0 or rh > 24):
-            rh = None
-    except (TypeError, ValueError):
-        rh = None
     if action == 'clock_in':
         if open_timecard(worker_id):
             return False, {'error': f"{w['name']} is already clocked in.",
@@ -922,9 +788,7 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
         t = {'id': new_id(), 'worker_id': worker_id, 'site_id': site_id,
              'clock_in': now, 'clock_in_lat': lat, 'clock_in_lng': lng,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
-             'hours': 0.0, 'status': 'clocked_in',
-             'notes': note or 'QR clock-in',
-             'company': company or '',
+             'hours': 0.0, 'status': 'clocked_in', 'notes': 'QR clock-in',
              'offline': offline}
         DB['timecards'].append(t)
         save_db()
@@ -939,16 +803,13 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
     t['clock_out_lng'] = lng
     t['hours'] = compute_hours(t['clock_in'], now)
     t['status'] = 'clocked_out'
-    if rh is not None:
-        t['reported_hours'] = round(rh, 2)
     if offline:
         t['offline'] = True
     save_db()
     return True, {'action': 'clock_out', 'site_id': t['site_id'],
                   'site_name': site_name(t['site_id']), 'worker_name': w['name'],
                   'clock_in': t['clock_in'], 'clock_out': now,
-                  'hours': t['hours'],
-                  'reported_hours': t.get('reported_hours')}
+                  'hours': t['hours']}
 
 
 def _client_at_local_iso(s):
@@ -997,8 +858,7 @@ def clock_confirm(token):
 
 @bp.route('/onsite')
 def onsite():
-    sites = [s for s in DB['sites'] if s.get('status') == 'active']
-    return render_template('cm/onsite.html', trades=TRADES, sites=sites)
+    return render_template('cm/onsite.html', trades=TRADES)
 
 
 def _phone_match(a, b):
@@ -1126,32 +986,6 @@ def api_scan_clock():
     return jsonify(info), (200 if ok else 400)
 
 
-@bp.route('/api/direct-clock', methods=['POST'])
-def api_direct_clock():
-    """Clock in/out without a QR code: the worker picks the site in the
-    On Site app and their GPS coordinates are captured with the punch,
-    so the office can verify on-time arrival at the jobsite."""
-    d = request.get_json(force=True)
-    worker_id = d.get('worker_id')
-    site_id = d.get('site_id')
-    action = d.get('action')
-    if not find('workers', worker_id):
-        return jsonify({'ok': False, 'error': 'Worker not found.'}), 404
-    if action not in ('clock_in', 'clock_out'):
-        # Toggle mode: clock out if an open shift exists, else clock in.
-        action = 'clock_out' if open_timecard(worker_id) else 'clock_in'
-    if action == 'clock_in':
-        if not find('sites', site_id):
-            return jsonify({'ok': False, 'error': 'Choose a jobsite first.'}), 400
-    ok, info = _perform_clock(site_id, action, worker_id,
-                              d.get('lat'), d.get('lng'),
-                              reported_hours=d.get('reported_hours'),
-                              note='Self clock-in' if action == 'clock_in' else None,
-                              company=(d.get('company') or '').strip() or None)
-    info['ok'] = ok
-    return jsonify(info), (200 if ok else 400)
-
-
 @bp.route('/api/location', methods=['POST'])
 def api_location():
     d = request.get_json(force=True)
@@ -1184,37 +1018,23 @@ def service_worker():
 def api_sync_clock():
     """Accept a clock action captured offline. The QR token is validated
     against the CLIENT timestamp: created_at <= client_at <= expires_at,
-    i.e. the scan must have happened while the QR was valid. Direct
-    (QR-less) clock actions instead carry a site_id. The timecard
+    i.e. the scan must have happened while the QR was valid. The timecard
     is stamped with the client time and flagged offline=True."""
     d = request.get_json(force=True)
     token = (d.get('token') or '').strip()
-    site_id = d.get('site_id')
-    if token:
-        rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
-        if not rec:
-            return jsonify({'ok': False,
-                            'error': 'QR code not recognized.'}), 410
-        client_at = _client_at_local_iso(d.get('client_at'))
-        if not client_at:
-            return jsonify({'ok': False,
-                            'error': 'Missing scan time.'}), 400
-        created = parse_iso(rec.get('created_at'))
-        expires = parse_iso(rec.get('expires_at'))
-        if not created or not expires or not (created <= parse_iso(client_at) <= expires):
-            return jsonify({'ok': False,
-                            'error': 'QR expired before the scan.'}), 410
-        sync_site_id = rec['site_id']
-    elif site_id and find('sites', site_id):
-        # Offline direct clock-in: the worker chose the site in the app.
-        client_at = _client_at_local_iso(d.get('client_at'))
-        if not client_at:
-            return jsonify({'ok': False,
-                            'error': 'Missing scan time.'}), 400
-        sync_site_id = site_id
-    else:
+    rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
+    if not rec:
         return jsonify({'ok': False,
                         'error': 'QR code not recognized.'}), 410
+    client_at = _client_at_local_iso(d.get('client_at'))
+    if not client_at:
+        return jsonify({'ok': False,
+                        'error': 'Missing scan time.'}), 400
+    created = parse_iso(rec.get('created_at'))
+    expires = parse_iso(rec.get('expires_at'))
+    if not created or not expires or not (created <= parse_iso(client_at) <= expires):
+        return jsonify({'ok': False,
+                        'error': 'QR expired before the scan.'}), 410
     worker_id = d.get('worker_id')
     if not find('workers', worker_id):
         return jsonify({'ok': False, 'error': 'Worker not found.'}), 400
@@ -1223,11 +1043,9 @@ def api_sync_clock():
     action = d.get('action')
     if action not in ('clock_in', 'clock_out'):
         return jsonify({'ok': False, 'error': 'Invalid action.'}), 400
-    ok, info = _perform_clock(sync_site_id, action, worker_id,
+    ok, info = _perform_clock(rec['site_id'], action, worker_id,
                               d.get('lat'), d.get('lng'),
-                              at_iso=client_at, offline=True,
-                              reported_hours=d.get('reported_hours'),
-                              company=(d.get('company') or '').strip() or None)
+                              at_iso=client_at, offline=True)
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -1348,7 +1166,6 @@ def api_my_timecards(worker_id):
 def timecards():
     fsite = request.args.get('site') or 'all'
     fstatus = request.args.get('status') or 'all'
-    fcompany = request.args.get('company') or 'all'
     sort = request.args.get('sort') or 'newest'
     rows = []
     for t in DB['timecards']:
@@ -1356,10 +1173,6 @@ def timecards():
             continue
         if fstatus != 'all' and t.get('status') != fstatus:
             continue
-        if fcompany != 'all':
-            tc = t.get('company') or (find('workers', t.get('worker_id')) or {}).get('company', '')
-            if tc != fcompany:
-                continue
         rows.append(t)
     rows.sort(key=lambda t: t.get('clock_in') or '',
               reverse=(sort == 'newest'))
@@ -1368,8 +1181,7 @@ def timecards():
     gps_n = sum(1 for t in rows if t.get('clock_in_lat') not in (None, ''))
     active_now = sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_in')
     return render_template('cm/timecards.html', rows=rows, fsite=fsite,
-                           fstatus=fstatus, fcompany=fcompany, sort=sort, sites=DB['sites'],
-                           companies=all_companies(),
+                           fstatus=fstatus, sort=sort, sites=DB['sites'],
                            total_hours=round(total_hours, 1), total=len(rows),
                            gps_pct=round(100 * gps_n / len(rows)) if rows else 0,
                            active_now=active_now, attention=needs_attention_count())
@@ -1401,7 +1213,6 @@ def _timecard_from_form(form):
             'clock_in_lat': None, 'clock_in_lng': None,
             'clock_out': clock_out, 'clock_out_lat': None, 'clock_out_lng': None,
             'hours': hours, 'status': status,
-            'reported_hours': float(form.get('reported_hours') or 0) or None,
             'notes': form.get('notes', '').strip()}
 
 
@@ -1445,7 +1256,6 @@ def timecard_edit(tid):
             if t['status'] == 'clocked_in':
                 t['status'] = 'clocked_out'
         t['notes'] = upd['notes']
-        t['reported_hours'] = upd['reported_hours']
         save_db()
         flash('Timecard updated.')
         return redirect(url_for('cm.timecards'))
@@ -1490,11 +1300,10 @@ def payroll():
         w = find('workers', wid)
         rate = (w or {}).get('hourly_rate') or 0.0
         rows.append({'worker': worker_name(wid), 'trade': (w or {}).get('trade', '—'),
-                     'company': (w or {}).get('company', '') or '—',
                      'rate': rate, 'hours': round(a['hours'], 2),
                      'records': a['records'],
                      'gross': round(a['hours'] * rate, 2)})
-    rows.sort(key=lambda r: (company_sort_key(r['company'] if r['company'] != '—' else ''), r['worker'].lower()))
+    rows.sort(key=lambda r: r['worker'])
     total_gross = round(sum(r['gross'] for r in rows), 2)
     total_hours = round(sum(r['hours'] for r in rows), 2)
     return render_template('cm/payroll.html', rows=rows, start=start, end=end,
@@ -1528,7 +1337,6 @@ def payroll_export():
         approved = status == 'approved'
         detail.append({
             'employee': worker_name(t.get('worker_id')),
-            'company': (find('workers', t.get('worker_id')) or {}).get('company', '') or '',
             'site': site_name(t.get('site_id')),
             'ci': ci, 'co': co,
             'gross': gross, 'meal': meal, 'pay_hours': pay_hours,
@@ -1538,16 +1346,16 @@ def payroll_export():
                                 else 'Clocked In'),
             'notes': t.get('notes', '') or '',
         })
-    detail.sort(key=lambda r: (company_sort_key(r['company']), r['employee'].lower(), r['ci']))
+    detail.sort(key=lambda r: (r['employee'].lower(), r['ci']))
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(['Employee', 'Company', 'Site', 'Clock-In Date', 'Clock-In Time',
+    w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
                 'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
                 'Meal Break Deduction', 'Payroll Hours', 'Payroll Status',
                 'Timecard Status', 'Notes'])
     for r in detail:
         w.writerow([
-            r['employee'], r['company'], r['site'],
+            r['employee'], r['site'],
             f"{r['ci'].day}-{r['ci'].strftime('%b')}-{r['ci'].strftime('%y')}",
             r['ci'].strftime('%-I:%M %p'),
             f"{r['co'].day}-{r['co'].strftime('%b')}-{r['co'].strftime('%y')}",
