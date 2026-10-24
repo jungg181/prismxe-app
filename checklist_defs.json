@@ -34,8 +34,11 @@
     "05:00": "R"
    },
    "equipments": [
+    "ECB01",
+    "ECB02",
     "ECB03",
-    "EAB01"
+    "EAB01",
+    "EAB02"
    ],
    "date_format": "Date {m}/{d}/{Y}",
    "sections": [
