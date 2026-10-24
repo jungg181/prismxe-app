@@ -84,10 +84,15 @@ def submit():
                 "received_at": now,
                 "written": False,
             }
+            def _norm(k):
+                return "|".join(p for p in k.split("|") if p)
             pending_photos = d.get("photo_index", {}).pop(rec["id"], [])
             base_key = "|".join(rec["id"].split("|")[:4])
             if base_key != rec["id"]:
                 pending_photos += d.get("photo_index", {}).pop(base_key, [])
+            for alt in (_norm(rec["id"]), _norm(base_key)):
+                if alt and alt not in (rec["id"], base_key):
+                    pending_photos += d.get("photo_index", {}).pop(alt, [])
             if pending_photos:
                 rec["photos"] = pending_photos
             d["submissions"].append(rec)
