@@ -48,6 +48,28 @@
   <a class="back" href="/">← Back to portal</a>
   <h1 style="margin-top:12px">Manage Folders</h1>
   <p class="sub">Rename companies, move apps between folders, add or remove. Like computer folders.</p>
+
+  <h3 class="apps-label" style="font-size:1rem;color:#e2e8f0">📋 All apps (automatic list)</h3>
+  <p class="sub" style="margin-bottom:12px">This is everything the portal shows. Apps built into the server
+  appear here by themselves — there is nothing to add or update. The editor below is only for extra custom links.</p>
+  {% for co in catalog %}
+  <div class="company">
+    <div class="company-head"><span style="font-size:1.3rem">{{ co.icon }}</span><b>{{ co.name }}</b></div>
+    {% for a in co.apps %}
+    <div class="app-row">
+      <span style="font-size:1.2rem">{{ a.icon }}</span>
+      <div class="fields">
+        <div><b>{{ a.name }}</b>{% if a.url %} <span style="color:#94a3b8">— {{ a.url }}</span>{% endif %}</div>
+        <div style="color:#94a3b8;font-size:.85rem">{{ a.desc }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <h3 class="apps-label" style="font-size:1rem;color:#e2e8f0;margin-top:24px">🔗 Custom links (editor)</h3>
+  <p class="sub" style="margin-bottom:12px">Extra links you add by hand. A link whose address matches a built-in app
+  is shown once, in the automatic list above.</p>
   <div id="companies"></div>
   <div class="row-actions">
     <button class="btn" onclick="addCompany()">+ Add company folder</button>

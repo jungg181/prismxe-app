@@ -30,7 +30,7 @@
   .folder.open .folder-header .arrow { transform: rotate(90deg); }
   .folder-apps { display: none; padding: 0 12px 12px; }
   .folder.open .folder-apps { display: grid; gap: 10px; }
-  a.card { display: flex; align-items: center; gap: 16px;
+  .card { display: flex; align-items: center; gap: 16px;
            background: #0f172a; border: 1px solid #334155;
            border-radius: 12px; padding: 18px 20px; text-decoration: none;
            color: inherit; transition: border-color .12s; }
@@ -59,10 +59,17 @@
       </button>
       <div class="folder-apps">
         {% for a in co.apps %}
+        {% if a.url %}
         <a class="card" href="{{ a.url }}">
           <div class="icon">{{ a.icon }}</div>
           <div><b>{{ a.name }}</b><span>{{ a.desc }}</span></div>
         </a>
+        {% else %}
+        <div class="card">
+          <div class="icon">{{ a.icon }}</div>
+          <div><b>{{ a.name }}</b><span>{{ a.desc }}</span></div>
+        </div>
+        {% endif %}
         {% endfor %}
       </div>
     </div>
