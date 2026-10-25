@@ -37,6 +37,101 @@ def save_portal_config(cfg):
     with open(PORTAL_CONFIG_PATH, "w") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
+REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "apps_registry.json")
+
+def load_registry():
+    try:
+        with open(REGISTRY_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {"web": [], "android": []}
+
+# Display metadata for the built-in apps. The portal/manage app list is
+# built AUTOMATICALLY from the blueprints registered on the Flask app, so
+# a new built-in app appears in the list by itself - it cannot be
+# forgotten. A blueprint with no entry here still shows up, with a
+# default card derived from its name and URL prefix.
+BLUEPRINT_APPS = {
+    "gauge": {"name": "Gauge Check", "icon": "🔧",
+              "desc": "Photograph gauges, auto-read needles, log measurements",
+              "company": "Hanseong Arizona LLC", "company_icon": "🏢"},
+    "patrol": {"name": "Patrol Board", "icon": "📋",
+               "desc": "Equipment patrol timetable & shift monitoring",
+               "company": "Hanseong Arizona LLC", "company_icon": "🏢"},
+    "burner": {"name": "Burner Guide", "icon": "🔥",
+               "desc": "Burner startup / shutdown guided procedure",
+               "company": "Hanseong Arizona LLC", "company_icon": "🏢"},
+    "cm": {"name": "Construction Manager", "icon": "🏗️",
+           "desc": "Sites, workers, timecards, incidents, QA/QC",
+           "company": "Construction", "company_icon": "🏗️"},
+    "patrol_coa": {"name": "Patrol COA", "icon": "📋",
+                   "desc": "COA patrol board",
+                   "company": "COA", "company_icon": "🧹"},
+    "bible": {"name": "Bible", "icon": "📖",
+              "desc": "Bible reading (성경일독)",
+              "company": "Tools", "company_icon": "🔧"},
+    # API-only backend for the Android Check List app - the app itself is
+    # listed under "Android apps" in apps_registry.json.
+    "checklist": {"skip": True},
+}
+
+def build_catalog():
+    """The full app list for the portal and /manage, assembled from:
+    1. blueprints registered on the app (automatic - can never go stale),
+    2. apps_registry.json (external websites + Android apps),
+    3. portal_config.json custom links whose URL is not already listed.
+    """
+    groups = []
+    by_name = {}
+    seen_urls = set()
+
+    def add_group(name, icon):
+        if name not in by_name:
+            g = {"name": name, "icon": icon, "apps": []}
+            by_name[name] = g
+            groups.append(g)
+        return by_name[name]
+
+    for bp_name, bp in app.blueprints.items():
+        meta = BLUEPRINT_APPS.get(bp_name)
+        if meta is None:
+            prefix = getattr(bp, "url_prefix", None) or ("/" + bp_name)
+            meta = {"name": bp_name.replace("_", " ").title(), "icon": "📱",
+                    "desc": "Auto-added app", "company": "Apps",
+                    "company_icon": "📁"}
+        if meta.get("skip"):
+            continue
+        prefix = getattr(bp, "url_prefix", None) or ("/" + bp_name)
+        url = prefix.rstrip("/") + "/"
+        g = add_group(meta["company"], meta["company_icon"])
+        g["apps"].append({"name": meta["name"], "icon": meta["icon"],
+                          "desc": meta["desc"], "url": url})
+        seen_urls.add(url)
+
+    reg = load_registry()
+    for e in (reg.get("web") or []) + (reg.get("android") or []):
+        url = (e.get("url") or "").strip()
+        if url and url in seen_urls:
+            continue
+        g = add_group(e.get("group", "More"), e.get("group_icon", "📁"))
+        g["apps"].append({"name": e.get("name", ""), "icon": e.get("icon", "📱"),
+                          "desc": e.get("desc", ""), "url": url})
+        if url:
+            seen_urls.add(url)
+
+    cfg = load_portal_config()
+    for co in cfg.get("companies", []):
+        for a in (co.get("apps") or []):
+            url = (a.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            g = add_group(co.get("name", "Custom"), co.get("icon", "📁"))
+            g["apps"].append({"name": a.get("name", ""), "icon": a.get("icon", "📱"),
+                              "desc": a.get("desc", ""), "url": url})
+            seen_urls.add(url)
+
+    return [g for g in groups if g["apps"]]
+
 from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
 from patrol_bp import bp as patrol_bp, patrol_coa_bp
@@ -56,8 +151,7 @@ register_cm_jinja(app)
 
 @app.get("/")
 def portal():
-    cfg = load_portal_config()
-    return render_template("portal.html", companies=cfg.get("companies", []))
+    return render_template("portal.html", companies=build_catalog())
 
 
 @app.get("/manage")
@@ -66,8 +160,16 @@ def portal_manage():
     @patrol_login_required
     def _inner():
         cfg = load_portal_config()
-        return render_template("portal_manage.html", companies=cfg.get("companies", []))
+        return render_template("portal_manage.html",
+                               companies=cfg.get("companies", []),
+                               catalog=build_catalog())
     return _inner()
+
+
+@app.get("/api/apps")
+def api_apps():
+    """The auto-built app catalog as JSON (same list the portal shows)."""
+    return jsonify({"companies": build_catalog()})
 
 
 @app.post("/api/portal/save")

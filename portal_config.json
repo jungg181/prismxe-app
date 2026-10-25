@@ -1,34 +1,40 @@
 {
   "companies": [
     {
+      "name": "Hanseong Arizona LLC",
+      "icon": "🏢",
       "apps": [
         {
-          "desc": "Equipment patrol timetable & shift monitoring",
-          "icon": "📋",
           "name": "Patrol Board",
+          "icon": "📋",
+          "desc": "Equipment patrol timetable & shift monitoring",
           "url": "/patrol/"
         },
         {
-          "desc": "Photograph gauges, auto-read needles, log measurements",
-          "icon": "🔧",
           "name": "Hanseong Check List",
+          "icon": "🔧",
+          "desc": "Photograph gauges, auto-read needles, log measurements",
           "url": "/gauge/"
+        },
+        {
+          "name": "Burner Guide",
+          "icon": "🔥",
+          "desc": "Burner guide",
+          "url": "/burner/"
         }
-      ],
-      "icon": "🏢",
-      "name": "Hanseong"
+      ]
     },
     {
+      "name": "Construction",
+      "icon": "🏗️",
       "apps": [
         {
-          "desc": "Sites, workers, timecards, incidents, QA/QC",
-          "icon": "🏗️",
           "name": "Construction Manager",
+          "icon": "🏗️",
+          "desc": "Sites, workers, timecards, incidents, QA/QC",
           "url": "/cm/"
         }
-      ],
-      "icon": "🏗️",
-      "name": "Construction"
+      ]
     },
     {
       "name": "COA",
@@ -36,26 +42,26 @@
       "apps": [
         {
           "name": "COA Dashboard",
-          "desc": "Cleaners of America · Admin",
           "icon": "📊",
+          "desc": "Cleaners of America · Admin",
           "url": "/coa/"
         },
         {
           "name": "COA Time Clock",
-          "desc": "Worker clock in/out",
           "icon": "⏱️",
+          "desc": "Worker clock in/out",
           "url": "/coa/clock"
         },
         {
           "name": "COA Contacts",
-          "desc": "Tap to call workers",
           "icon": "📞",
+          "desc": "Tap to call workers",
           "url": "/coa/contacts"
         },
         {
           "name": "Patrol COA",
-          "desc": "COA patrol board",
           "icon": "📋",
+          "desc": "COA patrol board",
           "url": "/patrol-coa/"
         }
       ]
@@ -66,15 +72,9 @@
       "apps": [
         {
           "name": "Bible",
-          "desc": "Bible reading",
           "icon": "📖",
+          "desc": "Bible reading",
           "url": "/bible/"
-        },
-        {
-          "name": "Burner Guide",
-          "desc": "Burner guide",
-          "icon": "🔥",
-          "url": "/burner/"
         }
       ]
     }
