@@ -285,7 +285,13 @@ _SCREEN_HINTS = {
             "'#1 ANODE' = EAB01, '#2 ANODE' = EAB02, '#1 CATHODE' = ECB01, '#2 CATHODE' = ECB02, '#3 CATHODE' = ECB03. "
             "Also return \"screen_equipment\" with that equipment id. On this screen: FI-001 is the gas flow, "
             "the TIC-009 MV percent is checklist FCV-001 (linkage open rate), and the O2 percent value is O2I-001. "
-            "FI-002 is shown in gal/h on this screen; SKIP FI-002 (do not return it). "
+            "UNIT RULES (important): PI-002, PI-003 and DPI-002 each appear TWICE on this screen - a green "
+            "readout in psig and a black readout in bar. Return the BAR (black) value for these three tags, "
+            "never the psig value. The bar twin of PI-002 is the black readout just above the PI-002 psig "
+            "readout; DPI-002's bar value is its black readout (its psig readout is right below it); "
+            "PI-003's bar twin is the black readout near the heater outlet line at the lower right, next to "
+            "a temperature shown in degC. FI-002 also appears twice: a large gal/h number (e.g. 137500 - do "
+            "NOT use it) and a plain m3/h number (e.g. 521) just above it - return the m3/h number for FI-002. "
             "Return only items you can actually read."),
 }
 
