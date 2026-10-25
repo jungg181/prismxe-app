@@ -287,6 +287,8 @@ _SCREEN_HINTS = {
             "Tank Level) appears ONLY on the Transfer page, on tank NTK-01-010. The Control page shows a "
             "different tank, TNK-01-019 (Wastewater Buffer Tank), whose level tag is LT009 - LT009 is not a "
             "checklist item and its value must never be returned for LT-006. "
+            "For the stacked tower level tags (LT001A-LT004A and LT001B-LT004B), if you cannot confidently "
+            "pair each value with the tag printed above it, list those tags in \"unclear\" instead of guessing. "
             "For checklist item #51 the screen shows PUM-012 and PUM-013 separately: return the running (non-zero) "
             "one, or 0 if both are 0. For FT-002 return the instantaneous flow value, NOT the accumulated totalizer."),
     "HOB": ("The photo shows a hot oil heater burner HMI screen. The screen title names the heater: "
@@ -345,13 +347,20 @@ def read_photo():
         "You are reading a photo of an industrial monitor/HMI screen for a patrol checklist. "
         + _SCREEN_HINTS.get(system_id, "")
         + "\nRead these checklist items from the screen:\n" + lines
-        + "\nReply with ONLY a JSON object: {\"values\": {\"<row>\": <number>, ...}} using the row numbers "
-          "above as keys. Include only values you can actually read on the screen - never guess or invent "
-          "a value. Use plain numbers (no units, no thousands separators)."
+        + "\nReply with ONLY a JSON object: {\"values\": {\"<row>\": <number>, ...}, \"unclear\": "
+          "[\"<tag>\", ...], \"quality\": \"good\" or \"poor\"} using the row numbers above as keys for "
+          "values. Include only values you can actually read on the screen - never guess or invent "
+          "a value. Use plain numbers (no units, no thousands separators). "
+          "\"unclear\" lists the checklist tags (spelled exactly as in the list above) whose on-screen "
+          "display you could see but whose label or digits you could NOT read with confidence - including "
+          "groups of similar stacked tags where you cannot be sure which value belongs to which tag. "
+          "For an unclear tag, do NOT put a guessed value in \"values\"; list the tag in \"unclear\" "
+          "instead. \"quality\" is \"poor\" when the photo is blurry, dark, glaring, or taken at an angle "
+          "so that a substantial part of the screen is hard to read; otherwise \"good\"."
     )
     payload = {
         "model": VISION_MODEL,
-        "max_tokens": 1500,
+        "max_tokens": 2000,
         "messages": [{
             "role": "user",
             "content": [
@@ -395,5 +404,9 @@ def read_photo():
         except Exception:
             continue
         values[str(k)] = int(fv) if fv == int(fv) else fv
-    return jsonify({"ok": True, "values": values,
+    known_tags = {str(it.get("tag", "")) for it in items}
+    unclear = [str(t) for t in (parsed.get("unclear") or []) if str(t) in known_tags]
+    quality = "poor" if str(parsed.get("quality", "")).lower() == "poor" else "good"
+    return jsonify({"ok": True, "values": values, "unclear": unclear,
+                    "quality": quality,
                     "screen_equipment": parsed.get("screen_equipment")})
