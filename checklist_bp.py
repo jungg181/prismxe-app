@@ -78,6 +78,7 @@ def submit():
                 "date": e.get("date", ""),
                 "slot": e.get("slot", ""),
                 "values": e.get("values", {}),
+                "note": e.get("note", ""),
                 "target_file": e.get("target_file", ""),
                 "saved_at": e.get("saved_at", ""),
                 "device": e.get("device", ""),
@@ -226,6 +227,7 @@ def day():
     with _lock:
         d = _load()
     rounds = {}
+    notes = {}
     day_photos = {}
     latest = ""
     for srec in sorted(d["submissions"], key=lambda x: x.get("received_at", "")):
@@ -237,13 +239,16 @@ def day():
         if not slot:
             continue
         rounds.setdefault(slot, {}).update(srec.get("values", {}))
+        if srec.get("note"):
+            notes[slot] = srec["note"]
         latest = max(latest, srec.get("received_at", ""))
         for ph in srec.get("photos", []):
             day_photos.setdefault(slot, [])
             if ph not in day_photos[slot]:
                 day_photos[slot].append(ph)
     return jsonify({"ok": True, "system": system, "equipment": equipment,
-                    "date": date, "rounds": rounds, "photos": day_photos, "updated": latest})
+                    "date": date, "rounds": rounds, "notes": notes,
+                    "photos": day_photos, "updated": latest})
 
 
 @bp.get("/api/pending")
