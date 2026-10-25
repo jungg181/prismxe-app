@@ -130,8 +130,8 @@
        "row": 15,
        "name": "Heater Diff. Pressure (Inlet/Outlet)",
        "tag": "DPI-002",
-       "unit": "psi",
-       "range": "Above 7.3 psi",
+       "unit": "bar",
+       "range": "Above 0.5 bar",
        "type": "number",
        "choices": [],
        "monitor": true
@@ -141,8 +141,8 @@
        "row": 16,
        "name": "Heater Inlet Pressure",
        "tag": "PI-002",
-       "unit": "psi",
-       "range": "72.5 ~ 101.5 psi",
+       "unit": "bar",
+       "range": "5.0 ~ 7.0 bar",
        "type": "number",
        "choices": [],
        "monitor": true
@@ -152,8 +152,8 @@
        "row": 17,
        "name": "Heater Outlet Pressure",
        "tag": "PI-003",
-       "unit": "psi",
-       "range": "58.0 ~ 87.0 psi",
+       "unit": "bar",
+       "range": "4.0 ~ 6.0 bar",
        "type": "number",
        "choices": [],
        "monitor": true
@@ -182,23 +182,12 @@
       },
       {
        "no": 12,
-       "row": 20,
-       "name": "Hot Oil Flow",
-       "tag": "FI-002",
-       "unit": "gal/hr",
-       "range": "gal/hr",
-       "type": "number",
-       "choices": [],
-       "monitor": false
-      },
-      {
-       "no": 12,
        "row": 21,
        "name": "Hot Oil Flow",
        "tag": "FI-002",
-       "unit": "Above 400 m³/hr",
+       "unit": "m³/hr",
        "range": "Above 400 m³/hr",
-       "type": "formula",
+       "type": "number",
        "choices": [],
        "monitor": true
       },
