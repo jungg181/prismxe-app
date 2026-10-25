@@ -361,8 +361,8 @@ def read_photo():
             detail = e.read().decode("utf-8")[:300]
         except Exception:
             pass
-        return jsonify({"ok": False, "error": "vision request failed: {} | {} | key {} len {}".format(
-            e, detail, api_key[:13], len(api_key))}), 502
+        return jsonify({"ok": False, "error": "vision request failed: {} | {}".format(
+            e, detail)}), 502
     text = "".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
