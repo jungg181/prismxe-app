@@ -18,11 +18,12 @@ import os
 import re
 import json
 import base64
+import hashlib
 import threading
 import urllib.request
 from datetime import datetime, timezone
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 
 bp = Blueprint("checklist", __name__, url_prefix="/checklist")
 
@@ -62,6 +63,7 @@ def submit():
         return jsonify({"ok": False, "error": "entries required"}), 400
     now = datetime.now(timezone.utc).isoformat()
     accepted, duplicates = [], []
+    new_recs = []
     with _lock:
         d = _load()
         seen = {s.get("id") for s in d["submissions"]}
@@ -112,8 +114,11 @@ def submit():
             d["submissions"].append(rec)
             seen.add(e["id"])
             accepted.append(e["id"])
+            new_recs.append((rec, e.get("changes")))
         if accepted:
             _save(d)
+    for rec, changes in new_recs:
+        _issue_pdf(rec, changes)
     if accepted and WRITE_SCRIPT_URL:
         threading.Thread(target=_flush_written, daemon=True).start()
     return jsonify({"ok": True, "accepted": accepted, "duplicates": duplicates})
@@ -174,6 +179,299 @@ def _forward_photo_to_drive(stored, path, entry_id):
                 _save(d)
     except Exception as e:
         print("checklist photo drive forward failed: {}".format(e), flush=True)
+
+
+# ---------------- PDF issuance + integrity (형아, 2026-10-26) --------
+# The moment a submission is accepted, the server renders a PDF of
+# exactly what was submitted, stores it, and records the PDF's SHA-256
+# with the submission record — later, re-hashing the stored PDF and
+# comparing proves the document was never altered. PDFs are forwarded
+# to Google Drive (the checklist folder Ji designated for photos) so
+# they survive Render disk wipes; POST /api/pdf-sweep retries both
+# generation and forwarding for anything that missed.
+
+PDFS_DIR = os.path.join(BASE_DIR, "checklist_pdfs")
+PDF_FOLDER_ID = os.environ.get("CHECKLIST_PDF_FOLDER_ID",
+                               "1PMlJ48gZKd0FzrWwgj0hne3tD73zOZrj")
+_FONT_DIR = BASE_DIR  # NanumGothic TTFs live at the repo root
+_defs_cache = None
+
+
+def _defs():
+    global _defs_cache
+    if _defs_cache is None:
+        try:
+            with open(DEFS_PATH, encoding="utf-8") as f:
+                _defs_cache = json.load(f)
+        except Exception:
+            _defs_cache = {"systems": []}
+    return _defs_cache
+
+
+def _pdf_filename(rec):
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", rec.get("id", "entry"))
+    return ("PDF__" + safe)[:140] + ".pdf"
+
+
+def _make_pdf(rec, changes=None):
+    """Render one submission as a PDF (bytes) with fpdf2 and the
+    bundled NanumGothic subset (Hangul + Latin)."""
+    from fpdf import FPDF
+
+    class Doc(FPDF):
+        def footer(self):
+            self.set_y(-14)
+            self.set_font("nanum", "", 8)
+            self.set_text_color(130, 130, 130)
+            self.cell(0, 8, "Entry {} · page {}".format(
+                rec.get("id", ""), self.page_no()), align="C")
+
+    systems = {s.get("id"): s for s in _defs().get("systems", [])}
+    system = systems.get(rec.get("system", ""), {})
+    sys_name = system.get("name") or rec.get("system", "")
+    values = rec.get("values", {}) or {}
+
+    pdf = Doc(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(True, margin=18)
+    pdf.add_font("nanum", "", os.path.join(_FONT_DIR, "NanumGothic.ttf"))
+    pdf.add_font("nanum", "B", os.path.join(_FONT_DIR, "NanumGothicBold.ttf"))
+    pdf.add_page()
+    pdf.set_font("nanum", "B", 16)
+    pdf.cell(0, 9, "Hanseong Arizona — Daily Check List",
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("nanum", "B", 13)
+    pdf.cell(0, 8, "{} · {}".format(sys_name, rec.get("slot", "")),
+             new_x="LMARGIN", new_y="NEXT")
+    meta = [
+        ("Date", rec.get("date", "")),
+        ("Equipment", rec.get("equipment", "") or "-"),
+        ("Round", rec.get("slot", "")),
+        ("Submitted", (rec.get("received_at", "") or "")[:19].replace("T", " ") + " UTC"),
+        ("Device", rec.get("device", "")),
+        ("Entry ID", rec.get("id", "")),
+    ]
+    for k, v in meta:
+        pdf.set_font("nanum", "B", 10)
+        pdf.cell(26, 6, k)
+        pdf.set_font("nanum", "", 10)
+        pdf.cell(0, 6, str(v), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    widths = (12, 86, 30, 22, 40)  # No | Item | Value | Unit | Range
+
+    def fit(text, w):
+        text = str(text)
+        while text and pdf.get_string_width(text) > w - 2:
+            text = text[:-1]
+        return text
+
+    pdf.set_font("nanum", "B", 9.5)
+    pdf.set_fill_color(55, 71, 79)
+    pdf.set_text_color(255, 255, 255)
+    for w, t in zip(widths, ("No.", "Item", "Value", "Unit", "Range")):
+        pdf.cell(w, 7, " " + t, border=1, fill=True)
+    pdf.ln()
+    pdf.set_text_color(0, 0, 0)
+    for sec in system.get("sections", []):
+        pdf.set_font("nanum", "B", 10)
+        pdf.set_fill_color(233, 226, 248)
+        pdf.cell(sum(widths), 7, " " + (sec.get("name", "") or ""),
+                 border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        for it in sec.get("items", []):
+            val = values.get(str(it.get("row")), "")
+            name = it.get("name", "")
+            if it.get("tag"):
+                name = "{} ({})".format(name, it["tag"])
+            pdf.set_font("nanum", "", 9.5)
+            cells = (
+                (widths[0], str(it.get("no", "")), "C"),
+                (widths[1], " " + fit(name, widths[1]), "L"),
+                (widths[2], fit(str(val) if val != "" else "—", widths[2]), "C"),
+                (widths[3], fit(it.get("unit", ""), widths[3]), "C"),
+                (widths[4], fit(it.get("range", ""), widths[4]), "C"),
+            )
+            for w, t, al in cells:
+                pdf.cell(w, 6, t, border=1, align=al)
+            pdf.ln()
+    if rec.get("note"):
+        pdf.ln(3)
+        pdf.set_font("nanum", "B", 10.5)
+        pdf.cell(0, 7, "Note", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("nanum", "", 10)
+        pdf.multi_cell(0, 6, str(rec["note"]), border=1)
+    if rec.get("edited_by"):
+        pdf.ln(3)
+        pdf.set_font("nanum", "B", 10.5)
+        pdf.cell(0, 7, "Edit record", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("nanum", "", 10)
+        pdf.cell(0, 6, "Edited by: {}".format(rec["edited_by"]),
+                 new_x="LMARGIN", new_y="NEXT")
+        for row, pair in (changes or {}).items():
+            try:
+                old, new = pair[0], pair[1]
+            except Exception:
+                old, new = "", pair
+            pdf.cell(0, 6, "  Row {}: {} -> {}".format(row, old, new),
+                     new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    pdf.set_font("nanum", "", 8.5)
+    pdf.set_text_color(110, 110, 110)
+    pdf.multi_cell(0, 5, "This PDF was generated by the server at submission "
+                         "time. Its SHA-256 hash is stored with the submission "
+                         "record; recomputing the hash of this file and "
+                         "comparing it with the stored value proves the "
+                         "document is unaltered.")
+    return bytes(pdf.output())
+
+
+def _issue_pdf(rec, changes=None):
+    """Render + store + hash one submission's PDF, record the fields on
+    the submission, and start its Drive forward. Never raises."""
+    try:
+        data = _make_pdf(rec, changes)
+    except Exception as e:
+        print("checklist pdf failed: {}".format(e), flush=True)
+        return False
+    os.makedirs(PDFS_DIR, exist_ok=True)
+    fname = _pdf_filename(rec)
+    with open(os.path.join(PDFS_DIR, fname), "wb") as fh:
+        fh.write(data)
+    digest = hashlib.sha256(data).hexdigest()
+    with _lock:
+        d = _load()
+        for s in d["submissions"]:
+            if s.get("id") == rec["id"]:
+                s["pdf_file"] = fname
+                s["pdf_sha256"] = digest
+                break
+        _save(d)
+    threading.Thread(target=_forward_pdf_to_drive,
+                     args=(rec["id"], fname, rec.get("date", "")),
+                     daemon=True).start()
+    return True
+
+
+def _drive_api_upload_pdf(path, fname, date_str):
+    """Upload one PDF via the Drive API using the gauge OAuth
+    credentials (same Render service env). Returns the Drive URL or
+    None when not configured / failed."""
+    token = os.environ.get("GOOGLE_DRIVE_REFRESH_TOKEN", "")
+    cid = os.environ.get("GOOGLE_DRIVE_CLIENT_ID", "")
+    secret = os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", "")
+    if not (token and cid and secret):
+        return None
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload
+    import io as _io
+    creds = Credentials(None, refresh_token=token,
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=cid, client_secret=secret,
+                        scopes=["https://www.googleapis.com/auth/drive.file"])
+    svc = build("drive", "v3", credentials=creds)
+    day = date_str or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    q = ("'{}' in parents and name='{}' and "
+         "mimeType='application/vnd.google-apps.folder' and trashed=false"
+         ).format(PDF_FOLDER_ID, day)
+    res = svc.files().list(q=q, fields="files(id)", pageSize=1).execute()
+    files = res.get("files", [])
+    if files:
+        folder_id = files[0]["id"]
+    else:
+        folder = svc.files().create(
+            body={"name": day, "mimeType": "application/vnd.google-apps.folder",
+                  "parents": [PDF_FOLDER_ID]}, fields="id").execute()
+        folder_id = folder["id"]
+    with open(path, "rb") as fh:
+        data = fh.read()
+    media = MediaIoBaseUpload(_io.BytesIO(data), mimetype="application/pdf")
+    created = svc.files().create(
+        body={"name": fname, "parents": [folder_id]},
+        media_body=media, fields="id,webViewLink").execute()
+    return created.get("webViewLink")
+
+
+def _forward_pdf_to_drive(entry_id, fname, date_str):
+    """Copy an issued PDF to Google Drive so it survives Render disk
+    wipes: Drive API (gauge OAuth) first, the Apps Script photo sink
+    (action "pdf") second. Records the URL as pdf_drive."""
+    path = os.path.join(PDFS_DIR, fname)
+    if not os.path.exists(path):
+        return
+    url = None
+    try:
+        url = _drive_api_upload_pdf(path, fname, date_str)
+    except Exception as e:
+        print("checklist pdf drive api failed: {}".format(e), flush=True)
+    if not url and PHOTO_SCRIPT_URL:
+        try:
+            with open(path, "rb") as fh:
+                b64 = base64.b64encode(fh.read()).decode()
+            payload = {"action": "pdf", "name": fname,
+                       "entry_id": entry_id, "data_b64": b64}
+            req = urllib.request.Request(
+                PHOTO_SCRIPT_URL, data=json.dumps(payload).encode(),
+                headers={"content-type": "application/json"})
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                r = json.loads(resp.read().decode("utf-8"))
+            if r.get("ok"):
+                url = r.get("url")
+        except Exception as e:
+            print("checklist pdf script forward failed: {}".format(e), flush=True)
+    if url:
+        with _lock:
+            d = _load()
+            for s in d["submissions"]:
+                if s.get("id") == entry_id:
+                    s["pdf_drive"] = url
+                    break
+            _save(d)
+
+
+def _sweep_pdfs():
+    """Generate PDFs for submissions that lack one and retry Drive
+    forwarding for those whose copy never landed. The record of an
+    edit (changes) is recovered from the audit log."""
+    with _lock:
+        d = _load()
+        audit_changes = {a.get("id"): a.get("changes")
+                         for a in d.get("audit_log", [])}
+        subs = list(d["submissions"])
+    gen = 0
+    for rec in subs:
+        if not rec.get("pdf_sha256"):
+            if _issue_pdf(rec, audit_changes.get(rec.get("id"))):
+                gen += 1
+    fwd = 0
+    with _lock:
+        d = _load()
+        missing = [s for s in d["submissions"]
+                   if s.get("pdf_sha256") and not s.get("pdf_drive")]
+    for rec in missing:
+        _forward_pdf_to_drive(rec["id"], rec.get("pdf_file")
+                              or _pdf_filename(rec), rec.get("date", ""))
+        with _lock:
+            d = _load()
+            cur = next((s for s in d["submissions"]
+                        if s.get("id") == rec["id"]), {})
+        if cur.get("pdf_drive"):
+            fwd += 1
+    return {"ok": True, "generated": gen, "forwarded": fwd}
+
+
+@bp.get("/api/pdf/<name>")
+def pdf_download(name):
+    safe = os.path.basename(name)
+    path = os.path.join(PDFS_DIR, safe)
+    if not os.path.exists(path):
+        return jsonify({"ok": False, "error": "no such pdf"}), 404
+    return send_file(path, mimetype="application/pdf",
+                     as_attachment=True, download_name=safe)
+
+
+@bp.post("/api/pdf-sweep")
+def pdf_sweep():
+    return jsonify(_sweep_pdfs())
 
 
 WRITE_SCRIPT_URL = os.environ.get("CHECKLIST_WRITE_SCRIPT_URL", "")
