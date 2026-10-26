@@ -215,6 +215,59 @@ def photo_get(name):
     return send_from_directory(PHOTOS_DIR, os.path.basename(name))
 
 
+@bp.post("/api/loc-photo")
+def loc_photo():
+    """Register/replace the location photo for one checklist point
+    (multipart: system, equipment, row, file). One photo per point,
+    shared by every device, so a worker who has never seen the point
+    can find it. A copy is forwarded to Drive like the monitor photos,
+    so it survives Render disk wipes."""
+    system = request.form.get("system", "")
+    equipment = request.form.get("equipment", "")
+    row = request.form.get("row", "")
+    f = request.files.get("file")
+    if not system or not row or f is None or not f.filename:
+        return jsonify({"ok": False, "error": "system, row and file required"}), 400
+    import re as _re
+    key = "{}|{}|{}".format(system, equipment, row)
+    safe = _re.sub(r"[^A-Za-z0-9_.-]+", "_", key)
+    stored = "LOC__" + safe + ".jpg"
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
+    path = os.path.join(PHOTOS_DIR, stored)
+    f.save(path)
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        d = _load()
+        d.setdefault("loc_photos", {})[key] = {"file": stored, "updated": now}
+        _save(d)
+    threading.Thread(target=_forward_photo_to_drive,
+                     args=(stored, path, "LOC|" + key), daemon=True).start()
+    return jsonify({"ok": True, "file": stored, "updated": now})
+
+
+@bp.get("/api/loc-index")
+def loc_index():
+    """Location-photo index for one system (+equipment when given):
+    {items: {"<row>": {"file": ..., "updated": ...}}}. The photo bytes
+    are served by GET /api/photo/<file>."""
+    system = request.args.get("system", "")
+    equipment = request.args.get("equipment", "")
+    if not system:
+        return jsonify({"ok": False, "error": "system required"}), 400
+    with _lock:
+        d = _load()
+    items = {}
+    for k, v in (d.get("loc_photos") or {}).items():
+        parts = k.split("|")
+        if len(parts) != 3 or parts[0] != system:
+            continue
+        if equipment and parts[1] != equipment:
+            continue
+        items[parts[2]] = v
+    return jsonify({"ok": True, "system": system, "equipment": equipment,
+                    "items": items})
+
+
 @bp.get("/api/day")
 def day():
     """Merged values for one system/equipment/date, for the app viewer.
