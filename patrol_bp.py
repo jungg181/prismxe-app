@@ -970,6 +970,117 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                          download_name='patrol-timecards.csv')
 
 
+    # ================= EMAIL HOURS =================
+    # 형아 (2026-10-26): pick a date range, see each worker's hours,
+    # check only the workers who should get the email, and each checked
+    # worker is emailed their own shifts + total. Sending goes through
+    # a small Apps Script relay deployed under info@prismxe.com
+    # (PATROL_MAIL_SCRIPT_URL env var) - the same webhook pattern as
+    # the Sheets backup. Until the relay is linked, the page still
+    # computes and previews everything.
+    MAIL_SCRIPT_URL = os.environ.get('PATROL_MAIL_SCRIPT_URL', '')
+
+    def hours_summary(start_s, end_s):
+        """Every worker with their paired shifts inside [start_s, end_s]."""
+        by_email = {}
+        for r in paired_records():
+            cin = r.get('clock_in') or ''
+            if cin and start_s <= cin[:10] <= end_s:
+                key = (r.get('email') or '').strip().lower()
+                by_email.setdefault(key, []).append(r)
+        out = []
+        for w in sorted(DB['workers'], key=lambda x: x.get('name', '')):
+            em = (w.get('email') or '').strip().lower()
+            shifts = by_email.get(em, []) if em else []
+            total = round(sum(s['hours'] for s in shifts
+                              if s.get('hours') is not None), 2)
+            out.append({'name': w.get('name', ''),
+                        'email': w.get('email', ''),
+                        'shifts': shifts, 'total': total})
+        return out
+
+    def hours_email(name, start_s, end_s, shifts, total):
+        def fday(ts):
+            return datetime.fromisoformat(ts).strftime('%a, %b %d')
+        def ftm(ts):
+            return datetime.fromisoformat(ts).strftime('%I:%M %p').lstrip('0')
+        lines = [f"Hello {name},", "",
+                 f"Here are your recorded work hours from {start_s} to {end_s}:",
+                 ""]
+        for s in shifts:
+            out_t = ftm(s['clock_out']) if s.get('clock_out') else 'still clocked in'
+            hrs = f"{s['hours']:.2f} hrs" if s.get('hours') is not None else '-'
+            lines.append(f"{fday(s['clock_in'])}: {ftm(s['clock_in'])} - {out_t}  ({hrs})")
+        lines += ["", f"Total: {total:.2f} hours", "",
+                  "If anything looks wrong, please let your supervisor know.",
+                  "", f"- {company_display_name} Patrol"]
+        return (f"Your work hours: {start_s} to {end_s}", "\n".join(lines))
+
+    def mail_send(to, subject, body):
+        if not MAIL_SCRIPT_URL:
+            return False, 'mail relay is not connected yet'
+        try:
+            req = urllib.request.Request(
+                MAIL_SCRIPT_URL,
+                data=json.dumps({"action": "send", "to": to,
+                                 "subject": subject,
+                                 "body": body}).encode('utf-8'),
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                out = json.loads(resp.read().decode('utf-8'))
+            return bool(out.get('ok')), (out.get('error') or '')
+        except Exception as e:  # noqa: BLE001
+            return False, str(e)
+
+    @bp.route('/email-hours', methods=['GET', 'POST'])
+    @visit_gate('email_hours', 'Email hours')
+    def email_hours():
+        today = datetime.now(TZ).date()
+        return render_template('patrol/email_hours.html',
+                               start=(today - timedelta(days=13)).isoformat(),
+                               end=today.isoformat(),
+                               relay=bool(MAIL_SCRIPT_URL))
+
+    @bp.route('/email-hours/compute', methods=['POST'])
+    @visit_action_required('email_hours')
+    def email_hours_compute():
+        start_s = request.form.get('start') or ''
+        end_s = request.form.get('end') or ''
+        if not start_s or not end_s or start_s > end_s:
+            flash('Pick a valid date range.')
+            return render_template('patrol/email_hours.html', start=start_s,
+                                   end=end_s, relay=bool(MAIL_SCRIPT_URL))
+        workers = hours_summary(start_s, end_s)
+        previews = {}
+        for w in workers:
+            if w['email'] and w['shifts']:
+                previews[w['email'].strip().lower()] = hours_email(
+                    w['name'], start_s, end_s, w['shifts'], w['total'])
+        return render_template('patrol/email_hours.html', start=start_s,
+                               end=end_s, workers=workers, previews=previews,
+                               relay=bool(MAIL_SCRIPT_URL))
+
+    @bp.route('/email-hours/send', methods=['POST'])
+    @visit_action_required('email_hours')
+    def email_hours_send():
+        start_s = request.form.get('start') or ''
+        end_s = request.form.get('end') or ''
+        chosen = {e.strip().lower() for e in request.form.getlist('send_to')}
+        results = []
+        for w in hours_summary(start_s, end_s):
+            em = (w['email'] or '').strip().lower()
+            if em not in chosen or not w['shifts']:
+                continue
+            subject, body = hours_email(w['name'], start_s, end_s,
+                                        w['shifts'], w['total'])
+            ok, err = mail_send(em, subject, body)
+            results.append({'name': w['name'], 'email': w['email'],
+                            'ok': ok, 'error': err})
+        return render_template('patrol/email_hours.html', start=start_s,
+                               end=end_s, results=results,
+                               relay=bool(MAIL_SCRIPT_URL))
+
+
     # ================= STAFF SCHEDULE =================
     from datetime import timedelta
 
