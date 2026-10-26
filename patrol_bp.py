@@ -5,6 +5,7 @@ QR clock-in/out for workers' phones, full timetable, settings, timecards.
 """
 import os
 import io
+import base64
 import json
 import uuid
 import csv
@@ -1012,19 +1013,77 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             hrs = f"{s['hours']:.2f} hrs" if s.get('hours') is not None else '-'
             lines.append(f"{fday(s['clock_in'])}: {ftm(s['clock_in'])} - {out_t}  ({hrs})")
         lines += ["", f"Total: {total:.2f} hours", "",
+                  "A PDF copy of this statement is attached.", "",
                   "If anything looks wrong, please let your supervisor know.",
                   "", f"- {company_display_name} Patrol"]
         return (f"Your work hours: {start_s} to {end_s}", "\n".join(lines))
 
-    def mail_send(to, subject, body):
+    def hours_pdf(name, email, start_s, end_s, shifts, total):
+        """A clean one-page PDF statement of the same hours (형아,
+        2026-10-26: send it 'organized like a PDF file')."""
+        from fpdf import FPDF
+
+        def fday(ts):
+            return datetime.fromisoformat(ts).strftime('%a, %b %d')
+        def fdate(ts):
+            return datetime.fromisoformat(ts).strftime('%Y-%m-%d')
+        def ftm(ts):
+            return datetime.fromisoformat(ts).strftime('%I:%M %p').lstrip('0')
+
+        pdf = FPDF(format='A4', unit='mm')
+        pdf.set_auto_page_break(True, margin=15)
+        font_dir = os.path.dirname(os.path.abspath(__file__))
+        pdf.add_font("nanum", "", os.path.join(font_dir, "NanumGothic.ttf"))
+        bold_path = os.path.join(font_dir, "NanumGothicBold.ttf")
+        pdf.add_font("nanum", "B",
+                     bold_path if os.path.exists(bold_path)
+                     else os.path.join(font_dir, "NanumGothic.ttf"))
+        pdf.add_page()
+        pdf.set_font("nanum", "B", 17)
+        pdf.cell(0, 9, f"{company_display_name} Patrol", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("nanum", "", 12)
+        pdf.cell(0, 7, "Work Hours Statement", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+        pdf.set_font("nanum", "", 11)
+        pdf.cell(0, 6, f"Worker: {name} ({email})", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, f"Period: {start_s} to {end_s}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+        widths = [30, 26, 42, 42, 30]
+        pdf.set_font("nanum", "B", 11)
+        for wdt, txt in zip(widths, ["Date", "Day", "Clock In", "Clock Out", "Hours"]):
+            pdf.cell(wdt, 8, txt, border=1, align="C")
+        pdf.ln()
+        pdf.set_font("nanum", "", 11)
+        for s in shifts:
+            out_t = ftm(s['clock_out']) if s.get('clock_out') else 'still in'
+            hrs = f"{s['hours']:.2f}" if s.get('hours') is not None else '-'
+            row = [fdate(s['clock_in']), fday(s['clock_in']).split(',')[0],
+                   ftm(s['clock_in']), out_t, hrs]
+            for wdt, txt in zip(widths, row):
+                pdf.cell(wdt, 7, txt, border=1,
+                         align="R" if txt == hrs else "L")
+            pdf.ln()
+        pdf.set_font("nanum", "B", 11)
+        pdf.cell(sum(widths) - 30, 8, "TOTAL", border=1, align="R")
+        pdf.cell(30, 8, f"{total:.2f}", border=1, align="R")
+        pdf.ln(12)
+        pdf.set_font("nanum", "", 10)
+        pdf.cell(0, 6, "If anything looks wrong, please let your supervisor know.",
+                 new_x="LMARGIN", new_y="NEXT")
+        return bytes(pdf.output())
+
+    def mail_send(to, subject, body, attach_name=None, attach_bytes=None):
         if not MAIL_SCRIPT_URL:
             return False, 'mail relay is not connected yet'
         try:
+            payload = {"action": "send", "to": to,
+                       "subject": subject, "body": body}
+            if attach_bytes:
+                payload["attach_name"] = attach_name or "statement.pdf"
+                payload["attach_b64"] = base64.b64encode(attach_bytes).decode()
             req = urllib.request.Request(
                 MAIL_SCRIPT_URL,
-                data=json.dumps({"action": "send", "to": to,
-                                 "subject": subject,
-                                 "body": body}).encode('utf-8'),
+                data=json.dumps(payload).encode('utf-8'),
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=25) as resp:
                 out = json.loads(resp.read().decode('utf-8'))
@@ -1073,7 +1132,19 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 continue
             subject, body = hours_email(w['name'], start_s, end_s,
                                         w['shifts'], w['total'])
-            ok, err = mail_send(em, subject, body)
+            try:
+                pdf_bytes = hours_pdf(w['name'], w['email'], start_s, end_s,
+                                      w['shifts'], w['total'])
+                safe = ''.join(ch if ch.isalnum() else '_'
+                               for ch in w['name']).strip('_') or 'worker'
+                ok, err = mail_send(
+                    em, subject, body,
+                    attach_name=f"hours_{safe}_{start_s}_to_{end_s}.pdf",
+                    attach_bytes=pdf_bytes)
+            except Exception as e:  # noqa: BLE001 - never lose the email over a PDF
+                ok, err = mail_send(em, subject, body)
+                if ok:
+                    err = f'sent without PDF ({e})'
             results.append({'name': w['name'], 'email': w['email'],
                             'ok': ok, 'error': err})
         return render_template('patrol/email_hours.html', start=start_s,
