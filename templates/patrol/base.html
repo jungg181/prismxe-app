@@ -14,6 +14,7 @@
   <nav>
     <a href="{{ url_for('.dashboard') }}" class="{{ 'on' if nav=='dash' else '' }}">Dashboard</a>
     <a href="{{ url_for('.timecard') }}" class="{{ 'on' if nav=='time' else '' }}">Timecard</a>
+    <a href="{{ url_for('.email_hours') }}" class="{{ 'on' if nav=='email' else '' }}">Email hours</a>
     <a href="{{ url_for('.schedule_page') }}" class="{{ 'on' if nav=='schedule' else '' }}">Schedule</a>
     <a href="{{ url_for('.settings') }}" class="{{ 'on' if nav=='settings' else '' }}">Settings</a>
     {% if session.get('admin') %}<a href="{{ url_for('.logout') }}">Lock</a>{% endif %}

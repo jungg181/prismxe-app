@@ -1,0 +1,71 @@
+{% extends "patrol/base.html" %}
+{% set nav='email' %}
+{% block title %}Email hours · Patrol Board{% endblock %}
+{% block body %}
+<h1 style="margin-top:0">✉ Email work hours</h1>
+{% if not relay %}
+<div style="background:#fef3c7;color:#92400e;padding:.6rem .8rem;border-radius:.5rem;margin-bottom:1rem">
+  Mail relay is not connected yet — you can preview everything below; sending turns on once the relay is linked.
+</div>
+{% endif %}
+<div class="card">
+  <h2>Date range</h2>
+  <form method="post" action="{{ url_for('.email_hours_compute') }}" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:end">
+    <label class="small"><b>From</b><br><input type="date" name="start" value="{{ start }}" required style="padding:.5rem"></label>
+    <label class="small"><b>To</b><br><input type="date" name="end" value="{{ end }}" required style="padding:.5rem"></label>
+    <button class="btn primary" type="submit">Show hours</button>
+  </form>
+</div>
+{% if workers is defined and workers %}
+<form method="post" action="{{ url_for('.email_hours_send') }}">
+  <input type="hidden" name="start" value="{{ start }}">
+  <input type="hidden" name="end" value="{{ end }}">
+  <div class="card">
+    <h2>Workers · {{ start }} → {{ end }}</h2>
+    <p style="margin:.2rem 0 .6rem">
+      <button class="btn small" type="button" onclick="setAll(true)">Select all</button>
+      <button class="btn small" type="button" onclick="setAll(false)">Select none</button>
+    </p>
+    {% for w in workers %}
+    <div class="rowline">
+      <label style="display:flex;gap:.6rem;align-items:center;cursor:pointer" class="grow">
+        <input type="checkbox" class="send-chk" name="send_to" value="{{ w.email }}" style="width:1.3rem;height:1.3rem"
+          {{ 'disabled' if not w.email or not w.shifts else '' }}>
+        <span><b>{{ w.name }}</b>
+          {% if w.email %}<span class="muted small">{{ w.email }}</span>{% else %}<span class="small" style="color:#991b1b">no email on file</span>{% endif %}
+          <br><span class="muted small">{{ w.shifts|length }} shift(s) · <b>{{ '%.2f'|format(w.total) }} hrs</b></span>
+        </span>
+      </label>
+    </div>
+    {% if w.email and w.shifts %}
+    <details style="margin:.2rem 0 .6rem 2.2rem">
+      <summary class="small" style="cursor:pointer">Preview email</summary>
+      <pre style="white-space:pre-wrap;background:#f8fafc;padding:.6rem;border-radius:.4rem;font-size:.85rem">{{ previews[w.email.strip().lower()][1] }}</pre>
+    </details>
+    {% endif %}
+    {% endfor %}
+    <button class="btn primary" type="submit" style="margin-top:.6rem">✉ Send to checked workers</button>
+    <span class="muted small">Each worker gets only their own hours, from info@prismxe.com.</span>
+  </div>
+</form>
+{% endif %}
+{% if results is defined and results %}
+<div class="card">
+  <h2>Send results</h2>
+  {% for r in results %}
+  <div class="rowline"><span class="grow"><b>{{ r.name }}</b> <span class="muted small">{{ r.email }}</span></span>
+    {% if r.ok %}<span style="color:#166534"><b>Sent ✓</b></span>{% else %}<span style="color:#991b1b">Failed — {{ r.error }}</span>{% endif %}
+  </div>
+  {% else %}
+  <p class="muted">Nobody was checked.</p>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function setAll(on) {
+  document.querySelectorAll('.send-chk:not(:disabled)').forEach(function (c) { c.checked = on; });
+}
+</script>
+{% endblock %}
