@@ -96,6 +96,19 @@ def submit():
                     pending_photos += d.get("photo_index", {}).pop(alt, [])
             if pending_photos:
                 rec["photos"] = pending_photos
+            if e.get("edited_by"):
+                # an edit of an already-submitted record: file who
+                # edited it, when, and exactly what changed (row ->
+                # [old, new]) in the audit log (형아, 2026-10-26)
+                rec["edited_by"] = e.get("edited_by", "")
+                d.setdefault("audit_log", []).append({
+                    "ts": now, "id": e["id"],
+                    "system": rec["system"], "equipment": rec["equipment"],
+                    "date": rec["date"], "slot": rec["slot"],
+                    "edited_by": e.get("edited_by", ""),
+                    "device": rec["device"],
+                    "changes": e.get("changes", {}),
+                })
             d["submissions"].append(rec)
             seen.add(e["id"])
             accepted.append(e["id"])
@@ -302,6 +315,16 @@ def day():
     return jsonify({"ok": True, "system": system, "equipment": equipment,
                     "date": date, "rounds": rounds, "notes": notes,
                     "photos": day_photos, "updated": latest})
+
+
+@bp.get("/api/audit")
+def audit():
+    """Edit history of submitted records, newest first: who edited
+    what, when, and the per-row [old, new] changes."""
+    with _lock:
+        d = _load()
+    return jsonify({"ok": True,
+                    "audit": list(reversed(d.get("audit_log", [])))})
 
 
 @bp.get("/api/pending")
