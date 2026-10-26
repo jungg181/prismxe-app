@@ -317,6 +317,112 @@ def day():
                     "photos": day_photos, "updated": latest})
 
 
+@bp.post("/api/issue")
+def issue_create():
+    """Open a corrective-action issue found during a round
+    (Mitti-style action tracking, 형아 2026-10-26). JSON body:
+    {id, system, equipment, date, slot, row, item, desc, priority,
+    created_by, created_at, device, base_id}."""
+    try:
+        e = request.get_json(force=True)
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    if not isinstance(e, dict) or not e.get("id") or not e.get("desc"):
+        return jsonify({"ok": False, "error": "id and desc required"}), 400
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        d = _load()
+        issues = d.setdefault("issues", [])
+        if any(x.get("id") == e["id"] for x in issues):
+            return jsonify({"ok": True, "duplicate": True})
+        issues.append({
+            "id": e["id"], "system": e.get("system", ""),
+            "equipment": e.get("equipment", ""), "date": e.get("date", ""),
+            "slot": e.get("slot", ""), "row": e.get("row", ""),
+            "item": e.get("item", ""), "desc": e.get("desc", ""),
+            "priority": e.get("priority", "Normal"),
+            "created_by": e.get("created_by", ""),
+            "created_at": e.get("created_at", ""),
+            "device": e.get("device", ""), "base_id": e.get("base_id", ""),
+            "photo": "", "status": "open", "received_at": now,
+            "done_by": "", "done_at": "", "done_note": "",
+        })
+        _save(d)
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/issue-photo")
+def issue_photo():
+    """Attach the (single) photo for an issue (multipart: issue_id +
+    file). Stored like the monitor photos and forwarded to Drive."""
+    issue_id = request.form.get("issue_id", "")
+    f = request.files.get("file")
+    if not issue_id or f is None or not f.filename:
+        return jsonify({"ok": False, "error": "issue_id and file required"}), 400
+    import re as _re
+    safe_id = _re.sub(r"[^A-Za-z0-9_.-]+", "_", issue_id)
+    stored = "ISSUE__" + safe_id + ".jpg"
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
+    path = os.path.join(PHOTOS_DIR, stored)
+    f.save(path)
+    with _lock:
+        d = _load()
+        for x in d.get("issues", []):
+            if x.get("id") == issue_id:
+                x["photo"] = stored
+                break
+        _save(d)
+    threading.Thread(target=_forward_photo_to_drive,
+                     args=(stored, path, issue_id), daemon=True).start()
+    return jsonify({"ok": True, "name": stored})
+
+
+@bp.post("/api/issue-update")
+def issue_update():
+    """Close (or reopen) an issue: {id, status, by, note}. The closer's
+    name and time stay on the record."""
+    try:
+        e = request.get_json(force=True)
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    if not isinstance(e, dict) or not e.get("id"):
+        return jsonify({"ok": False, "error": "id required"}), 400
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        d = _load()
+        hit = None
+        for x in d.get("issues", []):
+            if x.get("id") == e["id"]:
+                hit = x
+                break
+        if hit is None:
+            return jsonify({"ok": False, "error": "no such issue"}), 404
+        st = e.get("status", "")
+        if st in ("open", "done"):
+            hit["status"] = st
+            if st == "done":
+                hit["done_by"] = e.get("by", "")
+                hit["done_at"] = now
+                hit["done_note"] = e.get("note", "")
+            else:
+                hit["done_by"] = ""
+                hit["done_at"] = ""
+                hit["done_note"] = ""
+            _save(d)
+    return jsonify({"ok": True})
+
+
+@bp.get("/api/issues")
+def issues_list():
+    """All issues, open first then newest first."""
+    with _lock:
+        d = _load()
+    items = list(d.get("issues", []))
+    items.sort(key=lambda x: x.get("received_at", ""), reverse=True)
+    items.sort(key=lambda x: x.get("status") != "open")
+    return jsonify({"ok": True, "issues": items})
+
+
 @bp.get("/api/audit")
 def audit():
     """Edit history of submitted records, newest first: who edited
