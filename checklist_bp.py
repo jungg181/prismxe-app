@@ -234,7 +234,10 @@ def _make_pdf(rec, changes=None):
     pdf = Doc(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(True, margin=18)
     pdf.add_font("nanum", "", os.path.join(_FONT_DIR, "NanumGothic.ttf"))
-    pdf.add_font("nanum", "B", os.path.join(_FONT_DIR, "NanumGothicBold.ttf"))
+    _bold = os.path.join(_FONT_DIR, "NanumGothicBold.ttf")
+    if not os.path.exists(_bold):
+        _bold = os.path.join(_FONT_DIR, "NanumGothic.ttf")
+    pdf.add_font("nanum", "B", _bold)
     pdf.add_page()
     pdf.set_font("nanum", "B", 16)
     pdf.cell(0, 9, "Hanseong Arizona — Daily Check List",
@@ -330,7 +333,16 @@ def _issue_pdf(rec, changes=None):
     try:
         data = _make_pdf(rec, changes)
     except Exception as e:
+        import traceback as _tb
         print("checklist pdf failed: {}".format(e), flush=True)
+        with _lock:
+            d = _load()
+            d["pdf_last_error"] = _tb.format_exc()[-600:]
+            for s in d["submissions"]:
+                if s.get("id") == rec["id"]:
+                    s["pdf_error"] = str(e)[:200]
+                    break
+            _save(d)
         return False
     os.makedirs(PDFS_DIR, exist_ok=True)
     fname = _pdf_filename(rec)
