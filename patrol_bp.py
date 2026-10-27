@@ -217,7 +217,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             return wrapper
         return deco
 
-    COLLECTIONS = ['slots', 'equipment', 'shifts', 'workers', 'punches']
+    COLLECTIONS = ['slots', 'equipment', 'shifts', 'workers', 'punches',
+                   'hour_batches']
 
 
     def new_id():
@@ -845,6 +846,32 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     # ================= TIMECARD =================
 
+    def render_batch_page(sel_id=None):
+        batches = sorted(DB.get('hour_batches', []),
+                         key=lambda b: b.get('created_at', ''), reverse=True)
+        for b in batches:
+            b['counts'] = batch_counts(b)
+        sel = None
+        if sel_id:
+            sel = next((b for b in batches if b['id'] == sel_id), None)
+        if sel is None and batches:
+            sel = batches[0]
+        return render_template(
+            'patrol/timecard.html', view='batch', batches=batches,
+            sel_batch=sel,
+            confirm_base=(request.host_url.rstrip('/') + url_prefix +
+                          '/confirm/'))
+
+    @bp.route('/timecard/batch', methods=['GET', 'POST'])
+    @visit_gate('timecard_batch', 'Batch')
+    def timecard_batch():
+        return render_batch_page(request.args.get('batch'))
+
+    @bp.route('/timecard/batch/<batch_id>')
+    @visit_action_required('timecard_batch')
+    def timecard_batch_detail(batch_id):
+        return render_batch_page(batch_id)
+
     @bp.route('/timecard', methods=['GET', 'POST'])
     @visit_gate('timecard', 'Timecard')
     def timecard():
@@ -858,8 +885,45 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 cin, last = False, None
             status.append({"worker": w, "clocked_in": cin,
                            "since": last.get('ts') if last else None})
-        return render_template('patrol/timecard.html', status=status,
-                               records=paired_records())
+        return render_template('patrol/timecard.html', view='records',
+                               status=status, records=paired_records())
+
+    @bp.route('/timecard/batch/resend', methods=['POST'])
+    @visit_action_required('timecard_batch')
+    def batch_resend():
+        d = request.get_json(force=True) or {}
+        batch = next((b for b in DB.get('hour_batches', [])
+                      if b['id'] == d.get('batch_id')), None)
+        if not batch:
+            return jsonify({'ok': False, 'error': 'Batch not found.'}), 404
+        entry = next((e for e in batch['entries']
+                      if (e.get('email') or '').strip().lower() ==
+                      (d.get('email') or '').strip().lower()), None)
+        if not entry:
+            return jsonify({'ok': False, 'error': 'Entry not found.'}), 404
+        subject, body = hours_email(
+            entry['name'], batch['start'], batch['end'], entry['shifts'],
+            entry['total'], confirm_url=confirm_url_for(entry['token']))
+        try:
+            pdf_bytes = hours_pdf(entry['name'], entry['email'],
+                                  batch['start'], batch['end'],
+                                  entry['shifts'], entry['total'])
+            safe = ''.join(ch if ch.isalnum() else '_'
+                           for ch in entry['name']).strip('_') or 'worker'
+            ok, err = mail_send(
+                entry['email'], subject, body,
+                attach_name=f"hours_{safe}_{batch['start']}_to_"
+                            f"{batch['end']}.pdf",
+                attach_bytes=pdf_bytes)
+        except Exception as e:  # noqa: BLE001
+            ok, err = mail_send(entry['email'], subject, body)
+            if ok:
+                err = f'sent without PDF ({e})'
+        if ok:
+            entry['sent_at'] = datetime.now().isoformat(timespec='seconds')
+            entry['resends'] = entry.get('resends', 0) + 1
+            save_db()
+        return jsonify({'ok': ok, 'error': err})
 
 
     @bp.route('/timecard/clock', methods=['POST'])
@@ -972,6 +1036,26 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
 
     # ================= EMAIL HOURS =================
+
+    def confirm_url_for(token):
+        return (request.host_url.rstrip('/') + url_prefix +
+                '/confirm/' + token)
+
+    def find_token_entry(token):
+        """(batch, entry) for a worker confirmation token, or (None, None)."""
+        for b in DB.get('hour_batches', []):
+            for e in b.get('entries', []):
+                if e.get('token') == token:
+                    return b, e
+        return None, None
+
+    def batch_counts(batch):
+        c = {'sent': 0, 'confirmed': 0, 'problem': 0}
+        for e in batch.get('entries', []):
+            if e.get('status') in c:
+                c[e['status']] += 1
+        c['total'] = len(batch.get('entries', []))
+        return c
     # 형아 (2026-10-26): pick a date range, see each worker's hours,
     # check only the workers who should get the email, and each checked
     # worker is emailed their own shifts + total. Sending goes through
@@ -1000,7 +1084,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                         'shifts': shifts, 'total': total})
         return out
 
-    def hours_email(name, start_s, end_s, shifts, total):
+    def hours_email(name, start_s, end_s, shifts, total, confirm_url=None):
         def fday(ts):
             return datetime.fromisoformat(ts).strftime('%a, %b %d')
         def ftm(ts):
@@ -1014,9 +1098,20 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             lines.append(f"{fday(s['clock_in'])}: {ftm(s['clock_in'])} - {out_t}  ({hrs})")
         lines += ["", f"Total: {total:.2f} hours", "",
                   "A PDF copy of this statement is attached.", "",
-                  "Please check your hours carefully.", "",
-                  "If your hours are CORRECT, please REPLY to this email with the word: Confirmed", "",
-                  "If anything is WRONG, please REPLY to this email and tell us what needs to be fixed."]
+                  "Please check your hours carefully."]
+        if confirm_url:
+            lines += ["",
+                      "To CONFIRM your hours are correct, open your "
+                      "confirmation page and tap Confirm:",
+                      confirm_url, "",
+                      "If anything is wrong, you can report the problem "
+                      "on that page."]
+        else:
+            lines += ["",
+                      "If your hours are CORRECT, please REPLY to this "
+                      "email with the word: Confirmed", "",
+                      "If anything is WRONG, please REPLY to this email "
+                      "and tell us what needs to be fixed."]
         if company_id == 'hanseong':
             lines += ["", "PrismXE", "Hanseong Arizona"]
         else:
@@ -1078,7 +1173,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         pdf.cell(30, 8, f"{total:.2f}", border=1, align="R")
         pdf.ln(12)
         pdf.set_font("nanum", "", 10)
-        pdf.cell(0, 6, "Please reply to the email to CONFIRM these hours are correct, or tell us what is wrong.",
+        pdf.cell(0, 6, "Confirm your hours using the link in the email.",
                  new_x="LMARGIN", new_y="NEXT")
         return bytes(pdf.output())
 
@@ -1136,12 +1231,18 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         end_s = request.form.get('end') or ''
         chosen = {e.strip().lower() for e in request.form.getlist('send_to')}
         results = []
+        batch = {'id': uuid.uuid4().hex[:12], 'start': start_s,
+                 'end': end_s,
+                 'created_at': datetime.now().isoformat(timespec='seconds'),
+                 'entries': []}
         for w in hours_summary(start_s, end_s):
             em = (w['email'] or '').strip().lower()
             if em not in chosen or not w['shifts']:
                 continue
+            token = uuid.uuid4().hex
             subject, body = hours_email(w['name'], start_s, end_s,
-                                        w['shifts'], w['total'])
+                                        w['shifts'], w['total'],
+                                        confirm_url=confirm_url_for(token))
             try:
                 pdf_bytes = hours_pdf(w['name'], w['email'], start_s, end_s,
                                       w['shifts'], w['total'])
@@ -1157,9 +1258,46 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     err = f'sent without PDF ({e})'
             results.append({'name': w['name'], 'email': w['email'],
                             'ok': ok, 'error': err})
+            if ok:
+                batch['entries'].append({
+                    'name': w['name'], 'email': w['email'], 'token': token,
+                    'shifts': w['shifts'], 'total': w['total'],
+                    'sent_at': datetime.now().isoformat(timespec='seconds'),
+                    'status': 'sent', 'confirmed_at': None,
+                    'problem_note': '', 'resends': 0})
+        batch_id = None
+        if batch['entries']:
+            DB.setdefault('hour_batches', []).append(batch)
+            save_db()
+            batch_id = batch['id']
         return render_template('patrol/email_hours.html', start=start_s,
                                end=end_s, results=results,
-                               relay=bool(MAIL_SCRIPT_URL))
+                               relay=bool(MAIL_SCRIPT_URL),
+                               batch_id=batch_id)
+
+    # ---- Worker hour confirmation (public, token link from the email) ----
+
+    @bp.route('/confirm/<token>', methods=['GET', 'POST'])
+    def confirm_hours(token):
+        batch, entry = find_token_entry(token)
+        if not entry:
+            return render_template('patrol/confirm.html', not_found=True), 404
+        if request.method == 'POST':
+            action = request.form.get('action') or ''
+            if action == 'confirm':
+                entry['status'] = 'confirmed'
+                entry['confirmed_at'] = datetime.now().isoformat(
+                    timespec='seconds')
+                save_db()
+            elif action == 'problem':
+                entry['status'] = 'problem'
+                entry['problem_note'] = (
+                    request.form.get('note') or '').strip()[:2000]
+                save_db()
+        brand = (['PrismXE', 'Hanseong Arizona'] if company_id == 'hanseong'
+                 else [f'{company_display_name} Patrol'])
+        return render_template('patrol/confirm.html', batch=batch,
+                               entry=entry, brand=brand)
 
 
     # ================= STAFF SCHEDULE =================
