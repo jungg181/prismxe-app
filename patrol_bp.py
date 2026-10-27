@@ -1065,6 +1065,45 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     # computes and previews everything.
     MAIL_SCRIPT_URL = os.environ.get('PATROL_MAIL_SCRIPT_URL', '')
 
+    # Google Sheets ledger for hour batches (Apps Script webhook,
+    # PATROL_HOURS_SHEET_URL env var; Hanseong Patrol only — 형아,
+    # 2026-10-26: Sheets is the preservation/retrieval master).
+    HOURS_SHEET_URL = os.environ.get('PATROL_HOURS_SHEET_URL', '')
+
+    def sheet_hours_post(payload):
+        """Best-effort POST to the Patrol Hours Sheets webhook.
+        Returns True on {'ok': true}; never raises."""
+        if not HOURS_SHEET_URL or company_id != 'hanseong':
+            return False
+        try:
+            req = urllib.request.Request(
+                HOURS_SHEET_URL,
+                data=json.dumps(payload).encode(),
+                headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return bool(json.loads(resp.read().decode()).get('ok'))
+        except Exception as e:  # noqa: BLE001 - ledger must not break email
+            print(f'patrol[{company_id}]: hours sheet post failed: {e}',
+                  flush=True)
+            return False
+
+    def sheet_log_batch(batch):
+        return sheet_hours_post({
+            'action': 'log_batch',
+            'batch': {'id': batch['id'], 'start': batch['start'],
+                      'end': batch['end'],
+                      'created_at': batch['created_at']},
+            'entries': [{'name': e['name'], 'email': e['email'],
+                         'total': e['total'], 'status': e['status'],
+                         'shifts': e['shifts']} for e in batch['entries']]})
+
+    def sheet_set_status(batch, entry):
+        return sheet_hours_post({
+            'action': 'set_status', 'batch_id': batch['id'],
+            'email': entry['email'], 'status': entry['status'],
+            'confirmed_at': entry.get('confirmed_at') or '',
+            'problem_note': entry.get('problem_note') or ''})
+
     def hours_summary(start_s, end_s):
         """Every worker with their paired shifts inside [start_s, end_s]."""
         by_email = {}
@@ -1270,6 +1309,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             DB.setdefault('hour_batches', []).append(batch)
             save_db()
             batch_id = batch['id']
+            sheet_log_batch(batch)
         return render_template('patrol/email_hours.html', start=start_s,
                                end=end_s, results=results,
                                relay=bool(MAIL_SCRIPT_URL),
@@ -1289,11 +1329,13 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 entry['confirmed_at'] = datetime.now().isoformat(
                     timespec='seconds')
                 save_db()
+                sheet_set_status(batch, entry)
             elif action == 'problem':
                 entry['status'] = 'problem'
                 entry['problem_note'] = (
                     request.form.get('note') or '').strip()[:2000]
                 save_db()
+                sheet_set_status(batch, entry)
         brand = (['PrismXE', 'Hanseong Arizona'] if company_id == 'hanseong'
                  else [f'{company_display_name} Patrol'])
         return render_template('patrol/confirm.html', batch=batch,
