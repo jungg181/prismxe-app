@@ -71,7 +71,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     sheets_env_var: 'PATROL_SHEETS_URL' | 'COA_SHEETS_URL'
     app_version_filename: 'app_version.json' | 'app_version_coa.json'
     blueprint_name: 'patrol' | 'patrol_coa'
-    company_display_name: 'Hanseong Arizona LLC' | 'COA'
+    company_display_name: 'Hanseong' | 'COA'
     Returns dict with bp, DB, login_required, company_id, etc.
     """
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1016,8 +1016,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                   "A PDF copy of this statement is attached.", "",
                   "Please check your hours carefully.", "",
                   "If your hours are CORRECT, please REPLY to this email with the word: Confirmed", "",
-                  "If anything is WRONG, please REPLY to this email and tell us what needs to be fixed.",
-                  "", f"- {company_display_name} Patrol"]
+                  "If anything is WRONG, please REPLY to this email and tell us what needs to be fixed."]
+        if company_id == 'hanseong':
+            lines += ["", "PrismXE", "Hanseong Arizona"]
+        else:
+            lines += ["", f"- {company_display_name} Patrol"]
         return (f"Your work hours: {start_s} to {end_s}", "\n".join(lines))
 
     def hours_pdf(name, email, start_s, end_s, shifts, total):
@@ -1042,7 +1045,12 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                      else os.path.join(font_dir, "NanumGothic.ttf"))
         pdf.add_page()
         pdf.set_font("nanum", "B", 17)
-        pdf.cell(0, 9, f"{company_display_name} Patrol", new_x="LMARGIN", new_y="NEXT")
+        if company_id == 'hanseong':
+            pdf.cell(0, 9, "PrismXE", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("nanum", "", 12)
+            pdf.cell(0, 7, "Hanseong Arizona", new_x="LMARGIN", new_y="NEXT")
+        else:
+            pdf.cell(0, 9, f"{company_display_name} Patrol", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("nanum", "", 12)
         pdf.cell(0, 7, "Work Hours Statement", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
@@ -1607,7 +1615,7 @@ _hanseong = create_patrol_blueprint(
     sheets_env_var='PATROL_SHEETS_URL',
     app_version_filename='app_version.json',
     blueprint_name='patrol',
-    company_display_name='Hanseong Arizona LLC',
+    company_display_name='Hanseong',
 )
 bp = _hanseong['bp']
 DB = _hanseong['DB']
