@@ -195,9 +195,13 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     flash('Wrong password.')
                 else:
                     _clear_visit_auth(page)
+                action = url_for(BP + '.' + page)
+                if request.query_string:
+                    action += '?' + request.query_string.decode(
+                        'utf-8', 'replace')
                 return render_template('patrol/page_password.html',
                                        page_title=page_title,
-                                       action=url_for(BP + '.' + page))
+                                       action=action)
             return wrapper
         return deco
 
