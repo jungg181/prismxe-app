@@ -1194,8 +1194,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def _payroll_xlsx_bytes(monday, rows):
         """The week grid as an .xlsx in the paper Attendance Sheet layout.
 
-        In/Out are real time values; Hours/Total/Reg/OT/Gross are formulas
-        so edited times recalculate. Rate column is left blank to fill in.
+        In/Out are real time values; Hours/Total/Reg/OT are formulas so
+        edited times recalculate. The Sign column is left blank for the
+        worker's signature.
         """
         from datetime import timedelta as _td, time as _time
         from openpyxl import Workbook
@@ -1219,9 +1220,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         hdr_fill = PatternFill('solid', fgColor='D9D9D9')
         center = Alignment(horizontal='center', vertical='center',
                            wrap_text=True)
-        ncols = 15
+        ncols = 14
         for col, w in {'A': 5, 'B': 22, 'C': 11, 'K': 9, 'L': 9,
-                       'M': 9, 'N': 9, 'O': 11}.items():
+                       'M': 9, 'N': 26}.items():
             ws.column_dimensions[col].width = w
         for i in range(7):
             ws.column_dimensions[get_column_letter(4 + i)].width = 10
@@ -1257,8 +1258,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 c.fill = hdr_fill
                 c.alignment = center
         for col, label in [(11, 'Total Hours'), (12, 'Regular (≤40)'),
-                           (13, 'Overtime (>40)'), (14, 'Rate ($/hr)'),
-                           (15, 'Gross Pay ($)')]:
+                           (13, 'Overtime (>40)'), (14, 'Sign')]:
             ws.merge_cells(start_row=hr, start_column=col,
                            end_row=hr + 1, end_column=col)
             c = ws.cell(row=hr, column=col, value=label)
@@ -1272,7 +1272,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         first = row
         for idx, entry in enumerate(rows, start=1):
             base = row
-            for col in (1, 2, 11, 12, 13, 14, 15):
+            for col in (1, 2, 11, 12, 13, 14):
                 ws.merge_cells(start_row=base, start_column=col,
                                end_row=base + 2, end_column=col)
             c = ws.cell(row=base, column=1, value=idx)
@@ -1318,27 +1318,18 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                          value=f'=MAX(K{base}-40,0)')
             ot.number_format = '0.00'
             ot.alignment = center
-            rate = ws.cell(row=base, column=14)
-            rate.number_format = '0.00'
-            rate.alignment = center
-            gross = ws.cell(
-                row=base, column=15,
-                value=f'=IF(N{base}="","",L{base}*N{base}'
-                      f'+M{base}*N{base}*1.5)')
-            gross.number_format = '"$"#,##0.00'
-            gross.alignment = center
             for r in range(base, base + 3):
                 for col in range(1, ncols + 1):
                     ws.cell(row=r, column=col).border = border
             row += 3
         ws.cell(row=row, column=2, value='TOTAL').font = Font(bold=True)
         bases = [first + 3 * i for i in range(len(rows))]
-        for col, letter in [(11, 'K'), (12, 'L'), (13, 'M'), (15, 'O')]:
+        for col, letter in [(11, 'K'), (12, 'L'), (13, 'M')]:
             c = ws.cell(row=row, column=col,
                         value='=' + '+'.join(f'{letter}{b}' for b in bases))
             c.font = Font(bold=True)
             c.alignment = center
-            c.number_format = '"$"#,##0.00' if col == 15 else '0.00'
+            c.number_format = '0.00'
         for col in range(1, ncols + 1):
             ws.cell(row=row, column=col).border = border
         row += 2
@@ -1356,7 +1347,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             for col in range(9, 13):
                 ws.cell(row=row, column=col).border = Border(bottom=thin)
             row += 2
-        ws.print_area = f'A1:O{row - 1}'
+        ws.print_area = f'A1:N{row - 1}'
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue()
