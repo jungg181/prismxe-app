@@ -20,8 +20,17 @@
   {% if not rows %}
   <p class="muted">No records this week.</p>
   {% else %}
+  <style>
+    .payroll-tbl{border-collapse:collapse;min-width:920px;background:#fff}
+    .payroll-tbl th,.payroll-tbl td{border:1px solid #aeb4bc;padding:7px 8px;text-align:center;vertical-align:middle}
+    .payroll-tbl th{background:#e8eaed}
+    .payroll-tbl td.nm{text-align:left;white-space:nowrap;background:#fafafa}
+    .payroll-tbl td.lbl{white-space:nowrap;background:#fafafa}
+    .payroll-tbl tr.hrs td{background:#f1f3f5}
+    .payroll-tbl tr.blk-end td{border-bottom:3px solid #6b7280}
+  </style>
   <div style="overflow-x:auto">
-  <table style="min-width:860px">
+  <table class="payroll-tbl">
     <tr>
       <th>No</th><th>Name</th><th></th>
       {% for d in days %}<th>{{ d.strftime('%a') }}<br><span class="muted small">{{ d.strftime('%m/%d') }}</span></th>{% endfor %}
@@ -29,26 +38,26 @@
     </tr>
     {% for r in rows %}
     <tr>
-      <td rowspan="3" style="text-align:center">{{ loop.index }}</td>
-      <td rowspan="3"><b>{{ r.name }}</b></td>
-      <td class="muted small">In</td>
-      {% for c in r.days %}<td style="text-align:center">{{ c.in if c else '' }}</td>{% endfor %}
-      <td rowspan="3" style="text-align:center"><b>{{ '%.2f'|format(r.total) }}</b></td>
-      <td rowspan="3" style="text-align:center">{{ '%.2f'|format(r.reg) }}</td>
-      <td rowspan="3" style="text-align:center">{{ '%.2f'|format(r.ot) }}</td>
+      <td rowspan="3">{{ loop.index }}</td>
+      <td rowspan="3" class="nm"><b>{{ r.name }}</b></td>
+      <td class="muted small lbl">In</td>
+      {% for c in r.days %}<td>{{ c.in if c else '' }}</td>{% endfor %}
+      <td rowspan="3"><b>{{ '%.2f'|format(r.total) }}</b></td>
+      <td rowspan="3">{{ '%.2f'|format(r.reg) }}</td>
+      <td rowspan="3">{{ '%.2f'|format(r.ot) }}</td>
     </tr>
     <tr>
-      <td class="muted small">Out</td>
-      {% for c in r.days %}<td style="text-align:center">{{ c.out if c else '' }}</td>{% endfor %}
+      <td class="muted small lbl">Out</td>
+      {% for c in r.days %}<td>{{ c.out if c else '' }}</td>{% endfor %}
     </tr>
-    <tr style="background:#f6f6f6">
-      <td class="muted small">Hrs</td>
-      {% for c in r.days %}<td style="text-align:center">{{ '%.2f'|format(c.hours) if c and c.hours is not none else '' }}</td>{% endfor %}
+    <tr class="hrs blk-end">
+      <td class="muted small lbl">Hrs</td>
+      {% for c in r.days %}<td>{{ '%.2f'|format(c.hours) if c and c.hours is not none else '' }}</td>{% endfor %}
     </tr>
     {% endfor %}
     <tr>
       <td colspan="10" style="text-align:right"><b>Grand total</b></td>
-      <td style="text-align:center"><b>{{ '%.2f'|format(grand) }}</b></td>
+      <td><b>{{ '%.2f'|format(grand) }}</b></td>
       <td colspan="2"></td>
     </tr>
   </table>
