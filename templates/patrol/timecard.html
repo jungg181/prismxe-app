@@ -6,6 +6,7 @@
 <div style="display:flex;gap:.5rem;margin-bottom:1rem">
   <a class="btn {{ 'primary' if view != 'batch' else '' }}" href="{{ url_for('.timecard') }}" style="text-decoration:none">Records</a>
   <a class="btn {{ 'primary' if view == 'batch' else '' }}" href="{{ url_for('.timecard_batch') }}" style="text-decoration:none">Batch</a>
+  <a class="btn" href="{{ url_for('.payroll') }}" style="text-decoration:none">Payroll</a>
 </div>
 {% if view == 'batch' %}
 <div class="card">

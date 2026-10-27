@@ -1,0 +1,59 @@
+{% extends "patrol/base.html" %}
+{% set nav='time' %}
+{% block title %}Weekly Payroll · Equipment Patrol Timetable{% endblock %}
+{% block body %}
+<h1 style="margin-top:0">Timecard</h1>
+<div style="display:flex;gap:.5rem;margin-bottom:1rem">
+  <a class="btn" href="{{ url_for('.timecard') }}" style="text-decoration:none">Records</a>
+  <a class="btn" href="{{ url_for('.timecard_batch') }}" style="text-decoration:none">Batch</a>
+  <a class="btn primary" href="{{ url_for('.payroll') }}" style="text-decoration:none">Payroll</a>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Weekly Payroll
+    <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}" style="float:right">⬇ Download Excel</a>
+  </h2>
+  <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
+    <a class="btn small" href="{{ url_for('.payroll', start=prev) }}" style="text-decoration:none">◀ Prev week</a>
+    <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[6].strftime('%a, %b %d, %Y') }}</b>
+    <a class="btn small" href="{{ url_for('.payroll', start=nxt) }}" style="text-decoration:none">Next week ▶</a>
+  </div>
+  {% if not rows %}
+  <p class="muted">No records this week.</p>
+  {% else %}
+  <div style="overflow-x:auto">
+  <table style="min-width:860px">
+    <tr>
+      <th>No</th><th>Name</th><th></th>
+      {% for d in days %}<th>{{ d.strftime('%a') }}<br><span class="muted small">{{ d.strftime('%m/%d') }}</span></th>{% endfor %}
+      <th>Total</th><th>Reg ≤40</th><th>OT &gt;40</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+      <td rowspan="3" style="text-align:center">{{ loop.index }}</td>
+      <td rowspan="3"><b>{{ r.name }}</b></td>
+      <td class="muted small">In</td>
+      {% for c in r.days %}<td style="text-align:center">{{ c.in if c else '' }}</td>{% endfor %}
+      <td rowspan="3" style="text-align:center"><b>{{ '%.2f'|format(r.total) }}</b></td>
+      <td rowspan="3" style="text-align:center">{{ '%.2f'|format(r.reg) }}</td>
+      <td rowspan="3" style="text-align:center">{{ '%.2f'|format(r.ot) }}</td>
+    </tr>
+    <tr>
+      <td class="muted small">Out</td>
+      {% for c in r.days %}<td style="text-align:center">{{ c.out if c else '' }}</td>{% endfor %}
+    </tr>
+    <tr style="background:#f6f6f6">
+      <td class="muted small">Hrs</td>
+      {% for c in r.days %}<td style="text-align:center">{{ '%.2f'|format(c.hours) if c and c.hours is not none else '' }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+    <tr>
+      <td colspan="10" style="text-align:right"><b>Grand total</b></td>
+      <td style="text-align:center"><b>{{ '%.2f'|format(grand) }}</b></td>
+      <td colspan="2"></td>
+    </tr>
+  </table>
+  </div>
+  <p class="muted small">Times are the recorded clock in/out for each day (overnight shifts count toward the clock-in day). Download the Excel to add pay rates — Gross Pay calculates automatically (overtime ×1.5 over 40 hrs).</p>
+  {% endif %}
+</div>
+{% endblock %}
