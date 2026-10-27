@@ -6,3 +6,4 @@ opencv-python-headless>=4.0
 numpy>=1.24
 google-api-python-client>=2.0
 fpdf2>=2.7.9
+openpyxl>=3.1
