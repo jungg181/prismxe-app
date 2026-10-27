@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirm your hours</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0;
+         background: #f4f5f7; color: #1f2430; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 14px 40px; }
+  .brand { font-size: 1.5rem; font-weight: 800; }
+  .brand2 { color: #555; margin-top: 2px; }
+  .card { background: #fff; border-radius: 12px; padding: 18px;
+          margin-top: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { padding: 7px 4px; border-bottom: 1px solid #e6e8ec;
+           text-align: left; }
+  th { color: #666; font-weight: 600; }
+  td.n, th.n { text-align: right; }
+  .total { font-weight: 800; font-size: 1.05rem; }
+  .btn { display: block; width: 100%; padding: 15px; border: 0;
+         border-radius: 10px; font-size: 1.05rem; font-weight: 700;
+         cursor: pointer; margin-top: 14px; }
+  .confirm { background: #1a9e50; color: #fff; }
+  .problem { background: #fff; color: #b45309; border: 2px solid #f59e0b; }
+  textarea { width: 100%; box-sizing: border-box; padding: 10px;
+             border: 1px solid #ccd; border-radius: 8px; font: inherit;
+             margin-top: 12px; min-height: 74px; }
+  .banner { border-radius: 10px; padding: 14px; margin-top: 16px;
+            font-weight: 600; }
+  .ok { background: #e7f7ee; color: #146c2e; }
+  .warn { background: #fdf3e3; color: #8a5a00; }
+  .muted { color: #666; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  {% if not_found %}
+    <div class="card">
+      <div class="brand">Link not found</div>
+      <p class="muted">This confirmation link is not valid. Please check the
+      link in your email, or ask your supervisor.</p>
+    </div>
+  {% else %}
+    <div class="brand">{{ brand[0] }}</div>
+    {% if brand|length > 1 %}<div class="brand2">{{ brand[1] }}</div>{% endif %}
+    <div class="card">
+      <div style="font-size:1.15rem;font-weight:700">Hello {{ entry.name }}</div>
+      <p class="muted" style="margin:6px 0 0">
+        Your work hours from {{ batch.start }} to {{ batch.end }}:</p>
+      <table>
+        <tr><th>Date</th><th>In</th><th>Out</th><th class="n">Hours</th></tr>
+        {% for s in entry.shifts %}
+        <tr>
+          <td>{{ s.clock_in[:10] }}</td>
+          <td>{{ s.clock_in[11:16] }}</td>
+          <td>{{ s.clock_out[11:16] if s.clock_out else '—' }}</td>
+          <td class="n">{{ '%.2f'|format(s.hours) if s.hours is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+        <tr><td colspan="3" class="total">TOTAL</td>
+            <td class="n total">{{ '%.2f'|format(entry.total) }}</td></tr>
+      </table>
+
+      {% if entry.status == 'confirmed' %}
+        <div class="banner ok">✓ You confirmed these hours
+          {% if entry.confirmed_at %}on {{ entry.confirmed_at[:10] }}
+          at {{ entry.confirmed_at[11:16] }}{% endif %}. Thank you!</div>
+      {% else %}
+        {% if entry.status == 'problem' %}
+          <div class="banner warn">⚠ You reported a problem with these hours.
+            Your supervisor has been notified. If it has been fixed, you can
+            confirm below.</div>
+        {% endif %}
+        <form method="post">
+          <input type="hidden" name="action" value="confirm">
+          <button class="btn confirm" type="submit">✓ Confirm my hours are correct</button>
+        </form>
+        <form method="post">
+          <input type="hidden" name="action" value="problem">
+          <textarea name="note" placeholder="Something wrong? Tell us what needs to be fixed…"></textarea>
+          <button class="btn problem" type="submit">⚠ Report a problem</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>

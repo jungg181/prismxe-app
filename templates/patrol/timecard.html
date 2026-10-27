@@ -3,6 +3,50 @@
 {% block title %}Timecard · Equipment Patrol Timetable{% endblock %}
 {% block body %}
 <h1 style="margin-top:0">Timecard</h1>
+<div style="display:flex;gap:.5rem;margin-bottom:1rem">
+  <a class="btn {{ 'primary' if view != 'batch' else '' }}" href="{{ url_for('.timecard') }}" style="text-decoration:none">Records</a>
+  <a class="btn {{ 'primary' if view == 'batch' else '' }}" href="{{ url_for('.timecard_batch') }}" style="text-decoration:none">Batch</a>
+</div>
+{% if view == 'batch' %}
+<div class="card">
+  <h2 style="margin-top:0">Batch — hour confirmations</h2>
+  {% if not batches %}
+  <p class="muted">No batches yet. Send hours from <b>Email hours</b> and a batch is created here automatically.</p>
+  {% else %}
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem">
+    {% for b in batches %}
+    <a class="btn small {{ 'primary' if sel_batch and b.id == sel_batch.id else '' }}" href="{{ url_for('.timecard_batch_detail', batch_id=b.id) }}" style="text-decoration:none">
+      {{ b.start }} → {{ b.end }} · ✓ {{ b.counts.confirmed }}/{{ b.counts.total }}{% if b.counts.problem %} · ⚠ {{ b.counts.problem }}{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% if sel_batch %}
+  <p class="muted small" style="margin:.2rem 0 .6rem">Sent {{ (sel_batch.created_at or '')[:10] }} {{ (sel_batch.created_at or '')[11:16] }} · {{ sel_batch.counts.confirmed }} confirmed · {{ sel_batch.counts.sent }} waiting · {{ sel_batch.counts.problem }} problem reported</p>
+  <table>
+    <tr><th>Name</th><th>Total hrs</th><th>Status</th><th></th></tr>
+    {% for e in sel_batch.entries %}
+    <tr>
+      <td><b>{{ e.name }}</b><div class="muted small">{{ e.email }}</div>
+        {% if e.problem_note %}<div class="small" style="color:#b45309">⚠ {{ e.problem_note }}</div>{% endif %}
+      </td>
+      <td>{{ '%.2f'|format(e.total) }}</td>
+      <td>
+        {% if e.status == 'confirmed' %}<span style="color:#146c2e"><b>✓ Confirmed</b></span><div class="muted small">{{ (e.confirmed_at or '')[:10] }} {{ (e.confirmed_at or '')[11:16] }}</div>
+        {% elif e.status == 'problem' %}<span style="color:#b45309"><b>⚠ Problem reported</b></span>
+        {% else %}<span class="muted">⏳ Waiting</span>{% endif %}
+        {% if e.resends %}<div class="muted small">resent ×{{ e.resends }}</div>{% endif %}
+      </td>
+      <td style="white-space:nowrap">
+        <a class="btn small" href="{{ confirm_base }}{{ e.token }}" target="_blank" style="text-decoration:none">Confirm page</a>
+        {% if e.status != 'confirmed' %}<button class="btn small" onclick="resendBatch('{{ sel_batch.id }}','{{ e.email }}',this)">↻ Resend</button>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% endif %}
+</div>
+{% else %}
 <div class="card">
   <h2>Clock In / Out</h2>
   <div id="tc-grid">
@@ -37,6 +81,7 @@
     {% endfor %}
   </table>
 </div>
+{% endif %}
 <!-- Edit record modal -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center">
   <div class="card" style="width:min(420px,92vw);margin:0">
@@ -59,6 +104,17 @@
 {% endblock %}
 {% block scripts %}
 <script>
+async function resendBatch(batchId, email, btn){
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch("{{ url_for('.batch_resend') }}", {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({batch_id: batchId, email: email})});
+    const d = await r.json();
+    if (d.ok) { btn.textContent = '✓ Sent'; setTimeout(() => location.reload(), 700); }
+    else { btn.textContent = 'Failed'; alert(d.error || 'Send failed'); btn.disabled = false; }
+  } catch (e) { btn.textContent = 'Failed'; btn.disabled = false; }
+}
 let editRec = null;
 function openEdit(r){
   editRec = r;

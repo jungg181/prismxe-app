@@ -61,6 +61,10 @@
   {% else %}
   <p class="muted">Nobody was checked.</p>
   {% endfor %}
+  {% if batch_id %}
+  <p style="margin:.8rem 0 0">📦 Batch created — track who confirmed in
+    <a href="{{ url_for('.timecard_batch', batch=batch_id) }}"><b>Timecard → Batch</b></a>.</p>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}
