@@ -71,7 +71,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     sheets_env_var: 'PATROL_SHEETS_URL' | 'COA_SHEETS_URL'
     app_version_filename: 'app_version.json' | 'app_version_coa.json'
     blueprint_name: 'patrol' | 'patrol_coa'
-    company_display_name: 'Hanseong' | 'COA'
+    company_display_name: 'Hanseong Arizona LLC' | 'COA'
     Returns dict with bp, DB, login_required, company_id, etc.
     """
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1014,7 +1014,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             lines.append(f"{fday(s['clock_in'])}: {ftm(s['clock_in'])} - {out_t}  ({hrs})")
         lines += ["", f"Total: {total:.2f} hours", "",
                   "A PDF copy of this statement is attached.", "",
-                  "If anything looks wrong, please let your supervisor know.",
+                  "Please check your hours carefully.", "",
+                  "If your hours are CORRECT, please REPLY to this email with the word: Confirmed", "",
+                  "If anything is WRONG, please REPLY to this email and tell us what needs to be fixed.",
                   "", f"- {company_display_name} Patrol"]
         return (f"Your work hours: {start_s} to {end_s}", "\n".join(lines))
 
@@ -1068,7 +1070,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         pdf.cell(30, 8, f"{total:.2f}", border=1, align="R")
         pdf.ln(12)
         pdf.set_font("nanum", "", 10)
-        pdf.cell(0, 6, "If anything looks wrong, please let your supervisor know.",
+        pdf.cell(0, 6, "Please reply to the email to CONFIRM these hours are correct, or tell us what is wrong.",
                  new_x="LMARGIN", new_y="NEXT")
         return bytes(pdf.output())
 
@@ -1605,7 +1607,7 @@ _hanseong = create_patrol_blueprint(
     sheets_env_var='PATROL_SHEETS_URL',
     app_version_filename='app_version.json',
     blueprint_name='patrol',
-    company_display_name='Hanseong',
+    company_display_name='Hanseong Arizona LLC',
 )
 bp = _hanseong['bp']
 DB = _hanseong['DB']
