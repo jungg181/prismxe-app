@@ -29,7 +29,7 @@ from gauge_reader import detect_dial, needle_angle, angle_to_value  # noqa: E402
 import cv2
 import numpy as np
 
-bp = Blueprint("gauge", __name__, url_prefix="/gauge",
+bp = Blueprint("gauge", __name__, url_prefix="/Hanseong/gauge",
                template_folder="templates/gauge")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMe123")
 SHEETS_URL = os.environ.get("SHEETS_URL", "")  # Google Apps Script web app URL
