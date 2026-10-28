@@ -7,6 +7,7 @@
   <label>To <input type="date" name="end" value="{{ end }}"></label>
   <button class="btn primary small" type="submit">Run</button>
   <a class="btn small" href="{{ url_for('cm.payroll_export', start=start, end=end) }}">⬇ Export CSV</a>
+  <a class="btn small" href="{{ url_for('cm.payroll_export_xlsx', monday=monday) }}">⬇ Export XLSX</a>
   <button class="btn small" type="button" onclick="window.print()">🖨️ Print</button>
 </form>
 <div class="stats">
