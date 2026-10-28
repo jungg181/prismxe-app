@@ -67,7 +67,7 @@
   <p class="muted small">Workers can also clock in from their own phones by scanning the QR code on the dashboard.</p>
 </div>
 <div class="card">
-  <h2>Records <a class="btn small" href="{{ url_for('.timecard_export') }}" style="float:right">⬇ Export CSV</a></h2>
+  <h2>Records <a class="btn small" href="{{ url_for('.timecard_export') }}" style="float:right">⬇ Export CSV</a><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">➕ Add record</button></h2>
   <table>
     <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th></th></tr>
     {% for r in records %}
@@ -100,6 +100,33 @@
       <button class="btn primary" onclick="saveEdit()">Save</button>
     </div>
     <p class="muted small" id="edit-err" style="color:#991b1b"></p>
+  </div>
+</div>
+<!-- Add record modal -->
+<div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center">
+  <div class="card" style="width:min(420px,92vw);margin:0">
+    <h2 style="margin-top:0">Add record</h2>
+    <label class="small"><b>Worker</b><br>
+      <select id="add-worker" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
+        {% for s in status %}
+        <option value="{{ s.worker.id }}">{{ s.worker.name }}</option>
+        {% endfor %}
+      </select>
+    </label><br>
+    <label class="small"><b>Date</b><br>
+      <input type="date" id="add-date" style="width:100%;padding:.5rem;margin:.25rem 0 1rem" required>
+    </label><br>
+    <label class="small"><b>Clock in</b><br>
+      <input type="time" id="add-in" style="width:100%;padding:.5rem;margin:.25rem 0 1rem" required>
+    </label><br>
+    <label class="small"><b>Clock out</b> <span class="muted">(empty = still clocked in)</span><br>
+      <input type="time" id="add-out" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
+    </label>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn" onclick="closeAdd()">Cancel</button>
+      <button class="btn primary" onclick="saveAdd()">Save</button>
+    </div>
+    <p class="muted small" id="add-err" style="color:#991b1b"></p>
   </div>
 </div>
 {% endblock %}
@@ -156,6 +183,37 @@ document.getElementById('edit-delete').addEventListener('click', async function(
   if(!j.ok){ document.getElementById('edit-err').textContent = j.error || 'Failed'; return; }
   location.reload();
 });
+function openAdd(){
+  document.getElementById('add-err').textContent = '';
+  document.getElementById('add-date').valueAsDate = new Date();
+  document.getElementById('add-in').value = '';
+  document.getElementById('add-out').value = '';
+  document.getElementById('add-modal').style.display = 'flex';
+}
+function closeAdd(){
+  document.getElementById('add-modal').style.display = 'none';
+}
+document.getElementById('add-modal').addEventListener('click', function(e){
+  if(e.target === this) closeAdd();
+});
+async function saveAdd(){
+  const wid = document.getElementById('add-worker').value;
+  const day = document.getElementById('add-date').value;
+  const cin = document.getElementById('add-in').value;
+  const cout = document.getElementById('add-out').value;
+  const err = document.getElementById('add-err');
+  if(!wid){ err.textContent = 'Choose a worker.'; return; }
+  if(!day){ err.textContent = 'Choose a date.'; return; }
+  if(!cin){ err.textContent = 'Clock-in time is required.'; return; }
+  if(cout && cout <= cin){ err.textContent = 'Clock-out must be after clock-in.'; return; }
+  const r = await fetch("{{ url_for('.timecard_punch_add') }}", {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({worker_id: wid, date: day,
+                          clock_in: cin, clock_out: cout || null})});
+  const j = await r.json();
+  if(!j.ok){ err.textContent = j.error || 'Failed'; return; }
+  location.reload();
+}
 async function clockIt(wid, action){
   const r = await fetch("{{ url_for('.timecard_clock') }}", {method:'POST',
     headers:{'Content-Type':'application/json'},
