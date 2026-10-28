@@ -60,7 +60,7 @@
       <div class="folder-apps">
         {% for a in co.apps %}
         {% if a.url %}
-        <a class="card" href="{{ a.url }}">
+        <a class="card" href="{{ a.url }}"{% if a.download %} download{% endif %}>
           <div class="icon">{{ a.icon }}</div>
           <div><b>{{ a.name }}</b><span>{{ a.desc }}</span></div>
         </a>
