@@ -159,6 +159,32 @@ app.register_blueprint(checklist_bp)
 register_cm_jinja(app)
 
 
+# --- Legacy company-URL redirects (2026-10-28) ---
+# Patrol and the gauge Check List moved under /Hanseong/. Old URLs keep
+# working via 308 (method-preserving) redirects so QR codes, bookmarks,
+# and the APKs do not break.
+_LEGACY_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+
+
+def _legacy_redirect(new_base, path):
+    url = new_base + ("/" + path if path else "/")
+    if request.query_string:
+        url += "?" + request.query_string.decode("utf-8", "replace")
+    return redirect(url, code=308)
+
+
+@app.route("/patrol", defaults={"path": ""}, methods=_LEGACY_METHODS)
+@app.route("/patrol/<path:path>", methods=_LEGACY_METHODS)
+def legacy_patrol_redirect(path):
+    return _legacy_redirect("/Hanseong/patrol", path)
+
+
+@app.route("/gauge", defaults={"path": ""}, methods=_LEGACY_METHODS)
+@app.route("/gauge/<path:path>", methods=_LEGACY_METHODS)
+def legacy_gauge_redirect(path):
+    return _legacy_redirect("/Hanseong/gauge", path)
+
+
 @app.route("/", methods=["GET", "POST"])
 def portal():
     if PORTAL_PASSWORD and not _portal_authed():
@@ -232,7 +258,7 @@ def portal_backup():
 @app.get("/.well-known/assetlinks.json")
 def assetlinks():
     # Android App Links verification: lets the Prism Patrol apps open
-    # https://app.prismxe.com/patrol/patrol-clock (Hanseong) and
+    # https://app.prismxe.com/Hanseong/patrol/patrol-clock (Hanseong) and
     # https://app.prismxe.com/patrol-coa/patrol-clock (COA) directly.
     # Each fingerprint is set from that company's Patrol Settings once its
     # APK is built; the fallback is the debug cert both apps are currently
