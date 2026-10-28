@@ -146,7 +146,7 @@ function slotDateTime(time) {
 async function initSlot() {
   let times = [];
   try {
-    const r = await fetch("/gauge/api/slots");
+    const r = await fetch("/Hanseong/gauge/api/slots");
     const d = await r.json();
     times = (d.slots || {})[SYS_NAME] || [];
   } catch (e) {}
@@ -203,7 +203,7 @@ function tryOpenQrGauge() {
 }
 
 async function load() {
-  const r = await fetch("/gauge/api/equipment/" + EQUIP_ID);
+  const r = await fetch("/Hanseong/gauge/api/equipment/" + EQUIP_ID);
   const d = await r.json();
   document.getElementById("title").textContent = d.name;
   document.getElementById("subtitle").textContent = d.system + " · " + d.id;
@@ -315,7 +315,7 @@ async function onPhoto(g, file) {
   fd.append("photo", small, "photo.jpg");
   let data;
   try {
-    const r = await fetch("/gauge/api/read", { method: "POST", body: fd });
+    const r = await fetch("/Hanseong/gauge/api/read", { method: "POST", body: fd });
     data = await r.json();
   } catch (e) { data = { error: "Server connection failed" }; }
 
@@ -378,7 +378,7 @@ function quickSave(gid, unit) {
     alert('Enter a value');
     return;
   }
-  fetch('/gauge/api/log', {
+  fetch('/Hanseong/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({equip_id: EQUIP_ID, gauge_id: gid, value: val, unit: unit, slot: equipSlotDt})
@@ -467,7 +467,7 @@ function calcTicksSlider(gid) {
   let value = v0 + step * pos;
   value = Math.round(value * 1000) / 1000;
   const g = (typeof gaugeMap !== 'undefined' && gaugeMap[gid]) ? gaugeMap[gid].g : {id: gid};
-  fetch('/gauge/api/log', {
+  fetch('/Hanseong/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({equip_id: EQUIP_ID, gauge_id: gid, value: value, unit: unit, slot: equipSlotDt})
@@ -504,7 +504,7 @@ async function confirmReading(gid, manual) {
     slot: equipSlotDt
   };
   try {
-    await fetch("/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+    await fetch("/Hanseong/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
   } catch (e) { toast("Save failed — please try again"); return; }
   doneSet.add(gid);
   localStorage.setItem("done_" + EQUIP_ID + "_" + state, JSON.stringify([...doneSet]));
