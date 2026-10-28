@@ -66,7 +66,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     """Create an isolated Patrol app instance for one company.
 
     company_id: 'hanseong' | 'coa'  (used for session keys, log messages)
-    url_prefix: '/patrol' | '/patrol-coa'
+    url_prefix: '/Hanseong/patrol' | '/patrol-coa'
     db_filename: 'data_patrol.json' | 'data_patrol_coa.json'
     sheets_env_var: 'PATROL_SHEETS_URL' | 'COA_SHEETS_URL'
     app_version_filename: 'app_version.json' | 'app_version_coa.json'
@@ -2087,7 +2087,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 # in app.py keep resolving to this instance).
 _hanseong = create_patrol_blueprint(
     company_id='hanseong',
-    url_prefix='/patrol',
+    url_prefix='/Hanseong/patrol',
     db_filename='data_patrol.json',
     sheets_env_var='PATROL_SHEETS_URL',
     app_version_filename='app_version.json',
