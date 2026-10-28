@@ -1184,9 +1184,14 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         """Attendance-sheet style week grid built from paired punches.
 
         Returns one row per worker who has shifts that week:
-        {name, email, days: [ {in, out, hours} | None x7 ], total, reg, ot}.
+        {name, email, days: [ {in, out, hours, split, pairs} | None x7 ],
+         total, reg, ot}.
         Times are minute-truncated 'HH:MM'; hours come from those minutes
         (overnight shifts wrap past midnight), matching the paper sheet.
+        A day with two or more pairs (split shift) keeps one cell: in is
+        the first clock-in, out is the last clock-out, hours is the SUM
+        of the pairs (the gap between pairs is not counted), split is
+        True, and pairs lists every pair for the Detail sheet.
         """
         from datetime import timedelta as _td
         days = [monday + _td(days=i) for i in range(7)]
@@ -1194,7 +1199,6 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         for entry in hours_summary(days[0].isoformat(),
                                    days[-1].isoformat()):
             cells = {}
-            exact = {}
             for s in entry['shifts']:
                 cin = s.get('clock_in') or ''
                 if not cin:
@@ -1210,21 +1214,25 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     if om < im:
                         om += 24 * 60
                     hrs = (om - im) / 60
-                if dkey in cells and cells[dkey]['hours'] is not None \
-                        and hrs is not None:
-                    prev = cells[dkey]
-                    exact[dkey] += hrs
-                    prev['hours'] = round(exact[dkey], 2)
-                    prev['out'] = out_hm
-                else:
-                    exact[dkey] = hrs or 0
-                    cells[dkey] = {'in': in_hm, 'out': out_hm,
-                                   'hours': (round(hrs, 2)
-                                             if hrs is not None else None)}
+                cell = cells.setdefault(
+                    dkey, {'in': in_hm, 'out': '', 'hours': 0.0,
+                           'pairs': []})
+                cell['pairs'].append({'in': in_hm, 'out': out_hm,
+                                      'hours': (round(hrs, 2)
+                                                if hrs is not None else None)})
+                if out_hm:
+                    cell['out'] = out_hm
+                if hrs is not None:
+                    cell['hours'] = round(cell['hours'] + hrs, 2)
             if not cells:
                 continue
+            for cell in cells.values():
+                cell['split'] = len(cell['pairs']) > 1
+                if not any(p['hours'] is not None for p in cell['pairs']):
+                    cell['hours'] = None
             day_list = [cells.get(d.isoformat()) for d in days]
-            total = round(sum(exact.values()), 2)
+            total = round(sum(c['hours'] for c in cells.values()
+                              if c['hours'] is not None), 2)
             rows.append({'name': entry['name'], 'email': entry['email'],
                          'days': day_list, 'total': total,
                          'reg': min(total, 40),
@@ -1242,6 +1250,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         from openpyxl import Workbook
         from openpyxl.styles import (Font, Alignment, Border, Side,
                                      PatternFill)
+        from openpyxl.comments import Comment
         from openpyxl.utils import get_column_letter
         days = [monday + _td(days=i) for i in range(7)]
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
@@ -1341,9 +1350,20 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 ci.alignment = center
                 co.alignment = center
                 h = ws.cell(row=base + 2, column=col)
-                h.value = (f'=IF(OR({L}{base}="",{L}{base + 1}=""),"",'
-                           f'({L}{base + 1}-{L}{base}'
-                           f'+IF({L}{base + 1}<{L}{base},1,0))*24)')
+                if cell and cell.get('split'):
+                    # Split shift: show the SUM of the pairs, not the
+                    # first-in to last-out span (which would count the
+                    # gap). The pairs are listed on the Detail sheet.
+                    h.value = cell['hours']
+                    pairs_txt = ', '.join(
+                        f"{p['in']}–{p['out']}" if p['out'] else p['in']
+                        for p in cell['pairs'])
+                    h.comment = Comment(f'Split shift: {pairs_txt}',
+                                        'Payroll')
+                else:
+                    h.value = (f'=IF(OR({L}{base}="",{L}{base + 1}=""),"",'
+                               f'({L}{base + 1}-{L}{base}'
+                               f'+IF({L}{base + 1}<{L}{base},1,0))*24)')
                 h.number_format = '0.00'
                 h.alignment = center
             tot = ws.cell(row=base, column=11,
@@ -1388,6 +1408,51 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 ws.cell(row=row, column=col).border = Border(bottom=thin)
             row += 2
         ws.print_area = f'A1:N{row - 1}'
+        # Detail sheet: every clock-in/out pair, so split days stay
+        # auditable and the grid hours can be traced back to pairs.
+        det = wb.create_sheet('Detail')
+        det.sheet_properties.pageSetUpPr.fitToPage = True
+        det.page_setup.orientation = 'landscape'
+        det.page_setup.paperSize = det.PAPERSIZE_LETTER
+        det.page_setup.fitToWidth = 1
+        det.page_setup.fitToHeight = 0
+        for col, w in {'A': 22, 'B': 12, 'C': 11, 'D': 11, 'E': 10}.items():
+            det.column_dimensions[col].width = w
+        for col, label in [(1, 'Name'), (2, 'Date'), (3, 'Check In'),
+                           (4, 'Check Out'), (5, 'Hours')]:
+            c = det.cell(row=1, column=col, value=label)
+            c.font = Font(bold=True, size=10)
+            c.fill = hdr_fill
+            c.alignment = center
+            c.border = border
+        r = 2
+        for entry in rows:
+            for i, day in enumerate(days):
+                cell = entry['days'][i]
+                if not cell:
+                    continue
+                for p in cell['pairs']:
+                    det.cell(row=r, column=1, value=entry['name'])
+                    det.cell(row=r, column=2,
+                             value=day.strftime('%Y/%m/%d'))
+                    ci = det.cell(row=r, column=3)
+                    co = det.cell(row=r, column=4)
+                    if p['in']:
+                        ci.value = _time(int(p['in'][:2]), int(p['in'][3:5]))
+                        ci.number_format = 'h:mm'
+                    if p['out']:
+                        co.value = _time(int(p['out'][:2]),
+                                         int(p['out'][3:5]))
+                        co.number_format = 'h:mm'
+                    hc = det.cell(row=r, column=5, value=p['hours'])
+                    hc.number_format = '0.00'
+                    for col in range(1, 6):
+                        det.cell(row=r, column=col).border = border
+                        det.cell(row=r, column=col).alignment = center
+                    det.cell(row=r, column=1).alignment = Alignment(
+                        horizontal='left', vertical='center')
+                    r += 1
+        det.freeze_panes = 'A2'
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue()
