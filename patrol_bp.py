@@ -1214,22 +1214,25 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     if om < im:
                         om += 24 * 60
                     hrs = (om - im) / 60
-                cell = cells.setdefault(
-                    dkey, {'in': in_hm, 'out': '', 'hours': 0.0,
-                           'pairs': []})
+                cell = cells.setdefault(dkey, {'pairs': []})
                 cell['pairs'].append({'in': in_hm, 'out': out_hm,
                                       'hours': (round(hrs, 2)
                                                 if hrs is not None else None)})
-                if out_hm:
-                    cell['out'] = out_hm
-                if hrs is not None:
-                    cell['hours'] = round(cell['hours'] + hrs, 2)
             if not cells:
                 continue
             for cell in cells.values():
-                cell['split'] = len(cell['pairs']) > 1
-                if not any(p['hours'] is not None for p in cell['pairs']):
-                    cell['hours'] = None
+                # Shifts arrive newest-first, so sort chronologically:
+                # in = earliest clock-in, out = latest clock-out.
+                pairs = sorted(cell['pairs'], key=lambda p: p['in'])
+                cell['pairs'] = pairs
+                cell['in'] = pairs[0]['in']
+                closed_outs = [p['out'] for p in pairs if p['out']]
+                cell['out'] = closed_outs[-1] if closed_outs else ''
+                closed_hours = [p['hours'] for p in pairs
+                                if p['hours'] is not None]
+                cell['hours'] = (round(sum(closed_hours), 2)
+                                 if closed_hours else None)
+                cell['split'] = len(pairs) > 1
             day_list = [cells.get(d.isoformat()) for d in days]
             total = round(sum(c['hours'] for c in cells.values()
                               if c['hours'] is not None), 2)
