@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Photo Tags — Hanseong Check List</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; margin: 0; background: #f5f5f5; }
+  .top { max-width: 720px; margin: 0 auto; padding: 12px 16px 0; }
+  .nav { display: flex; gap: 8px; margin-bottom: 10px; }
+  .nav a { flex: 1; text-align: center; padding: 10px; background: #fff; border: 1px solid #ddd;
+           border-radius: 10px; text-decoration: none; color: #1976d2; font-weight: 600; font-size: 14px; }
+  h2 { margin: 0 0 4px; font-size: 18px; word-break: break-all; }
+  .muted { color: #666; font-size: 13px; }
+  .badge { display: inline-block; background: #1976d2; color: #fff; border-radius: 20px;
+           padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .badge.view { background: #666; }
+  #stage { position: relative; overflow: hidden; background: #111; height: 70vh;
+           margin: 12px auto 0; max-width: 720px; touch-action: none; }
+  #viewport { position: absolute; left: 0; top: 0; will-change: transform; }
+  #viewport img { display: block; max-width: 100vw; max-height: 70vh; width: auto; height: auto; }
+  #pins { position: absolute; inset: 0; }
+  .pin { position: absolute; pointer-events: auto; cursor: pointer; text-align: center; }
+  .pin .lbl { display: inline-block; background: rgba(211, 47, 47, 0.95); color: #fff;
+              font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 12px;
+              white-space: nowrap; margin-bottom: 2px; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .pin .dot { width: 20px; height: 20px; margin: 0 auto; border-radius: 50%;
+              background: #d32f2f; border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.6); }
+  .pin.sel .lbl { background: #f9a825; color: #222; }
+  .pin.sel .dot { background: #f9a825; }
+  .view .pin { pointer-events: none; }
+  .toolbar { max-width: 720px; margin: 10px auto 0; padding: 0 16px; display: flex; gap: 8px; }
+  .toolbar button { flex: 1; padding: 13px; font-size: 16px; border: 1px solid #ddd; border-radius: 10px;
+                    background: #fff; cursor: pointer; font-weight: 600; }
+  .toolbar button.save { background: #1976d2; color: #fff; border-color: #1976d2; }
+  .hint { max-width: 720px; margin: 8px auto 0; padding: 0 16px 16px; }
+  #editor { display: none; position: fixed; z-index: 50; background: #fff; border: 1px solid #ccc;
+            border-radius: 12px; padding: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.35); width: 230px; }
+  #editor input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #bbb; border-radius: 8px; }
+  #editor .row { display: flex; gap: 8px; margin-top: 8px; }
+  #editor button { flex: 1; padding: 10px; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  #editor .ok { background: #1976d2; color: #fff; }
+  #editor .del { background: #fdecea; color: #d32f2f; }
+  #toast { display: none; position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+           background: #222; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 60; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="nav">
+    <a href="/Hanseong/gauge/">🏠 Home</a>
+    <a href="/Hanseong/gauge/photos">📷 Photos</a>
+    {% if mode == 'edit' %}
+    <a href="/Hanseong/gauge/photo/{{ photo_key }}">👁️ View mode</a>
+    {% else %}
+    <a href="/Hanseong/gauge/photo/{{ photo_key }}/edit">✏️ Edit mode</a>
+    {% endif %}
+  </div>
+  <h2>🏷️ {{ label }}<span class="badge {{ mode }}">{{ 'EDIT' if mode == 'edit' else 'VIEW' }}</span></h2>
+  <div class="muted" id="tagCount"></div>
+</div>
+<div id="stage" class="{{ mode }}">
+  <div id="viewport">
+    <img id="photo" src="{{ img_url }}" alt="" draggable="false">
+    <div id="pins"></div>
+  </div>
+</div>
+<div class="toolbar">
+  <button id="btnOut">−</button>
+  <button id="btnReset">100%</button>
+  <button id="btnIn">+</button>
+  {% if mode == 'edit' %}
+  <button id="btnSave" class="save">💾 Save tags</button>
+  {% endif %}
+</div>
+<div class="hint muted">
+  {% if mode == 'edit' %}
+  사진을 눌러 Pin 추가 · Pin을 눌러 이름 수정/삭제 · Pin을 끌어서 이동 · 두 손가락이나 +/− 버튼으로 확대해서 정확히 찍어요. 저장하기 전에는 나가지 마세요.
+  {% else %}
+  두 손가락이나 +/− 버튼으로 확대해서 자세히 볼 수 있어요. Pin을 고치려면 Edit mode로 가세요.
+  {% endif %}
+</div>
+<div id="editor">
+  <input id="edName" maxlength="100" placeholder="Tag name (e.g. CB-1)">
+  <div class="row">
+    <button class="ok" id="edSave">Save</button>
+    <button class="del" id="edDelete">Delete</button>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const PHOTO_KEY = {{ photo_key|tojson }};
+const MODE = {{ mode|tojson }};
+const EDIT = MODE === 'edit';
+let tags = {{ tags|tojson }};
+let dirty = false;
+
+const stage = document.getElementById('stage');
+const viewport = document.getElementById('viewport');
+const img = document.getElementById('photo');
+const pinsEl = document.getElementById('pins');
+const editor = document.getElementById('editor');
+const edName = document.getElementById('edName');
+let scale = 1, tx = 0, ty = 0;
+let selectedId = null;
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2200);
+}
+function updateCount() {
+  document.getElementById('tagCount').textContent = tags.length + ' tag(s) on this photo';
+}
+function pinTransform() {
+  return 'translate(-50%,-100%) scale(' + (1 / scale) + ')';
+}
+function applyTransform() {
+  viewport.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+  document.querySelectorAll('.pin').forEach(p => { p.style.transform = pinTransform(); });
+}
+function setZoom(ns, cx, cy) {
+  ns = Math.max(1, Math.min(6, ns));
+  if (ns === scale) return;
+  const r = stage.getBoundingClientRect();
+  const px = (cx == null ? r.width / 2 : cx), py = (cy == null ? r.height / 2 : cy);
+  tx = px - (px - tx) * (ns / scale);
+  ty = py - (py - ty) * (ns / scale);
+  scale = ns;
+  applyTransform();
+}
+function centerImage() {
+  const r = stage.getBoundingClientRect();
+  tx = (r.width - img.clientWidth) / 2;
+  ty = (r.height - img.clientHeight) / 2;
+  scale = 1;
+  applyTransform();
+}
+function toFraction(clientX, clientY) {
+  const r = img.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  return {
+    x: Math.max(0, Math.min(1, (clientX - r.left) / r.width)),
+    y: Math.max(0, Math.min(1, (clientY - r.top) / r.height))
+  };
+}
+function renderPins() {
+  pinsEl.innerHTML = '';
+  tags.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'pin' + (t.id === selectedId ? ' sel' : '');
+    d.style.left = (t.x * 100) + '%';
+    d.style.top = (t.y * 100) + '%';
+    d.style.transform = pinTransform();
+    d.dataset.id = t.id;
+    const lbl = document.createElement('div');
+    lbl.className = 'lbl';
+    lbl.textContent = t.name;
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    d.appendChild(lbl);
+    d.appendChild(dot);
+    if (EDIT) bindPinEvents(d, t);
+    pinsEl.appendChild(d);
+  });
+  updateCount();
+}
+function closeEditor() { editor.style.display = 'none'; selectedId = null; renderPins(); }
+function openEditor(tag, clientX, clientY) {
+  selectedId = tag.id;
+  renderPins();
+  edName.value = tag.name;
+  editor.style.display = 'block';
+  const w = 230, h = 130;
+  let left = clientX - w / 2, top = clientY - h - 20;
+  left = Math.max(8, Math.min(window.innerWidth - w - 8, left));
+  top = Math.max(8, Math.min(window.innerHeight - h - 8, top < 8 ? clientY + 24 : top));
+  editor.style.left = left + 'px';
+  editor.style.top = top + 'px';
+  setTimeout(() => edName.focus(), 30);
+}
+function bindPinEvents(el, tag) {
+  let startX = 0, startY = 0, moved = false, dragging = false;
+  el.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    el.setPointerCapture(e.pointerId);
+    startX = e.clientX; startY = e.clientY; moved = false; dragging = false;
+  });
+  el.addEventListener('pointermove', e => {
+    if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) > 8) moved = true;
+    if (!moved) return;
+    dragging = true;
+    const f = toFraction(e.clientX, e.clientY);
+    if (!f) return;
+    tag.x = f.x; tag.y = f.y;
+    el.style.left = (f.x * 100) + '%';
+    el.style.top = (f.y * 100) + '%';
+  });
+  el.addEventListener('pointerup', e => {
+    if (dragging) { dirty = true; return; }
+    if (!moved) openEditor(tag, e.clientX, e.clientY);
+  });
+}
+
+// ---- stage pan / pinch / tap ----
+const pointers = new Map();
+let panStart = null, pinchPrev = null, downInfo = null;
+stage.addEventListener('pointerdown', e => {
+  closeEditorIfOutside(e);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  stage.setPointerCapture(e.pointerId);
+  if (pointers.size === 2) {
+    const pts = [...pointers.values()];
+    pinchPrev = {
+      dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+      mid: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+    };
+    downInfo = null;
+  } else if (pointers.size === 1) {
+    downInfo = { x: e.clientX, y: e.clientY, t: Date.now(), moved: false };
+    panStart = { tx, ty, x: e.clientX, y: e.clientY };
+  }
+});
+function closeEditorIfOutside(e) {
+  if (editor.style.display === 'block' && !editor.contains(e.target)) closeEditor();
+}
+stage.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2 && pinchPrev) {
+    const pts = [...pointers.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    const r = stage.getBoundingClientRect();
+    tx += (mid.x - pinchPrev.mid.x);
+    ty += (mid.y - pinchPrev.mid.y);
+    if (dist > 0 && pinchPrev.dist > 0) setZoom(scale * (dist / pinchPrev.dist), mid.x - r.left, mid.y - r.top);
+    else applyTransform();
+    pinchPrev = { dist, mid };
+    return;
+  }
+  if (pointers.size === 1 && panStart) {
+    const dx = e.clientX - panStart.x, dy = e.clientY - panStart.y;
+    if (Math.abs(dx) + Math.abs(dy) > 12 && downInfo) downInfo.moved = true;
+    tx = panStart.tx + dx;
+    ty = panStart.ty + dy;
+    applyTransform();
+  }
+});
+function endPointer(e) {
+  const wasTap = downInfo && !downInfo.moved && (Date.now() - downInfo.t < 600);
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchPrev = null;
+  if (pointers.size === 0) {
+    if (wasTap && EDIT) {
+      const f = toFraction(downInfo.x, downInfo.y);
+      if (f) {
+        const tag = { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), x: f.x, y: f.y, name: '' };
+        tags.push(tag);
+        renderPins();
+        openEditor(tag, downInfo.x, downInfo.y);
+      }
+    }
+    downInfo = null;
+    panStart = null;
+  }
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = stage.getBoundingClientRect();
+  setZoom(scale * Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+let lastTap = 0;
+stage.addEventListener('dblclick', e => {
+  const r = stage.getBoundingClientRect();
+  setZoom(scale > 1 ? 1 : 2.5, e.clientX - r.left, e.clientY - r.top);
+});
+
+// ---- toolbar ----
+document.getElementById('btnIn').onclick = () => setZoom(scale * 1.4);
+document.getElementById('btnOut').onclick = () => setZoom(scale / 1.4);
+document.getElementById('btnReset').onclick = () => centerImage();
+const btnSave = document.getElementById('btnSave');
+if (btnSave) btnSave.onclick = async () => {
+  btnSave.disabled = true;
+  try {
+    const r = await fetch('/Hanseong/gauge/api/photo-tags/' + PHOTO_KEY, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'save failed');
+    dirty = false;
+    toast('Saved ✓ ' + j.count + ' tag(s)');
+  } catch (e) {
+    toast('Save failed: ' + e.message);
+  }
+  btnSave.disabled = false;
+};
+
+// ---- editor actions ----
+document.getElementById('edSave').onclick = () => {
+  const name = edName.value.trim();
+  const tag = tags.find(t => t.id === selectedId);
+  if (!tag) { closeEditor(); return; }
+  if (!name) { toast('Type a Tag name, or Delete the pin'); edName.focus(); return; }
+  tag.name = name;
+  dirty = true;
+  closeEditor();
+};
+document.getElementById('edDelete').onclick = () => {
+  tags = tags.filter(t => t.id !== selectedId);
+  dirty = true;
+  closeEditor();
+};
+edName.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('edSave').click();
+  if (e.key === 'Escape') closeEditor();
+});
+window.addEventListener('beforeunload', e => {
+  if (EDIT && dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+window.addEventListener('resize', () => { if (scale === 1) centerImage(); });
+
+img.addEventListener('load', () => { centerImage(); renderPins(); });
+if (img.complete && img.naturalWidth) { centerImage(); renderPins(); }
+</script>
+</body>
+</html>
