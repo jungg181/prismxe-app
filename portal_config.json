@@ -8,13 +8,13 @@
           "name": "Patrol Board",
           "icon": "📋",
           "desc": "Equipment patrol timetable & shift monitoring",
-          "url": "/patrol/"
+          "url": "/Hanseong/patrol/"
         },
         {
           "name": "Hanseong Check List",
           "icon": "🔧",
           "desc": "Photograph gauges, auto-read needles, log measurements",
-          "url": "/gauge/"
+          "url": "/Hanseong/gauge/"
         },
         {
           "name": "Burner Guide",
