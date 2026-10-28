@@ -90,7 +90,7 @@
   <div class="card">
     <h2>📤 Upload Photos</h2>
     <p>Upload saved photos to Google Drive — no inspection needed.</p>
-    <button class="btn" style="background:#2e7d32" onclick="location.href='/gauge/upload'">Open Upload Page</button>
+    <button class="btn" style="background:#2e7d32" onclick="location.href='/Hanseong/gauge/upload'">Open Upload Page</button>
   </div>
   <div class="card">
     <h2>🕐 Patrol Time</h2>
@@ -130,8 +130,8 @@
   </div>
 
   <div class="foot">
-    <a href="/gauge/api/export">📥 Download Readings CSV</a>
-    <a href="/gauge/admin">⚙️ Settings</a>
+    <a href="/Hanseong/gauge/api/export">📥 Download Readings CSV</a>
+    <a href="/Hanseong/gauge/admin">⚙️ Settings</a>
   </div>
 </main>
 <script>
@@ -208,7 +208,7 @@ startBtn.onclick = () => {
   const dt = slotDateTime(slotSys, slotTime);
   const q = "boilers=" + [...burnerSel].join(",") + "&pumps=" + [...pumpSel].join(",")
     + "&slot=" + encodeURIComponent(dt) + "&slot_system=" + encodeURIComponent(slotSys);
-  location.href = "/gauge/inspect?" + q;
+  location.href = "/Hanseong/gauge/inspect?" + q;
 };
 
 // ---- Patrol time picker ----
