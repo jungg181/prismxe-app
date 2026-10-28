@@ -114,7 +114,7 @@
     <button class="btn btn-cam" id="pendingBtn">📤 Pending uploads (<span id="pendingCount">0</span>)</button>
   </div>
   <div class="topbtns">
-    <a href="/gauge/">‹ Change boilers</a>
+    <a href="/Hanseong/gauge/">‹ Change boilers</a>
     <button id="resetBtn">Reset today's checks</button>
   </div>
   <div id="list"></div>
@@ -193,7 +193,7 @@ async function load() {
     (SLOT ? "🕐 Patrol " + SLOT + (SLOT_SYS ? " (" + SLOT_SYS + ")" : "") + " · " : "")
     + "Burners: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
   const q = "boilers=" + BOILERS.join(",") + (HAS_PUMPS_PARAM ? "&pumps=" + PUMPS.join(",") : "");
-  const r = await fetch("/gauge/api/inspect?" + q);
+  const r = await fetch("/Hanseong/gauge/api/inspect?" + q);
   const d = await r.json();
   items = d.items;
   const box = document.getElementById("list");
@@ -278,7 +278,7 @@ async function scanQrLoop(detector, video) {
     const barcodes = await detector.detect(video);
     if (barcodes.length > 0) {
       const url = barcodes[0].rawValue;
-      // QR should link to /gauge/e/<equip>?gauge=<gid>
+      // QR links to /gauge/e/<equip>?gauge=<gid> (old) or /Hanseong/gauge/e/... (new); both accepted
       if (url && url.includes("/gauge/e/")) {
         closeQrScan();
         location.href = url;
@@ -410,7 +410,7 @@ function quickSave(gid, unit) {
     alert('Enter a value');
     return;
   }
-  fetch('/gauge/api/log', {
+  fetch('/Hanseong/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({equip_id: (gaugeMap[gid] || {}).equip ? gaugeMap[gid].equip.id : "", gauge_id: gid, value: val, unit: unit, slot: SLOT})
@@ -498,7 +498,7 @@ function calcTicksSlider(gid) {
   const step = (v1 - v0) / 15;
   let value = v0 + step * pos;
   value = Math.round(value * 1000) / 1000;
-  fetch('/gauge/api/log', {
+  fetch('/Hanseong/gauge/api/log', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({equip_id: (gaugeMap[gid] || {}).equip ? gaugeMap[gid].equip.id : "", gauge_id: gid, value: value, unit: unit, slot: SLOT})
@@ -529,7 +529,7 @@ async function onPhoto(gid, file, fname, stampLines) {
   fd.append("photo", small, fname || "photo.jpg");
   let data;
   try {
-    const r = await fetch("/gauge/api/read", { method: "POST", body: fd });
+    const r = await fetch("/Hanseong/gauge/api/read", { method: "POST", body: fd });
     data = await r.json();
   } catch (e) { data = { error: "Server connection failed" }; }
 
@@ -590,7 +590,7 @@ async function confirmReading(gid, manual) {
     slot: SLOT
   };
   try {
-    await fetch("/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+    await fetch("/Hanseong/gauge/api/log", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
   } catch (e) { toast("Save failed — please try again"); return; }
   doneSet.add(gid);
   localStorage.setItem(DONE_KEY, JSON.stringify([...doneSet]));
@@ -717,7 +717,7 @@ document.getElementById("driveUploadBtn").onclick = async () => {
       const fd = new FormData();
       fd.append("photo", rec.blob, rec.filename);
       fd.append("filename", rec.filename);
-      const r = await fetch("/gauge/api/drive-upload", { method: "POST", body: fd });
+      const r = await fetch("/Hanseong/gauge/api/drive-upload", { method: "POST", body: fd });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "upload failed");
       await hcDbDelete(rec.id);   // delete from phone only after Drive confirms
