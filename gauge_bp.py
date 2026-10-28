@@ -16,6 +16,7 @@ import os
 import sys
 import threading
 import urllib.request
+import uuid
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -168,38 +169,10 @@ def log_reading(equip_id="", gauge_id="", value="", unit="", photo="", state="",
 def api_drive_photos():
     """List photos in the Drive folder and its date subfolders (for agent review).
     Returns id, name, createdTime, and folder path."""
-    svc = drive_service()
-    if not svc or not DRIVE_FOLDER_ID:
-        return jsonify({"ok": False, "error": "Drive not configured"}), 500
-    try:
-        files = []
-
-        def list_children(parent_id, prefix=""):
-            page_token = None
-            while True:
-                res = svc.files().list(
-                    q=f"'{parent_id}' in parents and trashed=false",
-                    fields="files(id,name,createdTime,mimeType),nextPageToken",
-                    orderBy="createdTime", pageSize=100,
-                    pageToken=page_token).execute()
-                for f in res.get("files", []):
-                    if f["mimeType"] == "application/vnd.google-apps.folder":
-                        list_children(f["id"], prefix + f["name"] + "/")
-                    else:
-                        files.append({
-                            "id": f["id"], "name": f["name"],
-                            "createdTime": f.get("createdTime"),
-                            "path": prefix + f["name"],
-                        })
-                page_token = res.get("nextPageToken")
-                if not page_token:
-                    break
-
-        list_children(DRIVE_FOLDER_ID)
-        files.sort(key=lambda f: f.get("createdTime") or "")
-        return jsonify({"ok": True, "files": files})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)[:200]}), 500
+    ok, result = _list_drive_photos()
+    if not ok:
+        return jsonify({"ok": False, "error": result}), 500
+    return jsonify({"ok": True, "files": result})
 
 
 @bp.route("/api/drive-photo/<fid>", methods=["GET"])
@@ -518,6 +491,185 @@ def api_export():
         return "No records yet", 404
     return send_file(LOG_CSV, as_attachment=True,
                      download_name="gauge_readings.csv")
+
+
+# ---------------- Photo tags ----------------
+# Tags pinned on photos: {photo_key: [{id, x, y, name}]}. x/y are fractions
+# of the original image (0..1), so pins stay put at any zoom level.
+# photo_key is "drive:<drive-file-id>" or "local:<filename>".
+# Kept in its own file: admin_save / the Sheets startup restore rewrite
+# data_gauge.json with only {equipment, calibration}, which would drop
+# any extra keys stored there.
+PHOTO_TAGS_FILE = BASE / "data_gauge_photo_tags.json"
+try:
+    PHOTO_TAGS = json.loads(PHOTO_TAGS_FILE.read_text(encoding="utf-8"))
+    if not isinstance(PHOTO_TAGS, dict):
+        PHOTO_TAGS = {}
+except Exception:
+    PHOTO_TAGS = {}
+
+
+def _save_photo_tags():
+    _atomic_write(PHOTO_TAGS_FILE, json.dumps(PHOTO_TAGS, indent=2, ensure_ascii=False))
+
+
+def _valid_photo_key(key):
+    if not isinstance(key, str):
+        return False
+    if key.startswith("drive:"):
+        fid = key[6:]
+        return bool(fid) and all(c.isalnum() or c in "-_" for c in fid)
+    if key.startswith("local:"):
+        fn = key[6:]
+        return bool(fn) and "/" not in fn and "\\" not in fn and fn == Path(fn).name \
+            and fn.rsplit(".", 1)[-1].lower() in ("jpg", "jpeg", "png", "webp")
+    return False
+
+
+def _photo_img_url(key):
+    if key.startswith("drive:"):
+        return f"/Hanseong/gauge/api/drive-photo/{key[6:]}"
+    return f"/Hanseong/gauge/api/tag-photo/{key[6:]}"
+
+
+def _list_drive_photos():
+    """Shared Drive photo listing. Returns (ok, files_or_error)."""
+    svc = drive_service()
+    if not svc or not DRIVE_FOLDER_ID:
+        return False, "Drive not configured"
+    try:
+        files = []
+
+        def list_children(parent_id, prefix=""):
+            page_token = None
+            while True:
+                res = svc.files().list(
+                    q=f"'{parent_id}' in parents and trashed=false",
+                    fields="files(id,name,createdTime,mimeType),nextPageToken",
+                    orderBy="createdTime", pageSize=100,
+                    pageToken=page_token).execute()
+                for f in res.get("files", []):
+                    if f["mimeType"] == "application/vnd.google-apps.folder":
+                        list_children(f["id"], prefix + f["name"] + "/")
+                    else:
+                        files.append({
+                            "id": f["id"], "name": f["name"],
+                            "createdTime": f.get("createdTime"),
+                            "path": prefix + f["name"],
+                        })
+                page_token = res.get("nextPageToken")
+                if not page_token:
+                    break
+
+        list_children(DRIVE_FOLDER_ID)
+        files.sort(key=lambda f: f.get("createdTime") or "")
+        return True, files
+    except Exception as e:
+        return False, str(e)[:200]
+
+
+@bp.get("/photos")
+def photos_page():
+    """Photo list for tagging: local uploads + Drive photos (Drive loads via JS)."""
+    local = []
+    try:
+        for p in sorted(UPLOAD_DIR.iterdir(), key=lambda p: p.name):
+            if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp"):
+                local.append(p.name)
+    except Exception:
+        local = []
+    return render_template("photos.html", local_photos=local)
+
+
+@bp.post("/api/photo-upload")
+def api_photo_upload():
+    """Upload a photo for tagging (stored locally, no Drive needed)."""
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"ok": False, "error": "no photo"}), 400
+    ext = (f.filename or "").rsplit(".", 1)[-1].lower() if "." in (f.filename or "") else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        ext = "jpg"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = None
+    for n in range(1000):
+        cand = f"tagged_{ts}_{n}.{ext}"
+        if not (UPLOAD_DIR / cand).exists():
+            fname = cand
+            break
+    if fname is None:
+        return jsonify({"ok": False, "error": "too many uploads"}), 500
+    (UPLOAD_DIR / fname).write_bytes(f.read())
+    return jsonify({"ok": True, "key": f"local:{fname}", "name": fname})
+
+
+@bp.get("/api/tag-photo/<fname>")
+def api_tag_photo(fname):
+    if "/" in fname or "\\" in fname or fname != Path(fname).name:
+        return "bad request", 400
+    p = UPLOAD_DIR / fname
+    if not p.exists() or p.suffix.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
+        return "not found", 404
+    mt = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+          "png": "image/png", "webp": "image/webp"}[p.suffix.lower()[1:]]
+    return send_file(p, mimetype=mt)
+
+
+@bp.get("/photo/<path:key>")
+def photo_view_page(key):
+    if not _valid_photo_key(key):
+        return "bad photo", 400
+    return render_template("photo_tags.html", mode="view", photo_key=key,
+                           img_url=_photo_img_url(key),
+                           tags=PHOTO_TAGS.get(key, []), label=key[6:])
+
+
+@bp.get("/photo/<path:key>/edit")
+def photo_edit_page(key):
+    if not _valid_photo_key(key):
+        return "bad photo", 400
+    return render_template("photo_tags.html", mode="edit", photo_key=key,
+                           img_url=_photo_img_url(key),
+                           tags=PHOTO_TAGS.get(key, []), label=key[6:])
+
+
+@bp.get("/api/photo-tags/<path:key>")
+def api_photo_tags_get(key):
+    if not _valid_photo_key(key):
+        return jsonify({"error": "bad photo"}), 400
+    return jsonify({"ok": True, "tags": PHOTO_TAGS.get(key, [])})
+
+
+@bp.post("/api/photo-tags/<path:key>")
+def api_photo_tags_save(key):
+    if not _valid_photo_key(key):
+        return jsonify({"error": "bad photo"}), 400
+    body = request.get_json(force=True, silent=True) or {}
+    raw = body.get("tags")
+    if not isinstance(raw, list) or len(raw) > 200:
+        return jsonify({"error": "tags must be a list of at most 200"}), 400
+    clean = []
+    for t in raw:
+        if not isinstance(t, dict):
+            return jsonify({"error": "bad tag"}), 400
+        try:
+            x, y = float(t["x"]), float(t["y"])
+        except Exception:
+            return jsonify({"error": "bad coordinates"}), 400
+        if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
+            return jsonify({"error": "coordinates out of range"}), 400
+        name = str(t.get("name", "")).strip()
+        if not name or len(name) > 100:
+            return jsonify({"error": "tag name required (max 100 chars)"}), 400
+        tid = str(t.get("id", ""))[:64]
+        clean.append({"id": tid or uuid.uuid4().hex[:12],
+                      "x": round(x, 4), "y": round(y, 4), "name": name})
+    PHOTO_TAGS[key] = clean
+    try:
+        _save_photo_tags()
+    except Exception as e:
+        return jsonify({"error": f"save failed: {e}"}), 500
+    return jsonify({"ok": True, "count": len(clean)})
 
 
 # ---------------- Admin (settings) ----------------
