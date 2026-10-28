@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Photos — Hanseong Check List</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 0; background: #f5f5f5; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  h2 { margin: 0 0 8px; font-size: 20px; }
+  .muted { color: #666; font-size: 13px; }
+  .btn { display: block; width: 100%; padding: 14px; margin-top: 10px; font-size: 16px;
+         border: none; border-radius: 10px; background: #1976d2; color: #fff; cursor: pointer; }
+  .btn:disabled { opacity: .5; }
+  .nav { display: flex; gap: 8px; margin-bottom: 12px; }
+  .nav a { flex: 1; text-align: center; padding: 12px; background: #fff; border: 1px solid #ddd;
+           border-radius: 10px; text-decoration: none; color: #1976d2; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .thumb { background: #fafafa; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+  .thumb img { width: 100%; height: 100px; object-fit: cover; display: block; }
+  .thumb .meta { padding: 6px; font-size: 11px; word-break: break-all; }
+  .thumb .meta a { color: #1976d2; text-decoration: none; font-weight: 600; }
+  .drow { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+  .drow .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drow a { color: #1976d2; text-decoration: none; font-weight: 600; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <a href="/Hanseong/gauge/">🏠 Home</a>
+    <a href="/Hanseong/gauge/inspect">📋 Inspection</a>
+  </div>
+  <div class="card">
+    <h2>📷 Add a Photo for Tagging</h2>
+    <div class="muted">Take a photo (or pick one) — it is saved here, then you place Tag pins on it. The same photo keeps its Tags every time you open it.</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn" id="cameraBtn" style="flex:1">📷 Camera</button>
+      <button class="btn" id="galleryBtn" style="flex:1;background:#43a047">🖼️ Choose Photo</button>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="galleryInput" accept="image/*" style="display:none">
+    <div id="upStatus" class="muted" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h2>🏷️ Photos on This Server</h2>
+    {% if local_photos %}
+    <div class="grid">
+      {% for fn in local_photos %}
+      <div class="thumb">
+        <a href="/Hanseong/gauge/photo/local:{{ fn }}"><img src="/Hanseong/gauge/api/tag-photo/{{ fn }}" alt=""></a>
+        <div class="meta">
+          <div>{{ fn }}</div>
+          <div><a href="/Hanseong/gauge/photo/local:{{ fn }}">View</a> · <a href="/Hanseong/gauge/photo/local:{{ fn }}/edit">Edit tags</a></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No photos here yet — add one above.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>☁️ Google Drive Photos</h2>
+    <div id="driveList" class="muted">Loading…</div>
+  </div>
+</div>
+<script>
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function uploadOne(file) {
+  const st = document.getElementById("upStatus");
+  st.textContent = "Uploading…";
+  const fd = new FormData();
+  fd.append("photo", file, file.name);
+  try {
+    const r = await fetch("/Hanseong/gauge/api/photo-upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "upload failed");
+    location.href = "/Hanseong/gauge/photo/" + j.key + "/edit";
+  } catch (e) {
+    st.textContent = "Upload failed: " + e.message;
+  }
+}
+document.getElementById("cameraBtn").onclick = () => document.getElementById("cameraInput").click();
+document.getElementById("galleryBtn").onclick = () => document.getElementById("galleryInput").click();
+document.getElementById("cameraInput").onchange = (e) => { if (e.target.files[0]) uploadOne(e.target.files[0]); e.target.value = ""; };
+document.getElementById("galleryInput").onchange = (e) => { if (e.target.files[0]) uploadOne(e.target.files[0]); e.target.value = ""; };
+
+fetch("/Hanseong/gauge/api/drive-photos").then(r => r.json()).then(j => {
+  const el = document.getElementById("driveList");
+  if (!j.ok) { el.textContent = "Drive photos unavailable (" + (j.error || "connection issue") + "). Local photos above still work."; return; }
+  if (!j.files.length) { el.textContent = "No Drive photos yet."; return; }
+  el.innerHTML = j.files.slice().reverse().map(f => `
+    <div class="drow">
+      <div class="nm">${esc(f.path || f.name)}</div>
+      <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}">View</a>
+      <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}/edit">Edit tags</a>
+    </div>`).join("");
+}).catch(() => {
+  document.getElementById("driveList").textContent = "Drive photos unavailable. Local photos above still work.";
+});
+</script>
+</body>
+</html>
