@@ -119,13 +119,15 @@ def build_catalog():
         seen_urls.add(url)
 
     reg = load_registry()
-    for e in (reg.get("web") or []) + (reg.get("android") or []):
+    for e, is_android in ([(e, False) for e in (reg.get("web") or [])]
+                          + [(e, True) for e in (reg.get("android") or [])]):
         url = (e.get("url") or "").strip()
         if url and url in seen_urls:
             continue
         g = add_group(e.get("group", "More"), e.get("group_icon", "📁"))
         g["apps"].append({"name": e.get("name", ""), "icon": e.get("icon", "📱"),
-                          "desc": e.get("desc", ""), "url": url})
+                          "desc": e.get("desc", ""), "url": url,
+                          "download": is_android and bool(url)})
         if url:
             seen_urls.add(url)
 
