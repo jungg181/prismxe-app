@@ -3,49 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d4f3c">
+<meta name="theme-color" content="#0d1310">
 <title>COA · Cleaners of America</title>
 <link rel="manifest" href="/static/coa/manifest.json">
 <link rel="apple-touch-icon" href="/static/coa/icon-180.png">
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
 *{box-sizing:border-box}
-body{background:#e8f0ec;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a2e25}
-.coa-head{background:#fff;color:#1a2e25;padding:32px 20px 26px;text-align:center;border-radius:0 0 28px 28px;box-shadow:0 4px 24px rgba(13,79,60,.12)}
-.coa-head img{display:block;max-width:220px;width:75%;height:auto;margin:0 auto 14px}
-.coa-head h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:.5px;color:#0d4f3c}
-.coa-head p{margin:8px 0 0;color:#6b8a7d;font-size:.88rem}
-.coa-head #head-worker{color:#0d4f3c;font-weight:600}
-.container.narrow{max-width:520px;margin:0 auto;padding:0 16px 40px}
-.card{background:#fff;border:none;border-radius:18px;box-shadow:0 2px 12px rgba(13,79,60,.08);margin-top:14px}
+body{background:#0d1310;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#e9f2ec}
+.coa-head{padding:30px 20px 18px;text-align:center}
+.coa-head img{display:block;max-width:150px;width:55%;height:auto;margin:0 auto 14px;border-radius:12px}
+.coa-head h1{margin:0;font-size:1.4rem;font-weight:800;letter-spacing:.3px}
+.coa-head p{margin:8px 0 0;color:#8fa89c;font-size:.88rem}
+.coa-head #head-worker{color:#4ade80;font-weight:700}
+.container.narrow{max-width:480px;margin:0 auto;padding:0 16px 40px}
+.card{background:#16211c;border:1px solid #24362c;border-radius:20px;margin-top:14px}
 .card-body{padding:20px}
-.scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:16px;margin:12px 0 4px;border:none;cursor:pointer;box-shadow:0 3px 12px rgba(13,79,60,.2);transition:transform .1s}
+.scan-btn{width:100%;padding:17px;font-size:1.12rem;font-weight:800;border-radius:16px;margin:12px 0 4px;border:none;cursor:pointer;transition:transform .1s,filter .15s}
 .scan-btn:active{transform:scale(.98)}
-.btn.primary.scan-btn{background:linear-gradient(135deg,#0ea968,#0d4f3c);color:#fff}
-#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;color:#fff!important}
-input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:12px!important;border:1.5px solid #d4e2da;padding:12px!important;font-size:1rem;background:#fafdfb;width:100%}
-input:focus,select:focus{outline:none;border-color:#0d9b6c;box-shadow:0 0 0 3px rgba(13,155,108,.12)}
-label{display:block;margin:10px 0}
-label b{display:block;margin-bottom:6px;font-size:.9rem;color:#0d4f3c}
-h3{font-size:1.08rem;font-weight:700;color:#0d4f3c;margin-top:0}
-.muted{color:#6b8a7d}
+.scan-btn:disabled{opacity:.6}
+.btn.primary.scan-btn{background:linear-gradient(135deg,#22c07e,#0d7a4e);color:#fff}
+#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#c81e1e)!important;color:#fff!important}
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:12px!important;border:1.5px solid #2c4036;padding:13px!important;font-size:1rem;background:#0d1512;color:#e9f2ec;width:100%}
+input::placeholder{color:#5f7a6d}
+input:focus,select:focus{outline:none;border-color:#25c07f;box-shadow:0 0 0 3px rgba(37,192,127,.18)}
+select option{background:#16211c}
+label{display:block;margin:12px 0}
+label b{display:block;margin-bottom:6px;font-size:.88rem;color:#b9cec3}
+h3{font-size:1.05rem;font-weight:700;margin-top:0}
+.muted{color:#8fa89c}
 .small{font-size:.82rem}
-.status-big{font-size:1.2rem;font-weight:800;color:#0d4f3c}
-.tc-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e8f0ec;font-size:.9rem;align-items:center}
+.status-big{font-size:1.25rem;font-weight:800}
+.tc-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #24362c;font-size:.9rem;align-items:center}
+.tc-row:last-child{border-bottom:none}
 .msg{padding:12px 14px;border-radius:12px;margin:8px 0;font-size:.9rem}
-.msg.ok{background:#dcfce7;color:#166534}
-.msg.err{background:#fee2e2;color:#991b1b}
-.msg.info{background:#dbeafe;color:#1e40af}
+.msg.ok{background:#123524;color:#7be0a8}
+.msg.err{background:#3a1414;color:#fca5a5}
+.msg.info{background:#12263a;color:#93c5fd}
 .hidden{display:none!important}
-#install-card,#ios-install-hint{background:#fff!important;border:1.5px solid #0d9b6c!important;border-radius:14px!important}
-#offline-bar{border-radius:14px!important}
+#install-card,#ios-install-hint{background:#16211c!important;border:1.5px solid #25c07f!important;border-radius:16px!important}
+#offline-bar{border-radius:16px!important}
 #hours-modal .card{border-radius:22px}
-#hours-input{border:2px solid #0d4f3c!important;font-weight:700;text-align:center}
+#hours-input{border:2px solid #25c07f!important;font-weight:700;text-align:center}
 .pill{border-radius:20px;padding:3px 10px;font-size:.75rem;font-weight:700}
-.pill-active{background:#dcfce7;color:#166534}
-.pill-low{background:#fee2e2;color:#991b1b}
-.btn{border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer;border:1.5px solid #d4e2da;background:#fff;color:#0d4f3c}
-.btn.primary{background:linear-gradient(135deg,#0ea968,#0d4f3c);color:#fff;border:none}
+.pill-active{background:#123524;color:#7be0a8}
+.pill-low{background:#3a1414;color:#fca5a5}
+.btn{border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer;border:1.5px solid #2c4036;background:#1e2d25;color:#e9f2ec}
+.btn.primary{background:linear-gradient(135deg,#22c07e,#0d7a4e);color:#fff;border:none}
 .btn.small{padding:6px 12px;font-size:.82rem}
 .btn.big{padding:14px 24px;font-size:1rem}
 .row-actions{display:flex;gap:10px;margin-top:14px}
@@ -61,14 +65,14 @@ h3{font-size:1.08rem;font-weight:700;color:#0d4f3c;margin-top:0}
 
 <main class="container narrow">
   <div id="flash"></div>
-  <div id="install-card" class="hidden" style="background:#e8f5ee;border:1px solid #0d4f3c;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:.88rem">
+  <div id="install-card" class="hidden" style="background:#16211c;border:1px solid #25c07f;border-radius:16px;padding:10px 12px;margin:10px 0;font-size:.88rem">
     📲 <b>Install the COA app</b> — add it to your home screen for one-tap clock in/out.
     <button class="btn primary small" id="install-btn" style="margin-top:8px">Install</button>
   </div>
-  <div id="ios-install-hint" class="hidden" style="background:#e8f5ee;border:1px solid #0d4f3c;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:.85rem">
+  <div id="ios-install-hint" class="hidden" style="background:#16211c;border:1px solid #25c07f;border-radius:16px;padding:10px 12px;margin:10px 0;font-size:.85rem">
     📲 <b>iPhone:</b> tap <b>Share</b> <span style="font-size:1rem">⎙</span> in Safari, then <b>Add to Home Screen</b> to install the COA app.
   </div>
-  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — records will sync automatically when reconnected.</div>
+  <div id="offline-bar" class="hidden" style="background:#2a2110;color:#fcd34d;border:1px solid #92400e;border-radius:16px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — records will sync automatically when reconnected.</div>
 
   <div class="card" id="who-card" style="margin-top:12px"><div class="card-body">
     <h3 style="margin-top:0">Worker Registration</h3>
@@ -131,7 +135,7 @@ h3{font-size:1.08rem;font-weight:700;color:#0d4f3c;margin-top:0}
   </div>
 </main>
 
-<div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
+<div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
   <div class="card" style="width:100%;max-width:400px;margin:0"><div class="card-body" style="text-align:center">
     <div style="font-size:40px">⏱️</div>
     <h3 style="margin:8px 0 4px">Clock Out</h3>
