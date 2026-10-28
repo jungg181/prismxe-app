@@ -148,6 +148,10 @@ from patrol_bp import bp as patrol_bp, patrol_coa_bp
 from burner_bp import bp as burner_bp
 from bible_bp import bp as bible_bp
 from checklist_bp import bp as checklist_bp
+# NOTE: coa_bp must stay registered — it was dropped twice by app.py
+# refactors (fixed in 2b1dfc1, dropped again in 441abd0). Without the
+# two coa lines below, all of /coa/ returns 404.
+from coa_bp import bp as coa_bp
 
 app.register_blueprint(gauge_bp)
 app.register_blueprint(cm_bp)
@@ -156,6 +160,7 @@ app.register_blueprint(patrol_coa_bp)
 app.register_blueprint(burner_bp)
 app.register_blueprint(bible_bp)
 app.register_blueprint(checklist_bp)
+app.register_blueprint(coa_bp)
 register_cm_jinja(app)
 
 
