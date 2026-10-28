@@ -24,8 +24,8 @@
 <body>
 <div class="wrap">
   <div class="nav">
-    <a href="/gauge/">🏠 Home</a>
-    <a href="/gauge/inspect">📋 Inspection</a>
+    <a href="/Hanseong/gauge/">🏠 Home</a>
+    <a href="/Hanseong/gauge/inspect">📋 Inspection</a>
   </div>
   <div class="card">
     <h2>📤 Upload Photos</h2>
@@ -116,7 +116,7 @@ document.getElementById("driveUploadBtn").onclick = async () => {
       const fd = new FormData();
       fd.append("photo", rec.blob, rec.filename);
       fd.append("filename", rec.filename);
-      const r = await fetch("/gauge/api/drive-upload", { method: "POST", body: fd });
+      const r = await fetch("/Hanseong/gauge/api/drive-upload", { method: "POST", body: fd });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "upload failed");
       await hcDbDelete(rec.id);
