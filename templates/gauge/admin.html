@@ -116,7 +116,7 @@
       <button class="btn btn-sec" onclick="backup()">📥 Download backup</button>
       <button class="btn btn-sec" onclick="doLogout()">Log out</button>
     </div>
-    <div style="text-align:center;margin:16px 0"><a href="/gauge/" class="back">‹ Back to home</a></div>
+    <div style="text-align:center;margin:16px 0"><a href="/Hanseong/gauge/" class="back">‹ Back to home</a></div>
   </div>
 </main>
 <div id="calModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto">
@@ -168,18 +168,18 @@ function showLogin() {
 
 async function doLogin() {
   const pw = document.getElementById("pw").value;
-  const r = await fetch("/gauge/api/admin/login", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ password: pw }) });
+  const r = await fetch("/Hanseong/gauge/api/admin/login", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ password: pw }) });
   if (r.ok) { document.getElementById("pw").value = ""; load(); }
   else toast("Wrong password");
 }
 async function doLogout() {
-  await fetch("/gauge/api/admin/logout", { method: "POST" });
+  await fetch("/Hanseong/gauge/api/admin/logout", { method: "POST" });
   showLogin();
 }
 
 async function load() {
   try {
-    const r = await api("/gauge/api/admin/config");
+    const r = await api("/Hanseong/gauge/api/admin/config");
     CFG = await r.json();
   } catch (e) { return; }
   document.getElementById("login").style.display = "none";
@@ -374,7 +374,7 @@ function collect() {
 async function saveAll() {
   collect();
   try {
-    const r = await api("/gauge/api/admin/save", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(CFG) });
+    const r = await api("/Hanseong/gauge/api/admin/save", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(CFG) });
     const d = await r.json();
     if (d.ok) toast("Saved ✓");
     else toast("Save failed: " + (d.error || "?"));
@@ -383,7 +383,7 @@ async function saveAll() {
 
 async function backup() {
   try {
-    const r = await api("/gauge/api/admin/backup");
+    const r = await api("/Hanseong/gauge/api/admin/backup");
     const blob = await r.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -393,9 +393,9 @@ async function backup() {
 }
 
 function gaugeQR(devId, gid, gname) {
-  const url = location.origin + "/gauge/e/" + encodeURIComponent(devId) + "?gauge=" + encodeURIComponent(gid);
+  const url = location.origin + "/Hanseong/gauge/e/" + encodeURIComponent(devId) + "?gauge=" + encodeURIComponent(gid);
   const a = document.createElement("a");
-  a.href = "/gauge/api/qr?text=" + encodeURIComponent(url);
+  a.href = "/Hanseong/gauge/api/qr?text=" + encodeURIComponent(url);
   a.download = "QR_" + (gname || gid).replace(/[^\w\-]+/g, "_") + ".png";
   document.body.appendChild(a);
   a.click();
