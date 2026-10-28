@@ -29,6 +29,7 @@
     {% endfor %}
   </div>
 </form>
+<div style="margin:10px 0"><a class="btn small" href="{{ url_for('coa.payroll_xlsx') }}">⬇ Export Weekly Payroll (XLSX)</a></div>
 <div class="table-wrap"><table class="tbl">
 <tr><th>Worker</th><th>Jobsite</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Actions</th></tr>
 {% for t in rows %}
