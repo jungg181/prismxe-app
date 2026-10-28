@@ -38,11 +38,27 @@ label{display:block;margin:8px 0}
     <label><b>Email</b> <span class="muted small">(required — links your clock-ins for payroll)</span>
       <input type="email" id="reg-email" placeholder="you@example.com" style="width:100%" autocomplete="email">
     </label>
+    {% if request.blueprint == 'patrol' %}
+    <label><b>Phone</b> <span class="muted small">(so your supervisor can reach you)</span>
+      <input type="tel" id="reg-phone" placeholder="e.g. 480-555-0123" style="width:100%" autocomplete="tel">
+    </label>
+    {% endif %}
     <button class="btn primary big-btn" onclick="doRegister()">Register</button>
     <div id="reg-msg"></div>
   </div></div>
 
   <div id="main-app" class="hidden">
+    {% if request.blueprint == 'patrol' %}
+    <div class="card hidden" id="phone-card" style="margin-top:12px;border:2px solid #f59e0b"><div style="padding:4px">
+      <h3 style="margin-top:0">📱 Add your phone number</h3>
+      <p class="muted small" style="margin-top:0">Your supervisor needs a contact number. Enter it once — you won't be asked again.</p>
+      <label><b>Phone</b>
+        <input type="tel" id="phone-input" placeholder="e.g. 480-555-0123" style="width:100%" autocomplete="tel">
+      </label>
+      <button class="btn primary big-btn" onclick="savePhone()">Save phone number</button>
+      <div id="phone-msg"></div>
+    </div></div>
+    {% endif %}
     <div class="card" style="margin-top:12px"><div id="status-card" style="padding:4px">
       <div class="muted">Loading your status...</div>
     </div></div>
@@ -147,11 +163,15 @@ async function punch(action){
   try {
     const pos = await getPos();
     const body = {email:id.email, name:id.name, action:action};
+    if (id.phone) body.phone = id.phone;
     if (pos) { body.lat = pos.lat; body.lng = pos.lng; }
     const r = await fetch("{{ url_for('.api_patrol_punch') }}", {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)});
     const j = await r.json();
-    if (j.ok) { flash(action === 'in' ? '✅ Clocked in at ' + fmtT(j.since) : '✅ Clocked out.', 'ok'); }
+    if (j.ok) {
+      flash(action === 'in' ? '✅ Clocked in at ' + fmtT(j.since) : '✅ Clocked out.', 'ok');
+      if (j.needs_phone) { showPhoneCard(); } else { hidePhoneCard(); }
+    }
     else { flash('⚠️ ' + (j.error || 'Failed.'), 'err'); }
   } catch(e){ flash('⚠️ Network error. Try again.', 'err'); }
   await refreshStatus();
@@ -160,12 +180,40 @@ async function punch(action){
 function doRegister(){
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
+  const phoneEl = document.getElementById('reg-phone');
+  const phone = phoneEl ? phoneEl.value.trim() : '';
   const msg = document.getElementById('reg-msg');
   if (!name) { msg.innerHTML = '<div class="msg err">Enter your name.</div>'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.innerHTML = '<div class="msg err">Enter a valid email.</div>'; return; }
-  setIdent({name:name, email:email});
+  setIdent({name:name, email:email, phone:phone});
   boot();
   flash('✅ Registered as ' + name + '.', 'ok');
+}
+
+function showPhoneCard(){
+  const card = document.getElementById('phone-card'); if (!card) return;
+  const id = ident();
+  if (id && id.phone) document.getElementById('phone-input').value = id.phone;
+  card.classList.remove('hidden');
+}
+function hidePhoneCard(){
+  const card = document.getElementById('phone-card'); if (card) card.classList.add('hidden');
+}
+async function savePhone(){
+  const id = ident(); if(!id) return;
+  const phone = document.getElementById('phone-input').value.trim();
+  const msg = document.getElementById('phone-msg');
+  if (!phone || phone.replace(/\D/g, '').length < 7) { msg.innerHTML = '<div class="msg err">Enter a valid phone number.</div>'; return; }
+  try {
+    const r = await fetch("{{ url_for('.api_patrol_phone') }}", {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email:id.email, phone:phone})});
+    const j = await r.json();
+    if (j.ok) {
+      id.phone = phone; setIdent(id);
+      hidePhoneCard();
+      flash('✅ Phone number saved.', 'ok');
+    } else { msg.innerHTML = '<div class="msg err">⚠️ ' + (j.error || 'Failed.') + '</div>'; }
+  } catch(e){ msg.innerHTML = '<div class="msg err">⚠️ Network error. Try again.</div>'; }
 }
 
 function boot(){
