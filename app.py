@@ -173,14 +173,14 @@ def _legacy_redirect(new_base, path):
     return redirect(url, code=308)
 
 
-@app.route("/patrol", defaults={"path": ""}, methods=_LEGACY_METHODS)
-@app.route("/patrol/<path:path>", methods=_LEGACY_METHODS)
+@app.route("/patrol", defaults={"path": ""}, methods=_LEGACY_METHODS, strict_slashes=False)
+@app.route("/patrol/<path:path>", methods=_LEGACY_METHODS, strict_slashes=False)
 def legacy_patrol_redirect(path):
     return _legacy_redirect("/Hanseong/patrol", path)
 
 
-@app.route("/gauge", defaults={"path": ""}, methods=_LEGACY_METHODS)
-@app.route("/gauge/<path:path>", methods=_LEGACY_METHODS)
+@app.route("/gauge", defaults={"path": ""}, methods=_LEGACY_METHODS, strict_slashes=False)
+@app.route("/gauge/<path:path>", methods=_LEGACY_METHODS, strict_slashes=False)
 def legacy_gauge_redirect(path):
     return _legacy_redirect("/Hanseong/gauge", path)
 
