@@ -153,14 +153,22 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     # view; a short-lived session flag authorizes the page's own action
     # POSTs (edits, saves). When the env var is unset, behavior is
     # unchanged (session login only).
+    # Hanseong exception: one password entry unlocks ALL gated pages for
+    # 15 minutes (no re-prompt on navigation). Other companies keep the
+    # original per-page, per-visit gate.
     PAGE_PASSWORD = os.environ.get('PATROL_ADMIN_PASSWORD', '')
     VISIT_AUTH_KEY = f'patrol_{company_id}_visit_auth'
     VISIT_AUTH_TTL = 1800  # seconds an unlocked page view stays usable
+    HANSEONG_UNLOCK_TTL = 900  # 15 minutes, Hanseong only
+    UNLOCK_ALL_KEY = '__all__'
 
     def _visit_authed(page):
         if not PAGE_PASSWORD:
             return bool(session.get(ADMIN_SESSION_KEY))
         auth = session.get(VISIT_AUTH_KEY) or {}
+        if company_id == 'hanseong':
+            ts = auth.get(UNLOCK_ALL_KEY)
+            return bool(ts) and (time.time() - ts < HANSEONG_UNLOCK_TTL)
         ts = auth.get(page)
         return bool(ts) and (time.time() - ts < VISIT_AUTH_TTL)
 
@@ -171,12 +179,16 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     def _mark_visit_authed(page):
         auth = session.get(VISIT_AUTH_KEY) or {}
-        auth[page] = time.time()
+        if company_id == 'hanseong':
+            auth[UNLOCK_ALL_KEY] = time.time()
+        else:
+            auth[page] = time.time()
         session[VISIT_AUTH_KEY] = auth
 
     def visit_gate(page, page_title):
         """Wrap a page route: every GET starts locked behind a password
-        form; a POST carrying the correct page_password unlocks one view."""
+        form; a POST carrying the correct page_password unlocks one view.
+        Hanseong: an unlock lasts 15 minutes across all gated pages."""
         def deco(fn):
             @wraps(fn)
             def wrapper(*a, **k):
@@ -193,6 +205,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                         _mark_visit_authed(page)
                         return fn(*a, **k)
                     flash('Wrong password.')
+                elif company_id == 'hanseong' and _visit_authed(page):
+                    return fn(*a, **k)
                 else:
                     _clear_visit_auth(page)
                 action = url_for(BP + '.' + page)
