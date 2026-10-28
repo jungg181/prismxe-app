@@ -6,57 +6,60 @@
 <title>{{ flow_name }} — Burner Guide</title>
 <style>
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-    margin: 0; background: #f1f5f9; color: #0f172a; min-height: 100vh;
+    margin: 0; background: #f1f5f9; color: #0f172a; height: 100dvh; overflow: hidden;
+    display: flex; flex-direction: column;
   }
-  header { background: #1976d2; color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 5; }
-  header .row { display: flex; align-items: center; gap: 10px; max-width: 640px; margin: 0 auto; }
+  header { background: #1976d2; color: #fff; padding: 8px 12px; flex-shrink: 0; }
+  header .row { display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 0 auto; }
   header a.home { color: #fff; text-decoration: none; font-size: 22px; }
-  header h1 { margin: 0; font-size: 18px; font-weight: 700; flex: 1; }
-  header .cnt { font-size: 14px; font-weight: 600; opacity: .95; white-space: nowrap; }
-  .pbar { height: 6px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 10px; max-width: 640px; margin-left: auto; margin-right: auto; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header h1 span { font-size: 12px; font-weight: 600; opacity: .9; }
+  header .cnt { font-size: 13px; font-weight: 600; opacity: .95; white-space: nowrap; }
+  .pbar { height: 5px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; max-width: 640px; margin-left: auto; margin-right: auto; }
   .pbar > div { height: 100%; background: #fff; border-radius: 3px; transition: width .3s; }
-  main { padding: 16px; max-width: 640px; margin: 0 auto; }
-  .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0 14px; }
+  main { padding: 10px 12px; max-width: 640px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; }
+  .dots { display: flex; gap: 4px; flex-wrap: nowrap; justify-content: center; margin: 0 0 8px; }
   .dots button {
-    width: 30px; height: 30px; border-radius: 50%; border: 2px solid #cbd5e1;
-    background: #fff; color: #94a3b8; font-size: 13px; font-weight: 700; cursor: pointer; padding: 0;
+    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #cbd5e1;
+    background: #fff; color: #94a3b8; font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; flex-shrink: 0;
   }
   .dots button.cur { border-color: #1976d2; color: #1976d2; }
   .dots button.done { background: #1976d2; border-color: #1976d2; color: #fff; }
   .dots button:disabled { cursor: default; opacity: .6; }
-  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px 20px; margin-bottom: 14px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px 14px; margin-bottom: 10px; }
   .stepnum {
     display: inline-block; background: #1976d2; color: #fff; font-weight: 800;
-    font-size: 15px; border-radius: 999px; padding: 5px 16px; margin-bottom: 12px;
+    font-size: 12px; border-radius: 999px; padding: 3px 10px; margin-bottom: 7px;
   }
-  .card h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; line-height: 1.25; }
-  .card h3 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #334155; line-height: 1.35; }
-  .card p.en { font-size: 17px; line-height: 1.6; margin: 0 0 10px; }
-  .card p.ko { font-size: 16px; line-height: 1.65; margin: 0; color: #475569; }
-  .stepimg { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px; margin-bottom: 14px; }
-  .stepimg img { width: 100%; border-radius: 10px; display: block; }
-  .stepimg .cap { font-size: 14px; font-weight: 700; color: #1976d2; margin: 10px 4px 2px; line-height: 1.5; }
-  .stepimg .capko { font-size: 13px; color: #64748b; margin: 0 4px 4px; line-height: 1.5; }
+  .card h2 { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: 1.25; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #334155; line-height: 1.3; }
+  .card p.en { font-size: 15px; line-height: 1.45; margin: 0 0 6px; }
+  .card p.ko { font-size: 14px; line-height: 1.5; margin: 0; color: #475569; }
+  .stepimg { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; margin-bottom: 10px; }
+  .stepimg img { width: 100%; max-height: 18vh; object-fit: cover; border-radius: 8px; display: block; }
+  .stepimg .cap { font-size: 12px; font-weight: 700; color: #1976d2; margin: 6px 4px 1px; line-height: 1.4; }
+  .stepimg .capko { font-size: 11px; color: #64748b; margin: 0 4px 2px; line-height: 1.4; }
   .timerbox {
-    background: #0f172a; color: #fff; border-radius: 16px; padding: 22px 20px;
-    text-align: center; margin-bottom: 14px;
+    background: #0f172a; color: #fff; border-radius: 12px; padding: 12px;
+    text-align: center; margin-bottom: 10px;
   }
-  .timerbox .tdisp { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 2px; }
-  .timerbox .tbtns { display: flex; gap: 10px; margin-top: 14px; }
+  .timerbox .tdisp { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 2px; line-height: 1.1; }
+  .timerbox .tbtns { display: flex; gap: 8px; margin-top: 10px; }
   .timerbox .tbtns button {
-    flex: 1; padding: 14px; font-size: 17px; font-weight: 700; border: none;
+    flex: 1; padding: 11px; font-size: 15px; font-weight: 700; border: none;
     border-radius: 10px; cursor: pointer;
   }
   .tstart { background: #2e7d32; color: #fff; }
   .tpause { background: #f59e0b; color: #fff; }
   .treset { background: #475569; color: #fff; }
-  .timenote { font-size: 13px; color: #94a3b8; margin-top: 12px; line-height: 1.5; }
-  .skiptimer { display: block; text-align: center; margin-top: 10px; color: #94a3b8; font-size: 14px; background: none; border: none; cursor: pointer; width: 100%; }
-  .nav { display: flex; gap: 10px; }
+  .timenote { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.4; }
+  .skiptimer { display: block; text-align: center; margin-top: 6px; color: #94a3b8; font-size: 13px; background: none; border: none; cursor: pointer; width: 100%; }
+  .nav { display: flex; gap: 8px; }
   .nav button {
-    flex: 1; padding: 18px; font-size: 19px; font-weight: 800; border: none;
+    flex: 1; padding: 12px; font-size: 17px; font-weight: 800; border: none;
     border-radius: 12px; cursor: pointer;
   }
   .back { background: #e2e8f0; color: #334155; }
@@ -70,6 +73,16 @@
   .donescreen a {
     display: inline-block; margin-top: 18px; background: #1976d2; color: #fff;
     text-decoration: none; font-weight: 700; font-size: 18px; padding: 16px 40px; border-radius: 12px;
+  }
+  /* Very short phones: tighten further so one step still fits without scrolling */
+  @media (max-height: 700px) {
+    .card { padding: 10px 12px; }
+    .card h2 { font-size: 18px; }
+    .card p.en { font-size: 14px; }
+    .card p.ko { font-size: 13px; }
+    .stepimg img { max-height: 13vh; }
+    .timerbox .tdisp { font-size: 36px; }
+    .nav button { padding: 10px; }
   }
   #alarm {
     display: none; position: fixed; inset: 0; z-index: 50; background: #c62828;
@@ -101,7 +114,7 @@
 <header>
   <div class="row">
     <a class="home" href="/burner/">‹</a>
-    <h1>{{ flow_name }}<br><span style="font-size:13px;font-weight:600;opacity:.9">{{ flow_name_ko }}</span></h1>
+    <h1>{{ flow_name }} <span>{{ flow_name_ko }}</span></h1>
     <div class="cnt" id="counter"></div>
   </div>
   <div class="pbar"><div id="pfill" style="width:0%"></div></div>
@@ -224,13 +237,13 @@ function render() {
 
   const isLast = idx === N - 1;
   html += '<div class="nav" style="margin-top:14px">' +
-    '<button class="back" onclick="back()"' + (idx === 0 ? ' disabled' : '') + '>‹ Back<br><span style="font-size:13px">이전</span></button>';
+    '<button class="back" onclick="back()"' + (idx === 0 ? ' disabled' : '') + '>‹ Back<br><span style="font-size:12px">이전</span></button>';
   if (st.kind === 'timer') {
-    html += '<button class="next" onclick="next()">Next →<br><span style="font-size:13px">다음 미리 보기</span></button>';
+    html += '<button class="next" onclick="next()">Next →<br><span style="font-size:12px">다음 미리 보기</span></button>';
   } else if (isLast) {
-    html += '<button class="finish" onclick="finish()">✓ Done<br><span style="font-size:13px">완료</span></button>';
+    html += '<button class="finish" onclick="finish()">✓ Done<br><span style="font-size:12px">완료</span></button>';
   } else {
-    html += '<button class="next" onclick="next()">Next →<br><span style="font-size:13px">다음</span></button>';
+    html += '<button class="next" onclick="next()">Next →<br><span style="font-size:12px">다음</span></button>';
   }
   html += '</div>';
   main.innerHTML = html;
