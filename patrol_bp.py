@@ -2123,6 +2123,13 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             DB['workers'].append(worker)
         elif not worker.get('name'):
             worker['name'] = name
+        # phone number (Hanseong only): a first-timer may send it with the
+        # punch; workers without one are prompted (needs_phone) until saved.
+        if company_id == 'hanseong':
+            phone = (d.get('phone') or '').strip()
+            if phone and not (worker.get('phone') or '').strip():
+                if sum(c.isdigit() for c in phone) >= 7:
+                    worker['phone'] = phone
         # optional GPS from the phone — shown on the staff map
         try:
             lat = float(d.get('lat')) if d.get('lat') is not None else None
@@ -2136,8 +2143,31 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         save_db()
         sheets_post_async({"action": "punch", "punch": DB['punches'][-1]})
         clocked_in, last = punch_status(email)
+        needs_phone = (company_id == 'hanseong'
+                       and not (worker.get('phone') or '').strip())
         return jsonify({'ok': True, 'clocked_in': clocked_in,
-                        'since': last.get('ts') if last else None})
+                        'since': last.get('ts') if last else None,
+                        'needs_phone': needs_phone})
+
+
+    @bp.route('/api/patrol-phone', methods=['POST'])
+    def api_patrol_phone():
+        # Hanseong only: a worker without a phone number saves it from the
+        # clock-page prompt that follows their next clock in/out.
+        if company_id != 'hanseong':
+            return jsonify({'ok': False, 'error': 'Not available.'}), 404
+        d = request.get_json(force=True) or {}
+        email = (d.get('email') or '').strip().lower()
+        phone = (d.get('phone') or '').strip()
+        if not phone or sum(c.isdigit() for c in phone) < 7:
+            return jsonify({'ok': False,
+                            'error': 'Enter a valid phone number.'}), 400
+        for w in DB['workers']:
+            if (w.get('email') or '').strip().lower() == email:
+                w['phone'] = phone
+                save_db()
+                return jsonify({'ok': True})
+        return jsonify({'ok': False, 'error': 'Unknown worker'}), 404
 
 
     @bp.route('/api/location', methods=['POST'])
