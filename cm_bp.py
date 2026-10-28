@@ -1308,7 +1308,8 @@ def payroll():
     total_gross = round(sum(r['gross'] for r in rows), 2)
     total_hours = round(sum(r['hours'] for r in rows), 2)
     return render_template('cm/payroll.html', rows=rows, start=start, end=end,
-                           total_gross=total_gross, total_hours=total_hours)
+                           total_gross=total_gross, total_hours=total_hours,
+                           monday=_week_monday_cm(start).isoformat())
 
 
 def _fmt_num(v):
@@ -1367,6 +1368,302 @@ def payroll_export():
     data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
     return send_file(data, mimetype='text/csv', as_attachment=True,
                      download_name=f'payroll-report-{start}-to-{end}.csv')
+
+
+def _week_monday_cm(arg):
+    """Monday (date) of the week containing arg (YYYY-MM-DD) or today."""
+    try:
+        d0 = date.fromisoformat(arg) if arg else None
+    except (ValueError, TypeError):
+        d0 = None
+    if d0 is None:
+        d0 = today()
+    return d0 - timedelta(days=d0.weekday())
+
+
+def _weekly_payroll_data_cm(monday):
+    """Weekly grid rows + per-pair detail rows for the CM XLSX export.
+
+    Grid cells mirror the patrol attendance sheet: one cell per worker
+    per day, in = first clock-in, out = last clock-out, hours = SUM of
+    the day's pairs (meal-adjusted payroll hours). Split days are flagged
+    and every pair is listed in the detail rows.
+    Returns (grid_rows, detail_rows).
+    """
+    days = [monday + timedelta(days=i) for i in range(7)]
+    day_set = {d.isoformat() for d in days}
+    grouped = {}
+    detail = []
+    for t in DB['timecards']:
+        if not t.get('clock_out'):
+            continue
+        d = (t.get('clock_in') or '')[:10]
+        if d not in day_set:
+            continue
+        ci = parse_iso(t.get('clock_in'))
+        co = parse_iso(t.get('clock_out'))
+        if not ci or not co:
+            continue
+        gross = round((co - ci).total_seconds() / 3600.0, 2)
+        meal = 1 if gross >= 5 else 0
+        pay_hours = t.get('hours') or round(gross - meal, 2)
+        status = t.get('status', '')
+        approved = status == 'approved'
+        payroll_status = 'Approved' if approved else 'Needs Approval'
+        timecard_status = ('Approved' if approved
+                           else 'Clocked Out' if status == 'clocked_out'
+                           else 'Clocked In')
+        wid = t['worker_id']
+        cell = grouped.setdefault((wid, d), {'name': worker_name(wid),
+                                             'pairs': []})
+        cell['pairs'].append({'in': ci.strftime('%H:%M'),
+                              'out': co.strftime('%H:%M'),
+                              'hours': pay_hours})
+        detail.append({
+            'employee': worker_name(wid), 'site': site_name(t.get('site_id')),
+            'date': d, 'ci': ci, 'co': co, 'gross': gross, 'meal': meal,
+            'pay_hours': pay_hours, 'payroll_status': payroll_status,
+            'timecard_status': timecard_status,
+            'notes': t.get('notes', '') or '',
+        })
+    detail.sort(key=lambda r: (r['employee'].lower(), r['date'], r['ci']))
+    workers = {}
+    for (wid, d), cell in grouped.items():
+        pairs = sorted(cell['pairs'], key=lambda p: p['in'])
+        workers.setdefault(cell['name'], {})[d] = {
+            'in': pairs[0]['in'], 'out': pairs[-1]['out'],
+            'hours': round(sum(p['hours'] for p in pairs), 2),
+            'split': len(pairs) > 1, 'pairs': pairs}
+    grid = []
+    for name in sorted(workers):
+        day_cells = [workers[name].get(d.isoformat()) for d in days]
+        total = round(sum(c['hours'] for c in day_cells if c), 2)
+        grid.append({'name': name, 'days': day_cells, 'total': total,
+                     'reg': min(total, 40),
+                     'ot': round(max(total - 40, 0), 2)})
+    return grid, detail
+
+
+def _weekly_payroll_xlsx_cm(monday, grid, detail):
+    """Weekly grid + Detail sheet as .xlsx bytes, patrol-sheet layout."""
+    from openpyxl import Workbook
+    from openpyxl.styles import (Font, Alignment, Border, Side, PatternFill)
+    from openpyxl.comments import Comment
+    from openpyxl.utils import get_column_letter
+    from datetime import time as _time
+    days = [monday + timedelta(days=i) for i in range(7)]
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                 'Friday', 'Saturday', 'Sunday']
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Weekly Payroll'
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.print_options.horizontalCentered = True
+    thin = Side(style='thin', color='808080')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    hdr_fill = PatternFill('solid', fgColor='D9D9D9')
+    center = Alignment(horizontal='center', vertical='center',
+                       wrap_text=True)
+    ncols = 14
+    for col, w in {'A': 5, 'B': 22, 'C': 11, 'K': 9, 'L': 9,
+                   'M': 9, 'N': 26}.items():
+        ws.column_dimensions[col].width = w
+    for i in range(7):
+        ws.column_dimensions[get_column_letter(4 + i)].width = 10
+    ws.merge_cells(start_row=1, start_column=1, end_row=1,
+                   end_column=ncols)
+    c = ws.cell(row=1, column=1, value='Weekly Payroll — CM')
+    c.font = Font(bold=True, size=16)
+    c.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 26
+    ws.merge_cells(start_row=2, start_column=1, end_row=2,
+                   end_column=ncols)
+    c = ws.cell(row=2, column=1,
+                value=f"Week of Monday, {days[0].strftime('%B %d, %Y')}"
+                      f" – Sunday, {days[-1].strftime('%B %d, %Y')}")
+    c.font = Font(bold=True, size=11)
+    c.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[2].height = 18
+    hr = 3
+    for col, label in [(1, 'No'), (2, 'Name'), (3, 'Day / Date')]:
+        ws.merge_cells(start_row=hr, start_column=col,
+                       end_row=hr + 1, end_column=col)
+        c = ws.cell(row=hr, column=col, value=label)
+        c.font = Font(bold=True, size=10)
+        c.fill = hdr_fill
+        c.alignment = center
+    for i, day in enumerate(days):
+        col = 4 + i
+        for r, val in [(hr, day_names[i]),
+                       (hr + 1, day.strftime('%Y/%m/%d'))]:
+            c = ws.cell(row=r, column=col, value=val)
+            c.font = Font(bold=True, size=10)
+            c.fill = hdr_fill
+            c.alignment = center
+    for col, label in [(11, 'Total Hours'), (12, 'Regular (≤40)'),
+                       (13, 'Overtime (>40)'), (14, 'Sign')]:
+        ws.merge_cells(start_row=hr, start_column=col,
+                       end_row=hr + 1, end_column=col)
+        c = ws.cell(row=hr, column=col, value=label)
+        c.font = Font(bold=True, size=10)
+        c.fill = hdr_fill
+        c.alignment = center
+    for r in (hr, hr + 1):
+        for col in range(1, ncols + 1):
+            ws.cell(row=r, column=col).border = border
+    row = hr + 2
+    first = row
+    for idx, entry in enumerate(grid, start=1):
+        base = row
+        for col in (1, 2, 11, 12, 13, 14):
+            ws.merge_cells(start_row=base, start_column=col,
+                           end_row=base + 2, end_column=col)
+        c = ws.cell(row=base, column=1, value=idx)
+        c.alignment = center
+        c = ws.cell(row=base, column=2, value=entry['name'])
+        c.alignment = Alignment(horizontal='left', vertical='center')
+        for j, label in enumerate(['Check In', 'Check Out', 'Hours']):
+            c = ws.cell(row=base + j, column=3, value=label)
+            c.alignment = center
+            c.font = Font(size=9, italic=(j == 2))
+        for i in range(7):
+            col = 4 + i
+            L = get_column_letter(col)
+            cell = entry['days'][i]
+            ci = ws.cell(row=base, column=col)
+            co = ws.cell(row=base + 1, column=col)
+            if cell:
+                if cell['in']:
+                    ci.value = _time(int(cell['in'][:2]),
+                                     int(cell['in'][3:5]))
+                    ci.number_format = 'h:mm'
+                if cell['out']:
+                    co.value = _time(int(cell['out'][:2]),
+                                     int(cell['out'][3:5]))
+                    co.number_format = 'h:mm'
+            ci.alignment = center
+            co.alignment = center
+            h = ws.cell(row=base + 2, column=col)
+            if cell and cell.get('split'):
+                h.value = cell['hours']
+                pairs_txt = ', '.join(
+                    f"{p['in']}–{p['out']}" for p in cell['pairs'])
+                h.comment = Comment(f'Split shift: {pairs_txt}', 'Payroll')
+            else:
+                h.value = (f'=IF(OR({L}{base}="",{L}{base + 1}=""),"",'
+                           f'({L}{base + 1}-{L}{base}'
+                           f'+IF({L}{base + 1}<{L}{base},1,0))*24)')
+            h.number_format = '0.00'
+            h.alignment = center
+        tot = ws.cell(row=base, column=11,
+                      value=f'=SUM(D{base + 2}:J{base + 2})')
+        tot.number_format = '0.00'
+        tot.alignment = center
+        tot.font = Font(bold=True)
+        reg = ws.cell(row=base, column=12, value=f'=MIN(K{base},40)')
+        reg.number_format = '0.00'
+        reg.alignment = center
+        ot = ws.cell(row=base, column=13,
+                     value=f'=MAX(K{base}-40,0)')
+        ot.number_format = '0.00'
+        ot.alignment = center
+        for r in range(base, base + 3):
+            for col in range(1, ncols + 1):
+                ws.cell(row=r, column=col).border = border
+        row += 3
+    ws.cell(row=row, column=2, value='TOTAL').font = Font(bold=True)
+    bases = [first + 3 * i for i in range(len(grid))]
+    for col, letter in [(11, 'K'), (12, 'L'), (13, 'M')]:
+        c = ws.cell(row=row, column=col,
+                    value='=' + '+'.join(f'{letter}{b}' for b in bases))
+        c.font = Font(bold=True)
+        c.alignment = center
+        c.number_format = '0.00'
+    for col in range(1, ncols + 1):
+        ws.cell(row=row, column=col).border = border
+    row += 2
+    for label in ['Confirmed by', 'Manager', 'Approved']:
+        ws.cell(row=row, column=2, value=label).font = Font(bold=True,
+                                                            size=11)
+        ws.merge_cells(start_row=row, start_column=3, end_row=row,
+                       end_column=6)
+        ws.cell(row=row, column=8, value='Sign').font = Font(bold=True,
+                                                             size=11)
+        ws.merge_cells(start_row=row, start_column=9, end_row=row,
+                       end_column=12)
+        for col in range(3, 7):
+            ws.cell(row=row, column=col).border = Border(bottom=thin)
+        for col in range(9, 13):
+            ws.cell(row=row, column=col).border = Border(bottom=thin)
+        row += 2
+    ws.print_area = f'A1:N{row - 1}'
+    det = wb.create_sheet('Detail')
+    det.sheet_properties.pageSetUpPr.fitToPage = True
+    det.page_setup.orientation = 'landscape'
+    det.page_setup.paperSize = det.PAPERSIZE_LETTER
+    det.page_setup.fitToWidth = 1
+    det.page_setup.fitToHeight = 0
+    widths = {'A': 22, 'B': 18, 'C': 12, 'D': 11, 'E': 11, 'F': 11,
+              'G': 7, 'H': 12, 'I': 14, 'J': 14, 'K': 30}
+    for col, w in widths.items():
+        det.column_dimensions[col].width = w
+    headers = ['Employee', 'Site', 'Date', 'Clock-In', 'Clock-Out',
+               'Gross Hours', 'Meal', 'Payroll Hours', 'Payroll Status',
+               'Timecard Status', 'Notes']
+    for col, label in enumerate(headers, start=1):
+        c = det.cell(row=1, column=col, value=label)
+        c.font = Font(bold=True, size=10)
+        c.fill = hdr_fill
+        c.alignment = center
+        c.border = border
+    r = 2
+    for d in detail:
+        det.cell(row=r, column=1, value=d['employee'])
+        det.cell(row=r, column=2, value=d['site'])
+        det.cell(row=r, column=3, value=d['date'])
+        ci = det.cell(row=r, column=4,
+                      value=_time(d['ci'].hour, d['ci'].minute))
+        ci.number_format = 'h:mm'
+        co = det.cell(row=r, column=5,
+                      value=_time(d['co'].hour, d['co'].minute))
+        co.number_format = 'h:mm'
+        for col, val in [(6, d['gross']), (7, d['meal']),
+                         (8, d['pay_hours'])]:
+            cc = det.cell(row=r, column=col, value=val)
+            cc.number_format = '0.00'
+        det.cell(row=r, column=9, value=d['payroll_status'])
+        det.cell(row=r, column=10, value=d['timecard_status'])
+        det.cell(row=r, column=11, value=d['notes'])
+        for col in range(1, 12):
+            det.cell(row=r, column=col).border = border
+            det.cell(row=r, column=col).alignment = center
+        det.cell(row=r, column=1).alignment = Alignment(
+            horizontal='left', vertical='center')
+        det.cell(row=r, column=11).alignment = Alignment(
+            horizontal='left', vertical='center')
+        r += 1
+    det.freeze_panes = 'A2'
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@bp.route('/timecards/payroll/export.xlsx')
+def payroll_export_xlsx():
+    monday = _week_monday_cm(request.args.get('monday'))
+    grid, detail = _weekly_payroll_data_cm(monday)
+    data = _weekly_payroll_xlsx_cm(monday, grid, detail)
+    fn = (f'Weekly_Payroll_CM_{monday.isoformat()}_'
+          f'{(monday + timedelta(days=6)).isoformat()}.xlsx')
+    return send_file(
+        io.BytesIO(data),
+        mimetype='application/vnd.openxmlformats-officedocument.'
+                 'spreadsheetml.sheet',
+        as_attachment=True, download_name=fn)
 
 
 # ================= INCIDENTS =================
