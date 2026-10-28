@@ -858,7 +858,8 @@ def clock_confirm(token):
 
 @bp.route('/onsite')
 def onsite():
-    return render_template('cm/onsite.html', trades=TRADES)
+    sites = [s for s in DB['sites'] if s.get('status') == 'active']
+    return render_template('cm/onsite.html', trades=TRADES, sites=sites)
 
 
 def _phone_match(a, b):
