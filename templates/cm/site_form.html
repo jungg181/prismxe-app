@@ -1,13 +1,27 @@
 {% extends "cm/base.html" %}
 {% block title %}{{ 'Edit Site' if site else 'Add Site' }}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  #site-map { height: 320px; width: 100%; border-radius: 12px; border: 1px solid #e2e8f0; position: relative; z-index: 0; }
+  .map-hint { margin-top: 6px; }
+</style>
+{% endblock %}
 {% block content %}
 <h1>{{ 'Edit Site' if site else 'Add New Site' }}</h1>
 <form class="form" method="post" enctype="multipart/form-data">
   <label>Name <input name="name" required value="{{ site.name if site }}"></label>
   <label>Address <input name="address" value="{{ site.address if site }}"></label>
   <div class="grid2">
-    <label>Latitude <input name="lat" type="number" step="any" value="{{ site.lat if site and site.lat is not none }}"></label>
-    <label>Longitude <input name="lng" type="number" step="any" value="{{ site.lng if site and site.lng is not none }}"></label>
+    <label>Latitude <input id="lat-input" name="lat" type="number" step="any" value="{{ site.lat if site and site.lat is not none }}"></label>
+    <label>Longitude <input id="lng-input" name="lng" type="number" step="any" value="{{ site.lng if site and site.lng is not none }}"></label>
+  </div>
+  <div id="map-wrap">
+    <div id="site-map"></div>
+    <div class="muted small map-hint">📍 Drag the pin or tap the map to move the location — the latitude/longitude above update automatically. You can also type numbers directly.</div>
+    <div class="row-actions">
+      <button type="button" class="btn small" id="sat-toggle">Satellite: On</button>
+    </div>
   </div>
   <label>Project Manager <input name="pm" value="{{ site.pm if site }}"></label>
   <div class="grid2">
@@ -26,4 +40,53 @@
     <a class="btn" href="{{ url_for('.sites') }}">Cancel</a>
   </div>
 </form>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  var wrap = document.getElementById('map-wrap');
+  if (typeof L === 'undefined') { if (wrap) wrap.style.display = 'none'; return; }
+  var latInput = document.getElementById('lat-input');
+  var lngInput = document.getElementById('lng-input');
+  function num(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
+  var la = num(latInput.value), ln = num(lngInput.value);
+  var hasCoords = la !== null && ln !== null;
+  var center = hasCoords ? [la, ln] : [33.28844, -111.55389];
+  var map = L.map('site-map').setView(center, hasCoords ? 16 : 13);
+  var esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 19, attribution: 'Esri'});
+  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: 'OSM'});
+  esri.addTo(map);
+  var satOn = true;
+  document.getElementById('sat-toggle').onclick = function(e){
+    satOn = !satOn;
+    if (satOn) { map.removeLayer(osm); esri.addTo(map); e.target.textContent = 'Satellite: On'; }
+    else { map.removeLayer(esri); osm.addTo(map); e.target.textContent = 'Satellite: Off'; }
+  };
+  var marker = null;
+  function syncInputs(ll){
+    latInput.value = ll.lat.toFixed(5);
+    lngInput.value = ll.lng.toFixed(5);
+  }
+  function setPin(ll, moveView){
+    ll = L.latLng(ll);
+    if (marker) { marker.setLatLng(ll); }
+    else {
+      marker = L.marker(ll, {draggable: true}).addTo(map);
+      marker.on('dragend', function(){ syncInputs(marker.getLatLng()); });
+    }
+    if (moveView) map.setView(ll, Math.max(map.getZoom(), 15));
+    syncInputs(ll);
+  }
+  if (hasCoords) setPin(center, false);
+  map.on('click', function(e){ setPin(e.latlng, false); });
+  function syncFromInputs(){
+    var a = num(latInput.value), b = num(lngInput.value);
+    if (a === null || b === null) return;
+    setPin([a, b], true);
+  }
+  latInput.addEventListener('change', syncFromInputs);
+  lngInput.addEventListener('change', syncFromInputs);
+})();
+</script>
 {% endblock %}
