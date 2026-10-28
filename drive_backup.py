@@ -38,6 +38,7 @@ ALL_BACKUPS = [
     ('data_patrol.json', 'Patrol_Data.json'),
     ('data_patrol_coa.json', 'PatrolCOA_Data.json'),
     ('data_gauge.json', 'Gauge_Data.json'),
+    ('data_gauge_photo_tags.json', 'GaugePhotoTags.json'),
     ('data/bible_users.json', 'BibleUsers.json'),
     ('portal_config.json', 'PortalConfig.json'),
 ]
