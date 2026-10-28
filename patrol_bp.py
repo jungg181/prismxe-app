@@ -1023,6 +1023,46 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return jsonify({'ok': True, 'removed': removed})
 
 
+    @bp.route('/timecard/punch/add', methods=['POST'])
+    @login_required
+    @visit_action_required('timecard')
+    def timecard_punch_add():
+        """Manually add a timecard record for a chosen date (admin correction)."""
+        d = request.get_json(force=True)
+        w = find('workers', d.get('worker_id'))
+        if not w:
+            return jsonify({'ok': False, 'error': 'Worker not found.'}), 404
+        email = (w.get('email') or '').strip()
+        name = w.get('name', '')
+
+        def parse_day_time(day, t):
+            if not day or not t:
+                return None
+            try:
+                return datetime.fromisoformat(f"{day}T{t}").replace(
+                    tzinfo=None).isoformat(timespec='seconds')
+            except (ValueError, TypeError):
+                return None
+
+        in_ts = parse_day_time(d.get('date'), d.get('clock_in'))
+        if not in_ts:
+            return jsonify({'ok': False, 'error': 'Invalid date or clock-in time.'}), 400
+        out_ts = parse_day_time(d.get('date'), d.get('clock_out')) if d.get('clock_out') else None
+        if d.get('clock_out') and not out_ts:
+            return jsonify({'ok': False, 'error': 'Invalid clock-out time.'}), 400
+        if out_ts and out_ts <= in_ts:
+            return jsonify({'ok': False, 'error': 'Clock-out must be after clock-in.'}), 400
+        DB['punches'].append({"id": new_id(), "email": email, "name": name,
+                              "action": 'in', "ts": in_ts,
+                              "source": "manual-add"})
+        if out_ts:
+            DB['punches'].append({"id": new_id(), "email": email, "name": name,
+                                  "action": 'out', "ts": out_ts,
+                                  "source": "manual-add"})
+        save_db()  # full DB sync to Sheets (durability layer)
+        return jsonify({'ok': True})
+
+
     @bp.route('/timecard/export')
     @login_required
     @visit_action_required('timecard')
