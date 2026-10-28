@@ -9,7 +9,7 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="brand">🛠️ Patrol Board</div>
+  <div class="brand">🛠️ {% if request.blueprint == 'patrol' %}Hanseong Patrol Board{% else %}Patrol Board{% endif %}</div>
   <a href="https://www.prismxe.com" target="_blank" rel="noopener"><img class="top-logo" src="{{ url_for('static', filename='patrol/logo.png') }}" alt="Prism Multiple Entertainment LLC"></a>
   <nav>
     <a href="{{ url_for('.dashboard') }}" class="{{ 'on' if nav=='dash' else '' }}">Dashboard</a>
