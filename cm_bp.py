@@ -351,11 +351,35 @@ def fmt_dt(iso):
     return dt.strftime('%m/%d %I:%M %p') if dt else '—'
 
 
+def haversine_km(lat1, lng1, lat2, lng2):
+    try:
+        lat1, lng1, lat2, lng2 = map(float, (lat1, lng1, lat2, lng2))
+    except (TypeError, ValueError):
+        return None
+    import math
+    r = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlng / 2) ** 2)
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def clock_in_distance_km(t):
+    s = find('sites', t.get('site_id'))
+    if not s:
+        return None
+    return haversine_km(t.get('clock_in_lat'), t.get('clock_in_lng'),
+                        s.get('lat'), s.get('lng'))
+
+
 def register_jinja(app):
     app.jinja_env.globals.update(
         site_name=site_name, worker_name=worker_name, fmt_dt=fmt_dt,
         gmaps_link=gmaps_link, compute_hours=compute_hours,
         days_remaining=days_remaining, today=today,
+        clock_in_distance_km=clock_in_distance_km,
     )
 
 NAV = [
