@@ -223,7 +223,7 @@ function addEquipment(){
 function delEquipment(id){
   if(!confirm('Delete this equipment?')) return;
   const f = document.createElement('form');
-  f.method='post'; f.action='/settings/equipment/'+id+'/delete';
+  f.method='post'; f.action="{{ url_for('.settings') }}/equipment/"+id+"/delete";
   document.body.appendChild(f); f.submit();
 }
 // --- checks ---
@@ -400,7 +400,7 @@ function addWorker(){
 function delWorker(id){
   if(!confirm('Delete this worker?')) return;
   const f = document.createElement('form');
-  f.method='post'; f.action='/settings/workers/'+id+'/delete';
+  f.method='post'; f.action="{{ url_for('.settings') }}/workers/"+id+"/delete";
   document.body.appendChild(f); f.submit();
 }
 </script>
