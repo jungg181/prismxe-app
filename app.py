@@ -17,12 +17,22 @@ Env vars:
 import os
 import json
 import io
+import hmac
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import (Flask, render_template, request, jsonify, send_file,
+                   session, redirect, url_for)
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+
+# Portal entry password (Render env PORTAL_PASSWORD). When set, the
+# portal page and the app-catalog JSON require it once per session.
+PORTAL_PASSWORD = os.environ.get("PORTAL_PASSWORD", "")
+
+
+def _portal_authed():
+    return session.get("portal_authed") is True
 
 PORTAL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "portal_config.json")
 
@@ -138,7 +148,6 @@ from patrol_bp import bp as patrol_bp, patrol_coa_bp
 from burner_bp import bp as burner_bp
 from bible_bp import bp as bible_bp
 from checklist_bp import bp as checklist_bp
-from coa_bp import bp as coa_bp
 
 app.register_blueprint(gauge_bp)
 app.register_blueprint(cm_bp)
@@ -147,12 +156,18 @@ app.register_blueprint(patrol_coa_bp)
 app.register_blueprint(burner_bp)
 app.register_blueprint(bible_bp)
 app.register_blueprint(checklist_bp)
-app.register_blueprint(coa_bp)
 register_cm_jinja(app)
 
 
-@app.get("/")
+@app.route("/", methods=["GET", "POST"])
 def portal():
+    if PORTAL_PASSWORD and not _portal_authed():
+        if request.method == "POST" and hmac.compare_digest(
+                request.form.get("password") or "", PORTAL_PASSWORD):
+            session["portal_authed"] = True
+            return redirect(url_for("portal"))
+        return render_template("portal_login.html",
+                               error=(request.method == "POST"))
     return render_template("portal.html", companies=build_catalog())
 
 
@@ -171,6 +186,8 @@ def portal_manage():
 @app.get("/api/apps")
 def api_apps():
     """The auto-built app catalog as JSON (same list the portal shows)."""
+    if PORTAL_PASSWORD and not _portal_authed():
+        return jsonify({"error": "Password required."}), 401
     return jsonify({"companies": build_catalog()})
 
 
