@@ -42,7 +42,7 @@
 <div class="cal-cell blank"></div>
 {% else %}
 <div class="cal-cell {% if cal.get(iso) %}worked{% endif %} {% if iso == today_iso %}today{% endif %}">
-<div class="d">{{ iso[8:10]|int }}</div>
+<div class="d">{{ iso[5:7]|int }}/{{ iso[8:10]|int }}</div>
 {% if day_io.get(iso) %}<div class="io">{{ day_io[iso] }}</div>
 {% elif open_in.get(iso) %}<div class="io">{{ open_in[iso] }} – On shift</div>{% endif %}
 {% if cal.get(iso) %}<div class="h">{{ cal[iso] }}h</div>{% endif %}
