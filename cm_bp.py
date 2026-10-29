@@ -9,7 +9,6 @@ import threading
 import time
 import urllib.request
 from datetime import datetime, date, timedelta
-import calendar
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    jsonify, send_file, abort, flash)
@@ -1307,18 +1306,19 @@ def timecard_delete(tid):
 
 @bp.route('/timecards/payroll')
 def payroll():
-    # Step 1: pick a month, step 2: pick a worker -> calendar of worked hours.
-    month_arg = request.args.get('month') or today().strftime('%Y-%m')
+    # Step 1: set a date range, step 2: pick a worker -> that range as a calendar.
+    start_arg = request.args.get('start') or (today() - timedelta(days=13)).isoformat()
+    end_arg = request.args.get('end') or today().isoformat()
     try:
-        first = date(int(month_arg[:4]), int(month_arg[5:7]), 1)
-        month_arg = first.strftime('%Y-%m')
-    except (ValueError, TypeError):
-        first = today().replace(day=1)
-        month_arg = first.strftime('%Y-%m')
-    ndays = calendar.monthrange(first.year, first.month)[1]
-    last = date(first.year, first.month, ndays)
-    prev_month = (first - timedelta(days=1)).replace(day=1).strftime('%Y-%m')
-    next_month = (last + timedelta(days=1)).replace(day=1).strftime('%Y-%m')
+        start = date.fromisoformat(start_arg)
+    except ValueError:
+        start = today() - timedelta(days=13)
+    try:
+        end = date.fromisoformat(end_arg)
+    except ValueError:
+        end = today()
+    if start > end:
+        start, end = end, start
     workers = [{'id': w['id'], 'name': worker_name(w['id'])}
                for w in sorted(DB['workers'], key=lambda w: worker_name(w['id']))]
     wid = request.args.get('worker') or ''
@@ -1331,38 +1331,30 @@ def payroll():
             if t.get('worker_id') != wid:
                 continue
             d = (t.get('clock_in') or '')[:10]
-            if not (first.isoformat() <= d <= last.isoformat()):
+            if not (start.isoformat() <= d <= end.isoformat()):
                 continue
-            day = int(d[8:10])
             if t.get('clock_out'):
                 h = t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
-                cal_days[day] = cal_days.get(day, 0.0) + h
+                cal_days[d] = cal_days.get(d, 0.0) + h
             else:
-                open_days.add(day)
-    cal = {day: _fmt_num(h) for day, h in cal_days.items()}
+                open_days.add(d)
+    cal = {d: _fmt_num(h) for d, h in cal_days.items()}
     total_hours = _fmt_num(sum(cal_days.values()))
     days_worked = len([d for d in set(list(cal_days) + list(open_days))
                        if cal_days.get(d, 0) > 0 or d in open_days])
+    first_monday = start - timedelta(days=start.weekday())
+    last_sunday = end + timedelta(days=6 - end.weekday())
     weeks = []
-    week = [None] * first.weekday()
-    for day in range(1, ndays + 1):
-        week.append(day)
-        if len(week) == 7:
-            weeks.append(week)
-            week = []
-    if week:
-        week += [None] * (7 - len(week))
-        weeks.append(week)
-    t = today()
-    today_num = t.day if (t.year == first.year and t.month == first.month) else None
+    cur = first_monday
+    while cur <= last_sunday:
+        weeks.append([(cur + timedelta(days=i)).isoformat() for i in range(7)])
+        cur += timedelta(days=7)
     return render_template('cm/payroll.html', workers=workers, worker=wid,
-                           month=month_arg, month_label=first.strftime('%B %Y'),
-                           prev_month=prev_month, next_month=next_month,
+                           start=start.isoformat(), end=end.isoformat(),
                            weeks=weeks, cal=cal, open_days=open_days,
                            total_hours=total_hours, days_worked=days_worked,
-                           start=first.isoformat(), end=last.isoformat(),
-                           monday=(first - timedelta(days=first.weekday())).isoformat(),
-                           today_num=today_num)
+                           monday=_week_monday_cm(start.isoformat()).isoformat(),
+                           today_iso=today().isoformat())
 
 
 def _fmt_num(v):
