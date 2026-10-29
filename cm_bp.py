@@ -1575,7 +1575,7 @@ def _range_payroll_xlsx_cm(blocks, start, end):
             week = [cur + timedelta(days=i) for i in range(7)]
             for i, d in enumerate(week):
                 cc = ws.cell(row=row, column=i + 1,
-                             value=f'{day_names[i]} {d.strftime("%m/%d")}')
+                             value=f'{day_names[i]} {d.month}/{d.day}')
                 cc.font = Font(bold=True, size=10)
                 cc.fill = hdr_fill
                 cc.alignment = center
