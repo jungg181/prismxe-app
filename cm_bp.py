@@ -1304,6 +1304,73 @@ def timecard_delete(tid):
     return redirect(url_for('cm.timecards'))
 
 
+def _payroll_range_data(wid, start_iso, end_iso):
+    """One worker's calendar data for a date range (screen + email share it)."""
+    cal_days = {}
+    open_days = set()
+    day_bounds = {}
+    open_in_dt = {}
+    for t in DB['timecards']:
+        if t.get('worker_id') != wid:
+            continue
+        d = (t.get('clock_in') or '')[:10]
+        if not (start_iso <= d <= end_iso):
+            continue
+        if t.get('clock_out'):
+            h = t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
+            cal_days[d] = cal_days.get(d, 0.0) + h
+            ci = parse_iso(t.get('clock_in'))
+            co = parse_iso(t.get('clock_out'))
+            if ci and co:
+                b = day_bounds.setdefault(d, [ci, co])
+                b[0] = min(b[0], ci)
+                b[1] = max(b[1], co)
+        else:
+            open_days.add(d)
+            ci = parse_iso(t.get('clock_in'))
+            if ci and (d not in open_in_dt or ci < open_in_dt[d]):
+                open_in_dt[d] = ci
+    day_io = {d: f"{b[0].strftime('%-I:%M %p')} – {b[1].strftime('%-I:%M %p')}"
+              for d, b in day_bounds.items()}
+    open_in = {d: ci.strftime('%-I:%M %p') for d, ci in open_in_dt.items()}
+    cal = {d: _fmt_num(h) for d, h in cal_days.items()}
+    total_hours = _fmt_num(sum(cal_days.values()))
+    days_worked = len([d for d in set(list(cal_days) + list(open_days))
+                       if cal_days.get(d, 0) > 0 or d in open_days])
+    return {'cal': cal, 'day_io': day_io, 'open_in': open_in,
+            'open_days': open_days, 'total_hours': total_hours,
+            'days_worked': days_worked}
+
+
+def _payroll_email_body(name, start, end, data):
+    """Plain-text payroll summary for one worker + range (screen's numbers)."""
+    def _md(iso):
+        d = date.fromisoformat(iso)
+        return f"{d.month}/{d.day}"
+
+    period = (f"{start.strftime('%b')} {start.day}, {start.year} – "
+              f"{end.strftime('%b')} {end.day}, {end.year}")
+    lines = [f"Hi {name},", "",
+             f"Here is your payroll summary for {period}:", ""]
+    for iso in sorted(set(list(data['cal']) + list(data['open_days']))):
+        if data['cal'].get(iso):
+            if data['day_io'].get(iso):
+                line = f"{_md(iso)}: {data['day_io'][iso]}, {data['cal'][iso]}h"
+            else:
+                line = f"{_md(iso)}: {data['cal'][iso]}h"
+            if iso in data['open_days']:
+                if data['open_in'].get(iso):
+                    line += f" (On shift since {data['open_in'][iso]})"
+                else:
+                    line += " (On shift)"
+        else:
+            line = f"{_md(iso)}: {data['open_in'].get(iso, '')} – On shift"
+        lines.append(line)
+    lines += ["", f"Total hours: {data['total_hours']}h",
+              f"Days worked: {data['days_worked']}"]
+    return "\n".join(lines)
+
+
 @bp.route('/timecards/payroll')
 def payroll():
     # Step 1: set a date range, step 2: pick a worker -> that range as a calendar.
@@ -1324,38 +1391,24 @@ def payroll():
     wid = request.args.get('worker') or ''
     if wid and not find('workers', wid):
         wid = ''
-    cal_days = {}
-    open_days = set()
-    day_bounds = {}
-    open_in_dt = {}
-    if wid:
-        for t in DB['timecards']:
-            if t.get('worker_id') != wid:
-                continue
-            d = (t.get('clock_in') or '')[:10]
-            if not (start.isoformat() <= d <= end.isoformat()):
-                continue
-            if t.get('clock_out'):
-                h = t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
-                cal_days[d] = cal_days.get(d, 0.0) + h
-                ci = parse_iso(t.get('clock_in'))
-                co = parse_iso(t.get('clock_out'))
-                if ci and co:
-                    b = day_bounds.setdefault(d, [ci, co])
-                    b[0] = min(b[0], ci)
-                    b[1] = max(b[1], co)
-            else:
-                open_days.add(d)
-                ci = parse_iso(t.get('clock_in'))
-                if ci and (d not in open_in_dt or ci < open_in_dt[d]):
-                    open_in_dt[d] = ci
-    day_io = {d: f"{b[0].strftime('%-I:%M %p')} – {b[1].strftime('%-I:%M %p')}"
-              for d, b in day_bounds.items()}
-    open_in = {d: ci.strftime('%-I:%M %p') for d, ci in open_in_dt.items()}
-    cal = {d: _fmt_num(h) for d, h in cal_days.items()}
-    total_hours = _fmt_num(sum(cal_days.values()))
-    days_worked = len([d for d in set(list(cal_days) + list(open_days))
-                       if cal_days.get(d, 0) > 0 or d in open_days])
+    data = (_payroll_range_data(wid, start.isoformat(), end.isoformat())
+            if wid else None)
+    cal = data['cal'] if data else {}
+    day_io = data['day_io'] if data else {}
+    open_in = data['open_in'] if data else {}
+    open_days = data['open_days'] if data else set()
+    total_hours = data['total_hours'] if data else '0'
+    days_worked = data['days_worked'] if data else 0
+    worker_email = ''
+    email_subject = ''
+    email_body = ''
+    if wid and data:
+        w = find('workers', wid)
+        worker_email = (w or {}).get('email') or ''
+        email_subject = (f"Payroll summary {start.strftime('%b')} {start.day}, "
+                         f"{start.year} – {end.strftime('%b')} {end.day}, "
+                         f"{end.year}")
+        email_body = _payroll_email_body(worker_name(wid), start, end, data)
     first_monday = start - timedelta(days=start.weekday())
     last_sunday = end + timedelta(days=6 - end.weekday())
     weeks = []
@@ -1369,7 +1422,43 @@ def payroll():
                            day_io=day_io, open_in=open_in,
                            total_hours=total_hours, days_worked=days_worked,
                            monday=_week_monday_cm(start.isoformat()).isoformat(),
-                           today_iso=today().isoformat())
+                           today_iso=today().isoformat(),
+                           worker_email=worker_email,
+                           email_subject=email_subject,
+                           email_body=email_body)
+
+
+@bp.route('/timecards/payroll/email', methods=['POST'])
+def payroll_email():
+    """Send the selected worker's payroll summary by email.
+
+    The form shows the exact draft (to / subject / body) and the user
+    taps Send once — nothing is sent without that tap. Sent through the
+    same Apps Script sendEmail action the COA confirmations use.
+    """
+    wid = request.form.get('worker') or ''
+    start = request.form.get('start') or ''
+    end = request.form.get('end') or ''
+    to = (request.form.get('to') or '').strip()
+    subject = (request.form.get('subject') or '').strip()
+    body = request.form.get('body') or ''
+    if wid and not find('workers', wid):
+        wid = ''
+    if not to or '@' not in to:
+        flash('Enter a valid email address.')
+        return redirect(url_for('cm.payroll', start=start, end=end,
+                                worker=wid))
+    if not subject:
+        subject = f"Payroll summary {start} – {end}"
+    import html as _html
+    html_body = _html.escape(body).replace('\n', '<br>')
+    res = sheets_post({'action': 'sendEmail', 'to': to, 'subject': subject,
+                       'body': body, 'html': html_body}, timeout=30)
+    if res and res.get('ok'):
+        flash(f'Email sent to {to}.')
+    else:
+        flash('Email could not be sent. Please try again.')
+    return redirect(url_for('cm.payroll', start=start, end=end, worker=wid))
 
 
 def _fmt_num(v):
