@@ -1,0 +1,38 @@
+{% extends "cm/base.html" %}
+{% block title %}Payroll Review{% endblock %}
+{% block content %}
+{% if not tok %}
+<h1>Payroll Review</h1>
+<p class="muted">This link is no longer valid.</p>
+{% else %}
+<h1>Payroll Review</h1>
+<p class="muted">{{ name }} · {{ start }} – {{ end }}</p>
+{% if msg == 'confirmed' %}<p><b>Thank you! Your payroll is confirmed.</b></p>
+{% elif msg == 'corrected' %}<p><b>Thank you! Your corrections were sent.</b></p>
+{% elif msg == 'nochange' %}<p><b>No changes were made.</b> If everything is correct, tap No problem.</p>{% endif %}
+<div class="table-wrap"><table class="tbl">
+<tr><th>Date</th><th>Clock in – Clock out</th><th>Hours</th></tr>
+{% for d in days %}
+<tr><td><b>{{ d.md }}</b></td><td>{% if d.io %}{{ d.io }}{% elif d.open %}{{ d.in24 }} – On shift{% else %}—{% endif %}</td><td>{% if d.hours %}{{ d.hours }}h{% endif %}{% if d.open %} On shift{% endif %}</td></tr>
+{% endfor %}
+</table></div>
+<p class="muted">Total hours: {{ data.total_hours }}h · Days worked: {{ data.days_worked }}</p>
+<form method="post">
+<h3>Correct a day</h3>
+<p class="muted">Change a time below and tap Submit corrections. Leave a time as-is if it is correct.</p>
+<div class="table-wrap"><table class="tbl">
+<tr><th>Date</th><th>Clock in</th><th>Clock out</th></tr>
+{% for d in days %}
+<tr><td><b>{{ d.md }}</b></td>
+<td><input type="time" name="in_{{ d.date }}" value="{{ d.in24 }}"></td>
+<td><input type="time" name="out_{{ d.date }}" value="{{ d.out24 }}"></td></tr>
+{% endfor %}
+</table></div>
+<label>Note <textarea name="note" rows="3" style="width:100%;box-sizing:border-box"></textarea></label>
+<div class="filters row-form" style="margin-top:12px">
+<button class="btn primary small" type="submit" name="action" value="confirm">✓ No problem</button>
+<button class="btn small" type="submit" name="action" value="correct">Submit corrections</button>
+</div>
+</form>
+{% endif %}
+{% endblock %}
