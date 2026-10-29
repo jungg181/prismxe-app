@@ -18,7 +18,8 @@
 {% block content %}
 <h1>Payroll Report</h1>
 <form class="filters row-form" method="get">
-  <label>Month <input type="month" name="month" value="{{ month }}"></label>
+  <label>From <input type="date" name="start" value="{{ start }}"></label>
+  <label>To <input type="date" name="end" value="{{ end }}"></label>
   <label>Worker <select name="worker">
     <option value="">— Select worker —</option>
     {% for w in workers %}
@@ -26,26 +27,24 @@
     {% endfor %}
   </select></label>
   <button class="btn primary small" type="submit">Show</button>
-  <a class="btn small" href="{{ url_for('cm.payroll', month=prev_month, worker=worker) }}">◀ Prev</a>
-  <a class="btn small" href="{{ url_for('cm.payroll', month=next_month, worker=worker) }}">Next ▶</a>
 </form>
 {% if worker %}
 <div class="stats">
-  <div class="stat"><div class="num">{{ total_hours }}h</div><div class="lbl">Total hours · {{ month_label }}</div></div>
+  <div class="stat"><div class="num">{{ total_hours }}h</div><div class="lbl">Total hours</div></div>
   <div class="stat"><div class="num">{{ days_worked }}</div><div class="lbl">Days worked</div></div>
 </div>
 <div class="cal-wrap"><div class="cal">
 <div class="cal-dow">Mon</div><div class="cal-dow">Tue</div><div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div><div class="cal-dow">Sun</div>
 {% for week in weeks %}
-{% for day in week %}
-{% if day %}
-<div class="cal-cell {% if cal.get(day) %}worked{% endif %} {% if day == today_num %}today{% endif %}">
-<div class="d">{{ day }}</div>
-{% if cal.get(day) %}<div class="h">{{ cal[day] }}h</div>{% endif %}
-{% if day in open_days %}<div class="open">On shift</div>{% endif %}
-</div>
-{% else %}
+{% for iso in week %}
+{% if iso < start or iso > end %}
 <div class="cal-cell blank"></div>
+{% else %}
+<div class="cal-cell {% if cal.get(iso) %}worked{% endif %} {% if iso == today_iso %}today{% endif %}">
+<div class="d">{{ iso[8:10]|int }}</div>
+{% if cal.get(iso) %}<div class="h">{{ cal[iso] }}h</div>{% endif %}
+{% if iso in open_days %}<div class="open">On shift</div>{% endif %}
+</div>
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -56,6 +55,6 @@
   <button class="btn small" type="button" onclick="window.print()">🖨️ Print</button>
 </div>
 {% else %}
-<p class="muted">Pick a month, then pick a worker to see their hours on the calendar.</p>
+<p class="muted">Set a date range, then pick a worker to see their hours on the calendar.</p>
 {% endif %}
 {% endblock %}
