@@ -44,6 +44,12 @@
     <div id="upStatus" class="muted" style="margin-top:8px"></div>
   </div>
   <div class="card">
+    <h2>📱 Pending Photos on This Device</h2>
+    <div class="muted">Photos picked on this device but not yet sent to Drive. Pick one to tag it — it is saved to the server first, then the tag editor opens. (Pending photos only show on the device where they were picked.)</div>
+    <div id="pendingGrid" class="grid"></div>
+    <div id="pendingNote" class="muted" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
     <h2>🏷️ Photos on This Server</h2>
     {% if local_photos %}
     <div class="grid">
@@ -86,6 +92,79 @@ document.getElementById("cameraBtn").onclick = () => document.getElementById("ca
 document.getElementById("galleryBtn").onclick = () => document.getElementById("galleryInput").click();
 document.getElementById("cameraInput").onchange = (e) => { if (e.target.files[0]) uploadOne(e.target.files[0]); e.target.value = ""; };
 document.getElementById("galleryInput").onchange = (e) => { if (e.target.files[0]) uploadOne(e.target.files[0]); e.target.value = ""; };
+
+// ---- Pending photos on this device (same IndexedDB the Upload page uses) ----
+let hcdb = null;
+function hcDbOpen() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open("hc_photos", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("photos"))
+          db.createObjectStore("photos", { keyPath: "id", autoIncrement: true });
+      };
+      req.onsuccess = () => { hcdb = req.result; resolve(hcdb); };
+      req.onerror = () => reject(req.error);
+    } catch (e) { reject(e); }
+  });
+}
+function hcDbAll() {
+  return new Promise((resolve, reject) => {
+    const r = hcdb.transaction("photos", "readonly").objectStore("photos").getAll();
+    r.onsuccess = () => resolve(r.result || []);
+    r.onerror = () => reject(r.error);
+  });
+}
+async function renderPendingTaggable() {
+  const grid = document.getElementById("pendingGrid");
+  const note = document.getElementById("pendingNote");
+  let recs = [];
+  try {
+    await hcDbOpen();
+    recs = await hcDbAll();
+  } catch (e) {
+    grid.innerHTML = "";
+    note.textContent = "Phone storage unavailable on this browser.";
+    return;
+  }
+  recs.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+  if (!recs.length) {
+    grid.innerHTML = "";
+    note.textContent = "No pending photos on this device.";
+    return;
+  }
+  note.textContent = recs.length + " pending photo(s). Tapping Tag saves a copy to the server and opens the tag editor (the pending copy stays on this device).";
+  grid.innerHTML = recs.map(r => `
+    <div class="thumb">
+      <img src="${URL.createObjectURL(r.blob)}" alt="">
+      <div class="meta">
+        <div>${esc(r.filename)}</div>
+        <div class="muted">${esc((r.ts || "").replace("T", " ").slice(0, 19))}</div>
+        <button class="btn" style="padding:8px;font-size:13px;margin-top:6px" onclick="tagPending(${r.id}, this)">🏷️ Tag this photo</button>
+      </div>
+    </div>`).join("");
+}
+window.tagPending = async (id, btn) => {
+  const note = document.getElementById("pendingNote");
+  try {
+    const recs = await hcDbAll();
+    const rec = recs.find(r => r.id === id);
+    if (!rec) { note.textContent = "That pending photo is gone."; return; }
+    btn.disabled = true;
+    note.textContent = "Saving to server…";
+    const fd = new FormData();
+    fd.append("photo", rec.blob, rec.filename);
+    const r = await fetch("/Hanseong/gauge/api/photo-upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "upload failed");
+    location.href = "/Hanseong/gauge/photo/" + j.key + "/edit";
+  } catch (e) {
+    note.textContent = "Failed: " + e.message;
+    btn.disabled = false;
+  }
+};
+renderPendingTaggable();
 
 fetch("/Hanseong/gauge/api/drive-photos").then(r => r.json()).then(j => {
   const el = document.getElementById("driveList");
