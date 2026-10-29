@@ -177,21 +177,23 @@ def api_drive_photos():
 
 @bp.route("/api/drive-photo/<fid>", methods=["GET"])
 def api_drive_photo(fid):
-    """Download a photo from Drive by file ID (for agent review)."""
+    """Download a photo from Drive by file ID (for agent review).
+
+    Falls back to the service account when the user OAuth token is revoked.
+    """
     svc = drive_service()
     if not svc:
         return jsonify({"ok": False, "error": "Drive not configured"}), 500
     try:
-        from googleapiclient.http import MediaIoBaseDownload
-        req = svc.files().get_media(fileId=fid)
-        buf = io.BytesIO()
-        dl = MediaIoBaseDownload(buf, req)
-        done = False
-        while not done:
-            _, done = dl.next_chunk()
-        buf.seek(0)
-        return send_file(buf, mimetype="image/jpeg")
+        return _serve_drive_photo(svc, fid)
     except Exception as e:
+        if "invalid_grant" in str(e):
+            sa = drive_service_sa()
+            if sa:
+                try:
+                    return _serve_drive_photo(sa, fid)
+                except Exception as e2:
+                    return jsonify({"ok": False, "error": str(e2)[:200]}), 500
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
 
 
@@ -532,39 +534,97 @@ def _photo_img_url(key):
     return f"/Hanseong/gauge/api/tag-photo/{key[6:]}"
 
 
-def _list_drive_photos():
-    """Shared Drive photo listing. Returns (ok, files_or_error)."""
-    svc = drive_service()
-    if not svc or not DRIVE_FOLDER_ID:
-        return False, "Drive not configured"
-    try:
-        files = []
+def drive_service_sa():
+    """Read-only Drive client via the service account.
 
-        def list_children(parent_id, prefix=""):
-            page_token = None
-            while True:
+    Used as a fallback for READS when the user's OAuth refresh token is
+    revoked/expired (invalid_grant): listing and serving photos still work,
+    while uploads keep using the primary (user) credentials untouched.
+    Returns None when no service-account JSON is configured.
+    """
+    try:
+        from googleapiclient.discovery import build
+        if DRIVE_SA_JSON:
+            from google.oauth2 import service_account
+            info = json.loads(DRIVE_SA_JSON)
+            creds = service_account.Credentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/drive.readonly"])
+            return build("drive", "v3", credentials=creds)
+    except Exception:
+        pass
+    return None
+
+
+def _list_drive_files(svc):
+    """Recursive Drive photo listing for one service client (raises on error).
+
+    A failed SUBFOLDER is skipped (best-effort); a failed top folder raises
+    so the caller can fall back to another credential.
+    """
+    files = []
+
+    def list_children(parent_id, prefix="", top=False):
+        page_token = None
+        while True:
+            try:
                 res = svc.files().list(
                     q=f"'{parent_id}' in parents and trashed=false",
                     fields="files(id,name,createdTime,mimeType),nextPageToken",
                     orderBy="createdTime", pageSize=100,
                     pageToken=page_token).execute()
-                for f in res.get("files", []):
-                    if f["mimeType"] == "application/vnd.google-apps.folder":
-                        list_children(f["id"], prefix + f["name"] + "/")
-                    else:
-                        files.append({
-                            "id": f["id"], "name": f["name"],
-                            "createdTime": f.get("createdTime"),
-                            "path": prefix + f["name"],
-                        })
-                page_token = res.get("nextPageToken")
-                if not page_token:
-                    break
+            except Exception:
+                if top:
+                    raise
+                return  # best-effort: one unreadable subfolder must not kill the list
+            for f in res.get("files", []):
+                if f["mimeType"] == "application/vnd.google-apps.folder":
+                    list_children(f["id"], prefix + f["name"] + "/")
+                else:
+                    files.append({
+                        "id": f["id"], "name": f["name"],
+                        "createdTime": f.get("createdTime"),
+                        "path": prefix + f["name"],
+                    })
+            page_token = res.get("nextPageToken")
+            if not page_token:
+                break
 
-        list_children(DRIVE_FOLDER_ID)
-        files.sort(key=lambda f: f.get("createdTime") or "")
-        return True, files
+    list_children(DRIVE_FOLDER_ID, top=True)
+    files.sort(key=lambda f: f.get("createdTime") or "")
+    return files
+
+
+def _serve_drive_photo(svc, fid):
+    """Download one Drive photo via one service client (raises on error)."""
+    from googleapiclient.http import MediaIoBaseDownload
+    req = svc.files().get_media(fileId=fid)
+    buf = io.BytesIO()
+    dl = MediaIoBaseDownload(buf, req)
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    buf.seek(0)
+    return send_file(buf, mimetype="image/jpeg")
+
+
+def _list_drive_photos():
+    """Shared Drive photo listing. Returns (ok, files_or_error).
+
+    Falls back to the service account when the user OAuth token is revoked.
+    """
+    svc = drive_service()
+    if not svc or not DRIVE_FOLDER_ID:
+        return False, "Drive not configured"
+    try:
+        return True, _list_drive_files(svc)
     except Exception as e:
+        if "invalid_grant" in str(e):
+            sa = drive_service_sa()
+            if sa:
+                try:
+                    return True, _list_drive_files(sa)
+                except Exception as e2:
+                    return False, str(e2)[:200]
         return False, str(e)[:200]
 
 
