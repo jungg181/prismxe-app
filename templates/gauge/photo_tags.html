@@ -53,7 +53,7 @@
     <a href="/Hanseong/gauge/photos">📷 Photos</a>
     {% if mode == 'edit' %}
     <a href="/Hanseong/gauge/photo/{{ photo_key }}">👁️ View mode</a>
-    {% else %}
+    {% elif tag_editing %}
     <a href="/Hanseong/gauge/photo/{{ photo_key }}/edit">✏️ Edit mode</a>
     {% endif %}
   </div>
@@ -78,7 +78,7 @@
   {% if mode == 'edit' %}
   사진을 눌러 Pin 추가 · Pin을 눌러 이름 수정/삭제 · Pin을 끌어서 이동 · 두 손가락이나 +/− 버튼으로 확대해서 정확히 찍어요. 저장하기 전에는 나가지 마세요.
   {% else %}
-  두 손가락이나 +/− 버튼으로 확대해서 자세히 볼 수 있어요. Pin을 고치려면 Edit mode로 가세요.
+  두 손가락이나 +/− 버튼으로 확대해서 자세히 볼 수 있어요.{% if tag_editing %} Pin을 고치려면 Edit mode로 가세요.{% else %} Tag Setting이 Off라서 지금은 수정할 수 없어요. Setting에서 Tag Setting을 On으로 바꾸면 Edit할 수 있어요.{% endif %}
   {% endif %}
 </div>
 <div id="editor">
