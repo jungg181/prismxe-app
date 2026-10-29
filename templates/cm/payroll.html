@@ -69,6 +69,7 @@
   <label>Subject <input type="text" name="subject" value="{{ email_subject }}"></label>
   <label>Message <textarea name="body" rows="10">{{ email_body }}</textarea></label>
   <button class="btn primary small" type="submit">✉️ Send email</button>
+  <p class="muted">HTML 메일에는 위 달력과 같은 표가 자동으로 포함돼요.</p>
 </form>
 {% else %}
 <p class="muted">Set a date range, then pick a worker to see their hours on the calendar.</p>
