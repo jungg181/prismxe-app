@@ -69,9 +69,10 @@
   <label>Subject <input type="text" name="subject" value="{{ email_subject }}"></label>
   <label>Message <textarea name="body" rows="10">{{ email_body }}</textarea></label>
   <button class="btn primary small" type="submit">✉️ Send email</button>
-  <p class="muted">HTML 메일에는 위 달력과 같은 표가 자동으로 포함돼요.</p>
+  <p class="muted">HTML 메일에는 위 달력과 같은 표 + 직원 확인/수정 링크가 자동으로 포함돼요.</p>
 </form>
 {% else %}
 <p class="muted">Set a date range, then pick a worker to see their hours on the calendar.</p>
 {% endif %}
+<p style="margin-top:16px"><a href="{{ url_for('cm.payroll_corrections') }}">View payroll corrections →</a></p>
 {% endblock %}
