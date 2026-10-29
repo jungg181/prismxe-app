@@ -45,9 +45,17 @@
   </div>
   <div class="card">
     <h2>📱 Pending Photos on This Device</h2>
-    <div class="muted">Photos picked on this device but not yet sent to Drive. Pick one to tag it — it is saved to the server first, then the tag editor opens. (Pending photos only show on the device where they were picked.)</div>
+    <div class="muted">Photos picked on this device but not yet sent to Drive. Tap a photo to preview it first, then tag it — it is saved to the server, then the tag editor opens. (Pending photos only show on the device where they were picked.)</div>
     <div id="pendingGrid" class="grid"></div>
     <div id="pendingNote" class="muted" style="margin-top:8px"></div>
+  </div>
+  <div id="pendingPreview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this) closePendingPreview()">
+    <img id="pendingPreviewImg" style="max-width:100%;max-height:72vh;object-fit:contain;border-radius:8px" alt="">
+    <div id="pendingPreviewName" style="color:#fff;margin-top:10px;font-size:14px;word-break:break-all;text-align:center"></div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn" onclick="tagFromPreview()">🏷️ Tag this photo</button>
+      <button class="btn" onclick="closePendingPreview()">✕ Close</button>
+    </div>
   </div>
   <div class="card">
     <h2>🏷️ Photos on This Server</h2>
@@ -134,17 +142,43 @@ async function renderPendingTaggable() {
     note.textContent = "No pending photos on this device.";
     return;
   }
-  note.textContent = recs.length + " pending photo(s). Tapping Tag saves a copy to the server and opens the tag editor (the pending copy stays on this device).";
+  note.textContent = recs.length + " pending photo(s). Tap a photo to preview it first, then Tag saves a copy to the server and opens the tag editor (the pending copy stays on this device).";
   grid.innerHTML = recs.map(r => `
     <div class="thumb">
-      <img src="${URL.createObjectURL(r.blob)}" alt="">
+      <img src="${URL.createObjectURL(r.blob)}" alt="" style="cursor:pointer" onclick="previewPending(${r.id})" title="Tap to preview">
       <div class="meta">
         <div>${esc(r.filename)}</div>
         <div class="muted">${esc((r.ts || "").replace("T", " ").slice(0, 19))}</div>
+        <div class="muted">🔍 Tap photo to preview</div>
         <button class="btn" style="padding:8px;font-size:13px;margin-top:6px" onclick="tagPending(${r.id}, this)">🏷️ Tag this photo</button>
       </div>
     </div>`).join("");
 }
+let previewPendingId = null;
+let previewPendingUrl = null;
+window.previewPending = async (id) => {
+  try {
+    const recs = await hcDbAll();
+    const rec = recs.find(r => r.id === id);
+    if (!rec) return;
+    if (previewPendingUrl) URL.revokeObjectURL(previewPendingUrl);
+    previewPendingUrl = URL.createObjectURL(rec.blob);
+    previewPendingId = id;
+    document.getElementById("pendingPreviewImg").src = previewPendingUrl;
+    document.getElementById("pendingPreviewName").textContent = rec.filename || "";
+    document.getElementById("pendingPreview").style.display = "flex";
+  } catch (e) { /* preview unavailable; the Tag button still works */ }
+};
+window.closePendingPreview = () => {
+  document.getElementById("pendingPreview").style.display = "none";
+  previewPendingId = null;
+};
+window.tagFromPreview = () => {
+  if (previewPendingId == null) return;
+  const id = previewPendingId;
+  closePendingPreview();
+  tagPending(id, {});
+};
 window.tagPending = async (id, btn) => {
   const note = document.getElementById("pendingNote");
   try {
