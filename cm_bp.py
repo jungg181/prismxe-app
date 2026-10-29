@@ -1326,6 +1326,8 @@ def payroll():
         wid = ''
     cal_days = {}
     open_days = set()
+    day_bounds = {}
+    open_in_dt = {}
     if wid:
         for t in DB['timecards']:
             if t.get('worker_id') != wid:
@@ -1336,8 +1338,20 @@ def payroll():
             if t.get('clock_out'):
                 h = t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
                 cal_days[d] = cal_days.get(d, 0.0) + h
+                ci = parse_iso(t.get('clock_in'))
+                co = parse_iso(t.get('clock_out'))
+                if ci and co:
+                    b = day_bounds.setdefault(d, [ci, co])
+                    b[0] = min(b[0], ci)
+                    b[1] = max(b[1], co)
             else:
                 open_days.add(d)
+                ci = parse_iso(t.get('clock_in'))
+                if ci and (d not in open_in_dt or ci < open_in_dt[d]):
+                    open_in_dt[d] = ci
+    day_io = {d: f"{b[0].strftime('%-I:%M %p')} – {b[1].strftime('%-I:%M %p')}"
+              for d, b in day_bounds.items()}
+    open_in = {d: ci.strftime('%-I:%M %p') for d, ci in open_in_dt.items()}
     cal = {d: _fmt_num(h) for d, h in cal_days.items()}
     total_hours = _fmt_num(sum(cal_days.values()))
     days_worked = len([d for d in set(list(cal_days) + list(open_days))
@@ -1352,6 +1366,7 @@ def payroll():
     return render_template('cm/payroll.html', workers=workers, worker=wid,
                            start=start.isoformat(), end=end.isoformat(),
                            weeks=weeks, cal=cal, open_days=open_days,
+                           day_io=day_io, open_in=open_in,
                            total_hours=total_hours, days_worked=days_worked,
                            monday=_week_monday_cm(start.isoformat()).isoformat(),
                            today_iso=today().isoformat())
@@ -1452,6 +1467,8 @@ def _range_payroll_data_cm(wid, start, end):
     """
     day_hours = {}
     open_days = set()
+    day_bounds = {}
+    open_in_dt = {}
     detail = []
     for t in DB['timecards']:
         if t.get('worker_id') != wid:
@@ -1461,6 +1478,9 @@ def _range_payroll_data_cm(wid, start, end):
             continue
         if not t.get('clock_out'):
             open_days.add(d)
+            ci = parse_iso(t.get('clock_in'))
+            if ci and (d not in open_in_dt or ci < open_in_dt[d]):
+                open_in_dt[d] = ci
             continue
         pay_hours = t.get('hours')
         ci = parse_iso(t.get('clock_in'))
@@ -1473,6 +1493,10 @@ def _range_payroll_data_cm(wid, start, end):
                  if ci and co else None)
         meal = round(gross - pay_hours, 2) if gross is not None else None
         day_hours[d] = day_hours.get(d, 0.0) + pay_hours
+        if ci and co:
+            b = day_bounds.setdefault(d, [ci, co])
+            b[0] = min(b[0], ci)
+            b[1] = max(b[1], co)
         status = t.get('status', '')
         approved = status == 'approved'
         detail.append({
@@ -1492,7 +1516,11 @@ def _range_payroll_data_cm(wid, start, end):
                        if day_hours.get(d, 0) > 0 or d in open_days])
     return {'name': worker_name(wid), 'day_hours': day_hours,
             'open_days': open_days, 'detail': detail, 'total': total,
-            'days_worked': days_worked}
+            'days_worked': days_worked,
+            'day_io': {d: f"{b[0].strftime('%-I:%M %p')} – {b[1].strftime('%-I:%M %p')}"
+                       for d, b in day_bounds.items()},
+            'open_in': {d: ci.strftime('%-I:%M %p')
+                        for d, ci in open_in_dt.items()}}
 
 
 def _range_payroll_xlsx_cm(blocks, start, end):
@@ -1519,7 +1547,7 @@ def _range_payroll_xlsx_cm(blocks, start, end):
     center = Alignment(horizontal='center', vertical='center',
                        wrap_text=True)
     for col in range(1, 8):
-        ws.column_dimensions[get_column_letter(col)].width = 13
+        ws.column_dimensions[get_column_letter(col)].width = 15
     title = (('Payroll — ' + blocks[0]['name']) if len(blocks) == 1
              else 'Payroll — All workers')
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
@@ -1559,12 +1587,28 @@ def _range_payroll_xlsx_cm(blocks, start, end):
                 cc.alignment = center
                 cc.border = border
                 if start <= iso <= end:
+                    if block['day_io'].get(iso):
+                        cc.value = block['day_io'][iso]
+                        cc.font = Font(size=10)
+                    elif block['open_in'].get(iso):
+                        cc.value = block['open_in'][iso] + ' – On shift'
+                        cc.font = Font(size=10, italic=True)
+            row += 1
+            for i, d in enumerate(week):
+                iso = d.isoformat()
+                cc = ws.cell(row=row, column=i + 1)
+                cc.alignment = center
+                cc.border = border
+                if start <= iso <= end:
                     hrs = block['day_hours'].get(iso)
                     if hrs:
                         cc.value = round(hrs, 2)
                         cc.number_format = '0.00'
                         if iso in block['open_days']:
-                            cc.comment = Comment('On shift', 'Payroll')
+                            note = 'On shift'
+                            if block['open_in'].get(iso):
+                                note += f" since {block['open_in'][iso]}"
+                            cc.comment = Comment(note, 'Payroll')
                     elif iso in block['open_days']:
                         cc.value = 'On shift'
                         cc.font = Font(size=10, italic=True)
