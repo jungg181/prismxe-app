@@ -66,7 +66,7 @@
         <a href="/Hanseong/gauge/photo/local:{{ fn }}"><img src="/Hanseong/gauge/api/tag-photo/{{ fn }}" alt=""></a>
         <div class="meta">
           <div>{{ fn }}</div>
-          <div><a href="/Hanseong/gauge/photo/local:{{ fn }}">View</a> · <a href="/Hanseong/gauge/photo/local:{{ fn }}/edit">Edit tags</a></div>
+          <div><a href="/Hanseong/gauge/photo/local:{{ fn }}">View</a>{% if tag_editing %} · <a href="/Hanseong/gauge/photo/local:{{ fn }}/edit">Edit tags</a>{% endif %}</div>
         </div>
       </div>
       {% endfor %}
@@ -200,17 +200,20 @@ window.tagPending = async (id, btn) => {
 };
 renderPendingTaggable();
 
+const TAG_EDITING = {{ tag_editing|tojson }};
 fetch("/Hanseong/gauge/api/drive-photos").then(r => r.json()).then(j => {
   const el = document.getElementById("driveList");
   if (!j.ok) { el.textContent = "Drive photos unavailable (" + (j.error || "connection issue") + "). Local photos above still work."; return; }
   const imgs = j.files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name || ""));
   if (!imgs.length) { el.textContent = "No Drive photos yet."; return; }
-  el.innerHTML = imgs.slice().reverse().map(f => `
+  el.innerHTML = imgs.slice().reverse().map(f => {
+    const edit = TAG_EDITING ? ` <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}/edit">Edit tags</a>` : "";
+    return `
     <div class="drow">
       <div class="nm">${esc(f.path || f.name)}</div>
-      <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}">View</a>
-      <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}/edit">Edit tags</a>
-    </div>`).join("");
+      <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}">View</a>${edit}
+    </div>`;
+  }).join("");
 }).catch(() => {
   document.getElementById("driveList").textContent = "Drive photos unavailable. Local photos above still work.";
 });
