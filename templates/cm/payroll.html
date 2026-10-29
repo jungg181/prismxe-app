@@ -14,6 +14,8 @@
 .cal-cell.today{border-width:2px}
 .cal-cell .open{font-size:.85em;opacity:.8}
 @media (max-width:640px){.cal{min-width:0}.cal-cell{min-height:56px;padding:4px}}
+.email-form label{display:block;margin:10px 0}
+.email-form input[type=email],.email-form input[type=text],.email-form textarea{width:100%;box-sizing:border-box;margin-top:4px}
 </style>
 {% endblock %}
 {% block content %}
@@ -57,6 +59,17 @@
   <a class="btn small" href="{{ url_for('cm.payroll_export_xlsx', start=start, end=end, worker=worker) }}">⬇ Export XLSX</a>
   <button class="btn small" type="button" onclick="window.print()">🖨️ Print</button>
 </div>
+<form class="email-form" method="post" action="{{ url_for('cm.payroll_email') }}" style="margin-top:20px">
+  <input type="hidden" name="worker" value="{{ worker }}">
+  <input type="hidden" name="start" value="{{ start }}">
+  <input type="hidden" name="end" value="{{ end }}">
+  <h3>Email this payroll</h3>
+  {% if not worker_email %}<p class="muted">No email on file for this worker — enter one below.</p>{% endif %}
+  <label>To <input type="email" name="to" value="{{ worker_email }}" placeholder="worker email" required></label>
+  <label>Subject <input type="text" name="subject" value="{{ email_subject }}"></label>
+  <label>Message <textarea name="body" rows="10">{{ email_body }}</textarea></label>
+  <button class="btn primary small" type="submit">✉️ Send email</button>
+</form>
 {% else %}
 <p class="muted">Set a date range, then pick a worker to see their hours on the calendar.</p>
 {% endif %}
