@@ -6,6 +6,7 @@ import json
 import copy
 import uuid
 import threading
+import secrets
 import time
 import urllib.request
 from datetime import datetime, date, timedelta
@@ -1337,9 +1338,13 @@ def _payroll_range_data(wid, start_iso, end_iso):
     total_hours = _fmt_num(sum(cal_days.values()))
     days_worked = len([d for d in set(list(cal_days) + list(open_days))
                        if cal_days.get(d, 0) > 0 or d in open_days])
+    in24 = {d: b[0].strftime('%H:%M') for d, b in day_bounds.items()}
+    out24 = {d: b[1].strftime('%H:%M') for d, b in day_bounds.items()}
+    for d, ci in open_in_dt.items():
+        in24.setdefault(d, ci.strftime('%H:%M'))
     return {'cal': cal, 'day_io': day_io, 'open_in': open_in,
             'open_days': open_days, 'total_hours': total_hours,
-            'days_worked': days_worked}
+            'days_worked': days_worked, 'in24': in24, 'out24': out24}
 
 
 def _payroll_email_body(name, start, end, data):
@@ -1493,7 +1498,9 @@ def payroll_email():
     if not subject:
         subject = f"Payroll summary {start} – {end}"
     import html as _html
+    send_body = body
     html_body = _html.escape(body).replace('\n', '<br>')
+    review_url = None
     if wid:
         try:
             s_d = date.fromisoformat(start)
@@ -1503,16 +1510,193 @@ def payroll_email():
         if s_d and e_d:
             if s_d > e_d:
                 s_d, e_d = e_d, s_d
+            start, end = s_d.isoformat(), e_d.isoformat()
             html_body += ('<br><br>' + _payroll_calendar_html(
-                s_d, e_d, _payroll_range_data(wid, s_d.isoformat(),
-                                              e_d.isoformat())))
+                s_d, e_d, _payroll_range_data(wid, start, end)))
+            tokens = DB.setdefault('payroll_review_tokens', [])
+            tok = next((t for t in tokens
+                        if t.get('worker_id') == wid
+                        and t.get('start') == start
+                        and t.get('end') == end), None)
+            if not tok:
+                tok = {'id': uuid.uuid4().hex[:12],
+                       'token': secrets.token_urlsafe(32),
+                       'worker_id': wid, 'start': start, 'end': end,
+                       'created_at': now_iso()}
+                tokens.append(tok)
+                save_db()
+            review_url = (BASE_URL.rstrip('/') + '/cm/payroll/review/'
+                          + tok['token'])
+            send_body += f"\n\nReview or correct this payroll: {review_url}"
+            html_body += (f'<br><br><a href="{review_url}" '
+                          f'style="display:inline-block;padding:10px 18px;'
+                          f'background:#2563eb;color:#fff;text-decoration:none;'
+                          f'border-radius:6px">Review or correct this payroll</a>')
     res = sheets_post({'action': 'sendEmail', 'to': to, 'subject': subject,
-                       'body': body, 'html': html_body}, timeout=30)
+                       'body': send_body, 'html': html_body}, timeout=30)
     if res and res.get('ok'):
         flash(f'Email sent to {to}.')
     else:
         flash('Email could not be sent. Please try again.')
     return redirect(url_for('cm.payroll', start=start, end=end, worker=wid))
+
+
+def _t12(hhmm):
+    """'HH:MM' (24h) -> '7:00 AM'; '' -> '—'."""
+    if not hhmm:
+        return '—'
+    try:
+        return datetime.strptime(hhmm, '%H:%M').strftime('%-I:%M %p')
+    except ValueError:
+        return hhmm
+
+
+@bp.route('/payroll/review/<token>', methods=['GET', 'POST'])
+def payroll_review(token):
+    """Public worker page: review the emailed payroll, confirm or correct it.
+
+    Token link only, no login (same pattern as the COA confirmations).
+    Corrections are stored as requests — original timecards never change
+    here; the admin reviews and applies them from the corrections page.
+    """
+    tokens = DB.setdefault('payroll_review_tokens', [])
+    tok = next((t for t in tokens if t.get('token') == token), None)
+    if not tok or not find('workers', tok['worker_id']):
+        return render_template('cm/payroll_review.html', tok=None), 404
+    wid, start, end = tok['worker_id'], tok['start'], tok['end']
+    data = _payroll_range_data(wid, start, end)
+    days = []
+    for iso in sorted(set(list(data['cal']) + list(data['open_days']))):
+        days.append({'date': iso,
+                     'md': f"{int(iso[5:7])}/{int(iso[8:10])}",
+                     'io': data['day_io'].get(iso, ''),
+                     'hours': data['cal'].get(iso, ''),
+                     'in24': data['in24'].get(iso, ''),
+                     'out24': data['out24'].get(iso, ''),
+                     'open': iso in data['open_days']})
+    msg = None
+    if request.method == 'POST':
+        action = request.form.get('action')
+        note = (request.form.get('note') or '').strip()[:1000]
+        if action == 'confirm':
+            DB.setdefault('payroll_corrections', []).append({
+                'id': uuid.uuid4().hex[:12], 'token': token,
+                'worker_id': wid, 'worker_name': worker_name(wid),
+                'start': start, 'end': end, 'status': 'confirmed',
+                'note': note, 'days': [], 'submitted_at': now_iso(),
+                'applied_at': None})
+            save_db()
+            msg = 'confirmed'
+        elif action == 'correct':
+            changed = []
+            for d in days:
+                iso = d['date']
+                nin = (request.form.get(f'in_{iso}') or '').strip()
+                nout = (request.form.get(f'out_{iso}') or '').strip()
+                oin, oout = d['in24'], d['out24']
+                if (not nin or nin == oin) and (not nout or nout == oout):
+                    continue
+                fin, fout = nin or oin, nout or oout
+                if fin and fout:
+                    nh = _fmt_num(compute_hours(f"{iso}T{fin}:00",
+                                                f"{iso}T{fout}:00"))
+                else:
+                    nh = d['hours']
+                changed.append({'date': iso, 'orig_in': oin,
+                                'orig_out': oout, 'orig_hours': d['hours'],
+                                'new_in': fin, 'new_out': fout,
+                                'new_hours': nh})
+            if not changed:
+                msg = 'nochange'
+            else:
+                DB.setdefault('payroll_corrections', []).append({
+                    'id': uuid.uuid4().hex[:12], 'token': token,
+                    'worker_id': wid, 'worker_name': worker_name(wid),
+                    'start': start, 'end': end, 'status': 'correction',
+                    'note': note, 'days': changed,
+                    'submitted_at': now_iso(), 'applied_at': None})
+                save_db()
+                diff_lines = []
+                for cd in changed:
+                    o_out = _t12(cd['orig_out']) if cd['orig_out'] else 'On shift'
+                    diff_lines.append(
+                        f"{cd['date']}: {_t12(cd['orig_in'])} – {o_out} "
+                        f"({cd['orig_hours']}h) → {_t12(cd['new_in'])} – "
+                        f"{_t12(cd['new_out'])} ({cd['new_hours']}h)")
+                import html as _html
+                body = ("\n".join([
+                    f"Payroll correction from {worker_name(wid)}",
+                    f"Period: {start} – {end}",
+                    f"Note: {note or '(no note)'}", ""] + diff_lines + [
+                    "",
+                    "Review: " + BASE_URL.rstrip('/')
+                    + '/cm/timecards/payroll/corrections']))
+                sheets_post({'action': 'sendEmail', 'to': 'info@prismxe.com',
+                             'subject': f"Payroll correction: {worker_name(wid)} "
+                                        f"{start} – {end}",
+                             'body': body,
+                             'html': _html.escape(body).replace('\n', '<br>')},
+                            timeout=30)
+                msg = 'corrected'
+    return render_template('cm/payroll_review.html', tok=tok,
+                           name=worker_name(wid), start=start, end=end,
+                           days=days, data=data, msg=msg)
+
+
+@bp.route('/timecards/payroll/corrections')
+def payroll_corrections():
+    recs = sorted(DB.setdefault('payroll_corrections', []),
+                  key=lambda r: r.get('submitted_at') or '', reverse=True)
+    return render_template('cm/payroll_corrections.html', recs=recs, t12=_t12)
+
+
+@bp.route('/timecards/payroll/corrections/<cid>/apply', methods=['POST'])
+def payroll_correction_apply(cid):
+    """Apply one correction: update the day's first clock-in / last
+    clock-out and recompute those records' hours. Original values stay
+    in the correction record as the audit trail."""
+    DB.setdefault('payroll_corrections', [])
+    rec = find('payroll_corrections', cid)
+    if not rec or rec.get('status') != 'correction':
+        flash('Nothing to apply.')
+        return redirect(url_for('cm.payroll_corrections'))
+    wid = rec['worker_id']
+    for cd in rec['days']:
+        d = cd['date']
+        rows = sorted([t for t in DB['timecards']
+                       if t.get('worker_id') == wid
+                       and (t.get('clock_in') or '')[:10] == d],
+                      key=lambda t: t.get('clock_in') or '')
+        if not rows:
+            continue
+        first, last = rows[0], rows[-1]
+        touched = set()
+        if cd['new_in'] and cd['new_in'] != cd['orig_in']:
+            ci = parse_iso(first.get('clock_in'))
+            if ci:
+                first['clock_in'] = ci.replace(
+                    hour=int(cd['new_in'][:2]), minute=int(cd['new_in'][3:5]),
+                    second=0).isoformat(timespec='seconds')
+                touched.add(first.get('id'))
+        if cd['new_out'] and cd['new_out'] != cd['orig_out']:
+            co = (parse_iso(last.get('clock_out'))
+                  or parse_iso(last.get('clock_in')))
+            if co:
+                last['clock_out'] = co.replace(
+                    hour=int(cd['new_out'][:2]), minute=int(cd['new_out'][3:5]),
+                    second=0).isoformat(timespec='seconds')
+                if last.get('status') == 'clocked_in':
+                    last['status'] = 'clocked_out'
+                touched.add(last.get('id'))
+        for t in rows:
+            if t.get('id') in touched and t.get('clock_out'):
+                t['hours'] = compute_hours(t.get('clock_in'),
+                                          t.get('clock_out'))
+    rec['status'] = 'applied'
+    rec['applied_at'] = now_iso()
+    save_db()
+    flash(f"Applied corrections from {rec.get('worker_name', '—')}.")
+    return redirect(url_for('cm.payroll_corrections'))
 
 
 def _fmt_num(v):
