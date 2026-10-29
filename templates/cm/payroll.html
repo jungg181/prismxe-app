@@ -1,25 +1,61 @@
 {% extends "cm/base.html" %}
 {% block title %}Payroll Report{% endblock %}
+{% block head %}
+<style>
+.cal-wrap{overflow-x:auto}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:540px}
+.cal-dow{font-weight:600;text-align:center;opacity:.7;padding:4px 0}
+.cal-cell{border:1px solid rgba(128,128,128,.25);border-radius:10px;min-height:64px;padding:6px}
+.cal-cell.blank{border-color:transparent}
+.cal-cell .d{font-weight:600}
+.cal-cell .h{font-size:1.15em;font-weight:700;margin-top:6px}
+.cal-cell.worked{background:rgba(128,128,128,.10)}
+.cal-cell.today{border-width:2px}
+.cal-cell .open{font-size:.85em;opacity:.8}
+@media (max-width:640px){.cal{min-width:0}.cal-cell{min-height:56px;padding:4px}}
+</style>
+{% endblock %}
 {% block content %}
 <h1>Payroll Report</h1>
 <form class="filters row-form" method="get">
-  <label>From <input type="date" name="start" value="{{ start }}"></label>
-  <label>To <input type="date" name="end" value="{{ end }}"></label>
-  <button class="btn primary small" type="submit">Run</button>
+  <label>Month <input type="month" name="month" value="{{ month }}"></label>
+  <label>Worker <select name="worker">
+    <option value="">— Select worker —</option>
+    {% for w in workers %}
+    <option value="{{ w.id }}" {% if w.id == worker %}selected{% endif %}>{{ w.name }}</option>
+    {% endfor %}
+  </select></label>
+  <button class="btn primary small" type="submit">Show</button>
+  <a class="btn small" href="{{ url_for('cm.payroll', month=prev_month, worker=worker) }}">◀ Prev</a>
+  <a class="btn small" href="{{ url_for('cm.payroll', month=next_month, worker=worker) }}">Next ▶</a>
+</form>
+{% if worker %}
+<div class="stats">
+  <div class="stat"><div class="num">{{ total_hours }}h</div><div class="lbl">Total hours · {{ month_label }}</div></div>
+  <div class="stat"><div class="num">{{ days_worked }}</div><div class="lbl">Days worked</div></div>
+</div>
+<div class="cal-wrap"><div class="cal">
+<div class="cal-dow">Mon</div><div class="cal-dow">Tue</div><div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div><div class="cal-dow">Sun</div>
+{% for week in weeks %}
+{% for day in week %}
+{% if day %}
+<div class="cal-cell {% if cal.get(day) %}worked{% endif %} {% if day == today_num %}today{% endif %}">
+<div class="d">{{ day }}</div>
+{% if cal.get(day) %}<div class="h">{{ cal[day] }}h</div>{% endif %}
+{% if day in open_days %}<div class="open">On shift</div>{% endif %}
+</div>
+{% else %}
+<div class="cal-cell blank"></div>
+{% endif %}
+{% endfor %}
+{% endfor %}
+</div></div>
+<div class="filters row-form" style="margin-top:12px">
   <a class="btn small" href="{{ url_for('cm.payroll_export', start=start, end=end) }}">⬇ Export CSV</a>
   <a class="btn small" href="{{ url_for('cm.payroll_export_xlsx', monday=monday) }}">⬇ Export XLSX</a>
   <button class="btn small" type="button" onclick="window.print()">🖨️ Print</button>
-</form>
-<div class="stats">
-  <div class="stat"><div class="num">{{ total_hours }}</div><div class="lbl">Total hours</div></div>
-  <div class="stat"><div class="num">${{ '%.2f'|format(total_gross) }}</div><div class="lbl">Total gross pay</div></div>
 </div>
-<div class="table-wrap"><table class="tbl">
-<tr><th>Worker</th><th>Company</th><th>Trade</th><th>Rate</th><th>Records</th><th>Hours</th><th>Gross pay</th></tr>
-{% for r in rows %}
-<tr><td><b>{{ r.worker }}</b></td><td>{{ r.company }}</td><td>{{ r.trade }}</td><td>${{ '%.2f'|format(r.rate) }}</td><td>{{ r.records }}</td><td>{{ r.hours }}</td><td><b>${{ '%.2f'|format(r.gross) }}</b></td></tr>
 {% else %}
-<tr><td colspan="7" class="muted">No records in this range.</td></tr>
-{% endfor %}
-</table></div>
+<p class="muted">Pick a month, then pick a worker to see their hours on the calendar.</p>
+{% endif %}
 {% endblock %}
