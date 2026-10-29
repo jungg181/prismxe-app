@@ -1,0 +1,33 @@
+{% extends "cm/base.html" %}
+{% block title %}Payroll Corrections{% endblock %}
+{% block content %}
+<h1>Payroll Corrections</h1>
+<p><a class="btn small" href="{{ url_for('cm.payroll') }}">← Back to payroll</a></p>
+{% if not recs %}
+<p class="muted">No corrections yet.</p>
+{% else %}
+{% for r in recs %}
+<div style="margin-bottom:20px">
+<h3>{{ r.worker_name }} · {{ r.start }} – {{ r.end }}</h3>
+<p class="muted">Submitted {{ r.submitted_at }} · Status: <b>{{ r.status }}</b>{% if r.applied_at %} · Applied {{ r.applied_at }}{% endif %}{% if r.note %} · Note: {{ r.note }}{% endif %}</p>
+{% if r.days %}
+<div class="table-wrap"><table class="tbl">
+<tr><th>Date</th><th>Was</th><th>Requested</th></tr>
+{% for d in r.days %}
+<tr><td><b>{{ d.date }}</b></td>
+<td>{{ t12(d.orig_in) }} – {% if d.orig_out %}{{ t12(d.orig_out) }}{% else %}On shift{% endif %}{% if d.orig_hours %} ({{ d.orig_hours }}h){% endif %}</td>
+<td>{{ t12(d.new_in) }} – {% if d.new_out %}{{ t12(d.new_out) }}{% else %}On shift{% endif %}{% if d.new_hours %} ({{ d.new_hours }}h){% endif %}</td></tr>
+{% endfor %}
+</table></div>
+{% else %}
+<p class="muted">Confirmed, no changes.</p>
+{% endif %}
+{% if r.status == 'correction' %}
+<form method="post" action="{{ url_for('cm.payroll_correction_apply', cid=r.id) }}" style="margin-top:8px">
+<button class="btn primary small" type="submit">Apply corrections</button>
+</form>
+{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
