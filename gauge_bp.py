@@ -21,7 +21,7 @@ from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request, send_file, session
+from flask import Blueprint, jsonify, redirect, render_template, request, send_file, session, url_for
 
 BASE = Path(__file__).parent
 sys.path.insert(0, str(BASE))
@@ -515,6 +515,27 @@ def _save_photo_tags():
     _atomic_write(PHOTO_TAGS_FILE, json.dumps(PHOTO_TAGS, indent=2, ensure_ascii=False))
 
 
+# Tag editing on/off switch (admin-controlled). Kept in its own file for the
+# same reason as PHOTO_TAGS: admin_save rewrites data_gauge.json with only
+# {equipment, calibration}, which would drop extra keys stored there.
+TAG_SETTINGS_FILE = BASE / "data_gauge_settings.json"
+try:
+    TAG_SETTINGS = json.loads(TAG_SETTINGS_FILE.read_text(encoding="utf-8"))
+    if not isinstance(TAG_SETTINGS, dict):
+        TAG_SETTINGS = {}
+except Exception:
+    TAG_SETTINGS = {}
+
+
+def tag_editing_enabled():
+    """True when photo tag editing is allowed (default ON = current behavior)."""
+    return TAG_SETTINGS.get("tag_editing", True)
+
+
+def _save_tag_settings():
+    _atomic_write(TAG_SETTINGS_FILE, json.dumps(TAG_SETTINGS, indent=2, ensure_ascii=False))
+
+
 def _valid_photo_key(key):
     if not isinstance(key, str):
         return False
@@ -638,7 +659,7 @@ def photos_page():
                 local.append(p.name)
     except Exception:
         local = []
-    return render_template("photos.html", local_photos=local)
+    return render_template("photos.html", local_photos=local, tag_editing=tag_editing_enabled())
 
 
 @bp.post("/api/photo-upload")
@@ -681,16 +702,20 @@ def photo_view_page(key):
         return "bad photo", 400
     return render_template("photo_tags.html", mode="view", photo_key=key,
                            img_url=_photo_img_url(key),
-                           tags=PHOTO_TAGS.get(key, []), label=key[6:])
+                           tags=PHOTO_TAGS.get(key, []), label=key[6:],
+                           tag_editing=tag_editing_enabled())
 
 
 @bp.get("/photo/<path:key>/edit")
 def photo_edit_page(key):
     if not _valid_photo_key(key):
         return "bad photo", 400
+    if not tag_editing_enabled():
+        return redirect(url_for(".photo_view_page", key=key))
     return render_template("photo_tags.html", mode="edit", photo_key=key,
                            img_url=_photo_img_url(key),
-                           tags=PHOTO_TAGS.get(key, []), label=key[6:])
+                           tags=PHOTO_TAGS.get(key, []), label=key[6:],
+                           tag_editing=True)
 
 
 @bp.get("/api/photo-tags/<path:key>")
@@ -704,6 +729,8 @@ def api_photo_tags_get(key):
 def api_photo_tags_save(key):
     if not _valid_photo_key(key):
         return jsonify({"error": "bad photo"}), 400
+    if not tag_editing_enabled():
+        return jsonify({"error": "tag editing is off"}), 403
     body = request.get_json(force=True, silent=True) or {}
     raw = body.get("tags")
     if not isinstance(raw, list) or len(raw) > 200:
@@ -790,6 +817,27 @@ def admin_login():
 def admin_logout():
     session.pop("gauge_admin", None)
     return jsonify({"ok": True})
+
+
+@bp.get("/api/tag-setting")
+@admin_required
+def api_tag_setting_get():
+    return jsonify({"ok": True, "tag_editing": tag_editing_enabled()})
+
+
+@bp.post("/api/tag-setting")
+@admin_required
+def api_tag_setting_save():
+    body = request.get_json(force=True, silent=True) or {}
+    val = body.get("tag_editing")
+    if not isinstance(val, bool):
+        return jsonify({"error": "tag_editing must be true or false"}), 400
+    TAG_SETTINGS["tag_editing"] = val
+    try:
+        _save_tag_settings()
+    except Exception as e:
+        return jsonify({"error": f"save failed: {e}"}), 500
+    return jsonify({"ok": True, "tag_editing": val})
 
 
 @bp.get("/api/admin/config")
