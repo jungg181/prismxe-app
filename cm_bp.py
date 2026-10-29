@@ -1371,6 +1371,46 @@ def _payroll_email_body(name, start, end, data):
     return "\n".join(lines)
 
 
+def _payroll_calendar_html(start, end, data):
+    """Calendar-grid HTML table mirroring the screen (for the HTML email)."""
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    first_monday = start - timedelta(days=start.weekday())
+    last_sunday = end + timedelta(days=6 - end.weekday())
+    parts = ['<table cellpadding="6" cellspacing="0" '
+             'style="border-collapse:collapse;font-family:sans-serif">']
+    parts.append('<tr>' + ''.join(
+        f'<th style="border:1px solid #ccc;padding:6px;background:#eee">{d}</th>'
+        for d in day_names) + '</tr>')
+    cur = first_monday
+    while cur <= last_sunday:
+        cells = []
+        for i in range(7):
+            d = cur + timedelta(days=i)
+            iso = d.isoformat()
+            if not (start.isoformat() <= iso <= end.isoformat()):
+                cells.append('<td style="border:1px solid #ccc;padding:6px"></td>')
+                continue
+            inner = f'<b>{d.month}/{d.day}</b>'
+            if data['day_io'].get(iso):
+                inner += f'<br>{data["day_io"][iso]}'
+            elif data['open_in'].get(iso):
+                inner += f'<br>{data["open_in"][iso]} – On shift'
+            if data['cal'].get(iso):
+                inner += f'<br><b>{data["cal"][iso]}h</b>'
+            if iso in data['open_days'] and data['cal'].get(iso):
+                inner += '<br>On shift'
+                if data['open_in'].get(iso):
+                    inner += f' · {data["open_in"][iso]}'
+            cells.append('<td style="border:1px solid #ccc;padding:6px;'
+                         f'vertical-align:top">{inner}</td>')
+        parts.append('<tr>' + ''.join(cells) + '</tr>')
+        cur += timedelta(days=7)
+    parts.append('</table>')
+    parts.append(f'<p>Total hours: {data["total_hours"]}h<br>'
+                 f'Days worked: {data["days_worked"]}</p>')
+    return ''.join(parts)
+
+
 @bp.route('/timecards/payroll')
 def payroll():
     # Step 1: set a date range, step 2: pick a worker -> that range as a calendar.
@@ -1433,8 +1473,10 @@ def payroll_email():
     """Send the selected worker's payroll summary by email.
 
     The form shows the exact draft (to / subject / body) and the user
-    taps Send once — nothing is sent without that tap. Sent through the
-    same Apps Script sendEmail action the COA confirmations use.
+    taps Send once — nothing is sent without that tap. The HTML email
+    also carries the calendar table, generated from the same records
+    as the screen. Sent through the same Apps Script sendEmail action
+    the COA confirmations use.
     """
     wid = request.form.get('worker') or ''
     start = request.form.get('start') or ''
@@ -1452,6 +1494,18 @@ def payroll_email():
         subject = f"Payroll summary {start} – {end}"
     import html as _html
     html_body = _html.escape(body).replace('\n', '<br>')
+    if wid:
+        try:
+            s_d = date.fromisoformat(start)
+            e_d = date.fromisoformat(end)
+        except ValueError:
+            s_d = e_d = None
+        if s_d and e_d:
+            if s_d > e_d:
+                s_d, e_d = e_d, s_d
+            html_body += ('<br><br>' + _payroll_calendar_html(
+                s_d, e_d, _payroll_range_data(wid, s_d.isoformat(),
+                                              e_d.isoformat())))
     res = sheets_post({'action': 'sendEmail', 'to': to, 'subject': subject,
                        'body': body, 'html': html_body}, timeout=30)
     if res and res.get('ok'):
