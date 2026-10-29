@@ -169,8 +169,9 @@ renderPendingTaggable();
 fetch("/Hanseong/gauge/api/drive-photos").then(r => r.json()).then(j => {
   const el = document.getElementById("driveList");
   if (!j.ok) { el.textContent = "Drive photos unavailable (" + (j.error || "connection issue") + "). Local photos above still work."; return; }
-  if (!j.files.length) { el.textContent = "No Drive photos yet."; return; }
-  el.innerHTML = j.files.slice().reverse().map(f => `
+  const imgs = j.files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name || ""));
+  if (!imgs.length) { el.textContent = "No Drive photos yet."; return; }
+  el.innerHTML = imgs.slice().reverse().map(f => `
     <div class="drow">
       <div class="nm">${esc(f.path || f.name)}</div>
       <a href="/Hanseong/gauge/photo/drive:${esc(f.id)}">View</a>
