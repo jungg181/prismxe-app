@@ -91,6 +91,15 @@
 
   <div id="panel" style="display:none">
     <div class="warn">Settings save to the server immediately. After making changes, tap <b>Download backup</b> and send the file to Muse so it is stored permanently (the free server can lose files when it restarts).</div>
+    <div class="card">
+      <h2>🏷️ Tag Setting</h2>
+      <p class="muted" style="font-size:13px">Controls photo tag editing. <b>On</b> = photo pages open in Edit mode (pins can be placed). <b>Off</b> = photo pages open in View mode (no editing).</p>
+      <div class="row">
+        <button class="btn btn-save" id="tagOnBtn" onclick="setTagSetting(true)">Tag Setting On (Edit)</button>
+        <button class="btn btn-sec" id="tagOffBtn" onclick="setTagSetting(false)">Tag Setting Off (View)</button>
+      </div>
+      <div id="tagSettingStatus" class="muted" style="margin-top:8px"></div>
+    </div>
     <div class="row" style="margin-bottom:12px">
       <button class="btn btn-save" onclick="saveAll()">💾 Save all</button>
     </div>
@@ -177,6 +186,28 @@ async function doLogout() {
   showLogin();
 }
 
+async function loadTagSetting() {
+  try {
+    const r = await api("/Hanseong/gauge/api/tag-setting");
+    const j = await r.json();
+    showTagSetting(j.tag_editing);
+  } catch (e) { /* login required; load() already handles it */ }
+}
+function showTagSetting(on) {
+  document.getElementById("tagSettingStatus").textContent = on ? "Current: On — photo pages open in Edit mode." : "Current: Off — photo pages open in View mode (editing blocked).";
+  document.getElementById("tagOnBtn").style.opacity = on ? "1" : "0.55";
+  document.getElementById("tagOffBtn").style.opacity = on ? "0.55" : "1";
+}
+async function setTagSetting(on) {
+  try {
+    const r = await api("/Hanseong/gauge/api/tag-setting", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ tag_editing: on }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "save failed");
+    showTagSetting(j.tag_editing);
+    toast(on ? "Tag Setting On — Edit mode" : "Tag Setting Off — View mode");
+  } catch (e) { if (e.message !== "login") toast("Failed: " + e.message); }
+}
+
 async function load() {
   try {
     const r = await api("/Hanseong/gauge/api/admin/config");
@@ -185,6 +216,7 @@ async function load() {
   document.getElementById("login").style.display = "none";
   document.getElementById("panel").style.display = "block";
   render();
+  loadTagSetting();
 }
 
 function calOf(gid) { return CFG.calibration[gid] || {}; }
