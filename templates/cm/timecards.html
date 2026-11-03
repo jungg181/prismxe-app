@@ -54,26 +54,33 @@
 </form>
 
 <div class="table-wrap"><table class="tbl">
-<tr><th>Worker</th><th>Site</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Notes</th><th>Action</th></tr>
-{% for t in rows %}
+<tr><th>Worker</th><th>Site</th><th>Dates</th><th>Total hours</th></tr>
+{% for g in groups %}
 <tr>
-  <td><b>{{ worker_name(t.worker_id) }}</b></td>
-  <td>{{ site_name(t.site_id) }}</td>
-  <td>{{ fmt_dt(t.clock_in) }}{% set gl=gmaps_link(t.clock_in_lat,t.clock_in_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">📍 GPS</a>{% endif %}{% set dist=clock_in_distance_km(t) %}{% if dist is not none %}{% if dist < 0.5 %}<br><span class="pill pill-active small">On site</span>{% else %}<br><span class="pill pill-low small">⚠️ {{ '%.1f'|format(dist) }} km away</span>{% endif %}{% endif %}</td>
-  <td>{% if t.clock_out %}{{ fmt_dt(t.clock_out) }}{% set gl=gmaps_link(t.clock_out_lat,t.clock_out_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">📍 GPS</a>{% endif %}{% else %}<span class="muted">Still on shift</span>{% endif %}</td>
-  <td>{% set sys_h = t.hours or compute_hours(t.clock_in, t.clock_out) %}{{ sys_h }}{% if t.reported_hours %}{% if (sys_h - t.reported_hours)|abs >= 0.5 %}<br><span class="pill pill-low small">👷 {{ t.reported_hours }}h reported</span>{% else %}<br><span class="small muted">👷 {{ t.reported_hours }}h ✓</span>{% endif %}{% endif %}</td>
-  <td><span class="pill pill-{{ t.status }}">{{ t.status.replace('_',' ').title() }}</span>{% if t.offline %} <span class="pill pill-offline" title="Synced from an offline device">Offline</span>{% endif %}</td>
-  <td class="small muted">{{ t.notes or '' }}</td>
-  <td class="nowrap">
-    {% if t.status == 'clocked_out' %}
-    <form method="post" action="{{ url_for('.timecard_approve', tid=t.id) }}" style="display:inline"><button class="btn small primary">Approve</button></form>
-    {% endif %}
-    <a class="btn small" href="{{ url_for('.timecard_edit', tid=t.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('.timecard_delete', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete timecard?')"><button class="btn small danger">Delete</button></form>
+  <td><b>{{ g.name }}</b></td>
+  <td>{{ g.sites }}</td>
+  <td>
+    {% for r in g.records %}
+    <div style="padding:.2rem 0">
+      {{ r.date }} {{ r.in }}{% if r.out %}–{{ r.out }}{% else %}– <span class="muted">on shift</span>{% endif %}
+      {% if r.hours != '' %}({{ r.hours }}h){% endif %}
+      {% if r.status == 'approved' %}<span class="small muted">✓ Approved</span>{% endif %}
+      {% if r.reported and r.hours != '' %}{% if (r.hours - r.reported)|abs >= 0.5 %}<span class="pill pill-low small">👷 {{ r.reported }}h reported</span>{% else %}<span class="small muted">👷 {{ r.reported }}h ✓</span>{% endif %}{% endif %}
+      {% if r.notes %}<span class="small muted">· {{ r.notes }}</span>{% endif %}
+      <span class="nowrap">
+        {% if r.status == 'clocked_out' %}
+        <form method="post" action="{{ url_for('.timecard_approve', tid=r.id) }}" style="display:inline"><button class="btn small primary">Approve</button></form>
+        {% endif %}
+        <a class="btn small" href="{{ url_for('.timecard_edit', tid=r.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('.timecard_delete', tid=r.id) }}" style="display:inline" onsubmit="return confirm('Delete timecard?')"><button class="btn small danger">Delete</button></form>
+      </span>
+    </div>
+    {% endfor %}
   </td>
+  <td>{{ g.total_hours }}</td>
 </tr>
 {% else %}
-<tr><td colspan="8" class="muted">No timecards.</td></tr>
+<tr><td colspan="4" class="muted">No timecards.</td></tr>
 {% endfor %}
 </table></div>
 {% endblock %}
