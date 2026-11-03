@@ -4,7 +4,17 @@
 {% block body %}
 <h1 style="margin-top:0">Settings</h1>
 
-<div class="card">
+<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem">
+  <button class="btn small primary" onclick="toggleSec('sec-display', this)">00 Display</button>
+  <button class="btn small" onclick="toggleSec('sec-equipment', this)">01 Equipment</button>
+  <button class="btn small" onclick="toggleSec('sec-checks', this)">02 Patrol Checks</button>
+  <button class="btn small" onclick="toggleSec('sec-slots', this)">03 Time Slots &amp; Shifts</button>
+  <button class="btn small" onclick="toggleSec('sec-shifts', this)">04 Shifts</button>
+  <button class="btn small" onclick="toggleSec('sec-workers', this)">05 Workers</button>
+  <button class="btn small" onclick="toggleSec('sec-data', this)">06 Data</button>
+</div>
+
+<div class="card" id="sec-display">
   <h2><span class="muted">00</span> Display</h2>
   <div class="rowline">
     <div class="grow">
@@ -61,7 +71,7 @@ function saveDisplay(){
 }
 </script>
 
-<div class="card">
+<div class="card" id="sec-equipment" style="display:none">
   <h2><span class="muted">01</span> Equipment <button class="btn small primary" onclick="addEquipment()" style="float:right">+ Add Equipment</button></h2>
   <div id="eq-list">
     {% for e in equipment %}
@@ -92,7 +102,7 @@ function saveDisplay(){
   <span class="muted small" id="eq-msg"></span>
 </div>
 
-<div class="card" style="overflow-x:auto">
+<div class="card" id="sec-checks" style="overflow-x:auto;display:none">
   <h2><span class="muted">02</span> Patrol Checks <span class="muted small">click a cell: empty → <span class="dot hollow"></span> → <span class="dot solid"></span> photo report → empty</span></h2>
   <table class="grid" id="check-grid">
     <tr><th></th>{% for s in slots %}<th>{{ s.label }}</th>{% endfor %}</tr>
@@ -107,7 +117,7 @@ function saveDisplay(){
   </table>
 </div>
 
-<div class="card">
+<div class="card" id="sec-slots" style="display:none">
   <h2><span class="muted">03</span> Time Slots &amp; Shifts</h2>
   <p class="muted small" style="margin-top:0">You plan <b>2 weeks at a time</b>. Pick a day, then put worker names on the hours — no shift groups for people. The A/B/C tag only colors the timetable. The Dashboard shows the names on the current hour.</p>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -142,14 +152,14 @@ function saveDisplay(){
   <span class="muted small" id="slot-msg"></span>
 </div>
 
-<div class="card">
+<div class="card" id="sec-shifts" style="display:none">
   <h2><span class="muted">04</span> Shifts <span class="muted small">names & colors (hours come from Time Slots)</span> <button class="btn small primary" onclick="addShift()" style="float:right">+ Add Shift</button></h2>
   <div id="shift-list"></div>
   <button class="btn primary" onclick="saveShifts()">Save shifts</button>
   <span class="muted small" id="shift-msg"></span>
 </div>
 
-<div class="card">
+<div class="card" id="sec-workers" style="display:none">
   <h2><span class="muted">05</span> Workers <button class="btn small primary" onclick="addWorker()" style="float:right">+ Add Worker</button></h2>
   <div id="worker-list">
     {% for w in workers %}
@@ -158,6 +168,7 @@ function saveDisplay(){
       <div class="grow"><div class="small muted">NAME</div><input type="text" class="wk-name" value="{{ w.name }}" style="width:100%"></div>
       <div class="grow"><div class="small muted">EMAIL</div><input type="email" class="wk-email" value="{{ w.email }}" style="width:100%"></div>
       <div class="grow"><div class="small muted">PHONE</div><input type="tel" class="wk-phone" value="{{ w.phone or '' }}" style="width:100%"></div>
+      <div class="grow"><div class="small muted">STAFFING</div><input type="text" class="wk-staffing" value="{{ w.staffing or '' }}" style="width:100%"></div>
       <div><div class="small muted">SHIFT</div>
         <select class="wk-shift">
           <option value="">—</option>
@@ -184,7 +195,7 @@ function saveDisplay(){
   <span class="muted small" id="wk-msg"></span>
 </div>
 
-<div class="card">
+<div class="card" id="sec-data" style="display:none">
   <h2><span class="muted">06</span> Data</h2>
   <a class="btn" href="{{ url_for('.data_backup') }}">⬇ Download backup (JSON)</a>
   <form method="post" action="{{ url_for('.settings_reset') }}" style="display:inline" onsubmit="return confirm('Reset timetable to defaults? Workers and punches are kept.')">
@@ -195,6 +206,12 @@ function saveDisplay(){
 {% block scripts %}
 <script>
 const SHIFTS = {{ shifts|tojson }};
+function toggleSec(id, btn){
+  var el = document.getElementById(id);
+  var show = el.style.display === 'none';
+  el.style.display = show ? '' : 'none';
+  if(btn) btn.classList.toggle('primary', show);
+}
 async function post(url, data){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
   return r.json();
@@ -401,6 +418,7 @@ async function saveWorkers(){
     name: row.querySelector('.wk-name').value,
     email: row.querySelector('.wk-email').value,
     phone: row.querySelector('.wk-phone') ? row.querySelector('.wk-phone').value : '',
+    staffing: row.querySelector('.wk-staffing') ? row.querySelector('.wk-staffing').value : '',
     shift_id: row.querySelector('.wk-shift').value,
     role: row.querySelector('.wk-role') ? row.querySelector('.wk-role').value : '',
     active: row.querySelector('.wk-status') ? row.querySelector('.wk-status').value === 'active' : true
