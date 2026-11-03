@@ -853,6 +853,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 w['role'] = item.get('role', '')
             if 'phone' in item:
                 w['phone'] = item.get('phone', '')
+            if 'staffing' in item:
+                w['staffing'] = item.get('staffing', '')
             if 'active' in item:
                 w['active'] = bool(item.get('active'))
         save_db()
@@ -1107,23 +1109,48 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     @login_required
     @visit_action_required('timecard')
     def timecard_export():
-        # ?date=YYYY-MM-DD limits the export to pairs clocked in on
-        # that day (overnight shifts belong to their clock-in day).
-        # No date = the full export, as before.
-        day = (request.args.get('date') or '').strip()
-        if len(day) != 10 or day[4] != '-' or day[7] != '-':
-            day = ''
+        # ?from=YYYY-MM-DD&to=YYYY-MM-DD limits the export to pairs
+        # clocked in within that range (inclusive; overnight shifts
+        # belong to their clock-in day). A reversed range is swapped.
+        # Missing bounds are open-ended; no params = the full export.
+        def _day(v):
+            v = (v or '').strip()
+            return v if len(v) == 10 and v[4] == '-' and v[7] == '-' else ''
+        frm, to = _day(request.args.get('from')), _day(request.args.get('to'))
+        if frm and to and frm > to:
+            frm, to = to, frm
+        # Notes = the worker's Staffing company (set in Settings ->
+        # Workers), so a download shows which side each worker is from.
+        staffing_by_email = {}
+        for w in DB.get('workers', []):
+            em = (w.get('email') or '').strip().lower()
+            if em and em not in staffing_by_email:
+                staffing_by_email[em] = w.get('staffing', '') or ''
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(['date', 'name', 'email', 'clock_in', 'clock_out', 'hours'])
+        w.writerow(['date', 'name', 'email', 'clock_in', 'clock_out', 'hours',
+                    'notes'])
         for r in paired_records():
-            if day and (r['clock_in'] or '')[:10] != day:
+            d = (r['clock_in'] or '')[:10]
+            if (frm or to) and not d:
                 continue
-            w.writerow([(r['clock_in'] or '')[:10], r['name'], r['email'],
+            if frm and d < frm:
+                continue
+            if to and d > to:
+                continue
+            w.writerow([d, r['name'], r['email'],
                         (r['clock_in'] or '')[11:16], (r['clock_out'] or '')[11:16],
-                        r['hours'] or ''])
+                        r['hours'] or '',
+                        staffing_by_email.get((r['email'] or '').strip().lower(), '')])
         data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
-        name = f'patrol-timecards-{day}.csv' if day else 'patrol-timecards.csv'
+        if frm and to:
+            name = f'patrol-timecards-{frm}_to_{to}.csv'
+        elif frm:
+            name = f'patrol-timecards-from-{frm}.csv'
+        elif to:
+            name = f'patrol-timecards-to-{to}.csv'
+        else:
+            name = 'patrol-timecards.csv'
         return send_file(data, mimetype='text/csv', as_attachment=True,
                          download_name=name)
 
