@@ -11,6 +11,7 @@
 <div class="card">
   <h2 style="margin-top:0">Weekly Payroll
     <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}" style="float:right">⬇ Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}" style="float:right">⬇ Basic CSV</a>
   </h2>
   <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
     <a class="btn small" href="{{ url_for('.payroll', start=prev) }}" style="text-decoration:none">◀ Prev week</a>
