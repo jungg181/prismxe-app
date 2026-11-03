@@ -1178,9 +1178,19 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             if em and em not in staffing_by_email:
                 staffing_by_email[em] = w.get('staffing', '') or ''
         buf = io.StringIO()
-        w = csv.writer(buf)
-        w.writerow(['name', 'date', 'clock_in', 'clock_out', 'hours',
-                    'notes'])
+        w = csv.writer(buf, quoting=csv.QUOTE_ALL)
+        w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
+                    'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
+                    'Meal Break Deduction Hours', 'Payroll Hours',
+                    'Payroll Status', 'Timecard Status', 'Notes'])
+
+        def fday(ts):
+            dt = datetime.fromisoformat(ts)
+            return f"{dt.strftime('%b')} {dt.day}, {dt.year}"
+
+        def ftm(ts):
+            return datetime.fromisoformat(ts).strftime('%I:%M %p')
+
         for r in paired_records():
             d = (r['clock_in'] or '')[:10]
             if (frm or to) and not d:
@@ -1189,10 +1199,19 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 continue
             if to and d > to:
                 continue
-            w.writerow([r['name'], d,
-                        (r['clock_in'] or '')[11:16], (r['clock_out'] or '')[11:16],
-                        r['hours'] or '',
-                        staffing_by_email.get((r['email'] or '').strip().lower(), '')])
+            cin = r.get('clock_in') or ''
+            cout = r.get('clock_out') or ''
+            hrs = r.get('hours')
+            status = 'Clocked Out' if cout else 'Clocked In'
+            w.writerow([
+                r['name'], company_display_name,
+                fday(cin) if cin else '', ftm(cin) if cin else '',
+                fday(cout) if cout else '', ftm(cout) if cout else '',
+                f'{hrs:.2f}' if hrs is not None else '',
+                '0.00',
+                f'{hrs:.2f}' if hrs is not None else '',
+                status, status,
+                staffing_by_email.get((r['email'] or '').strip().lower(), '')])
         data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
         if frm and to:
             name = f'patrol-timecards-{frm}_to_{to}.csv'
