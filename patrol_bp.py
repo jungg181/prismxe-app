@@ -518,7 +518,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     "color": _worker_color(w),
                     "ts": (w.get("last_loc_ts") or "")[:16].replace("T", " ")}
                    for w in DB.get('workers', [])
-                   if w.get('last_lat') is not None and w.get('last_lng') is not None]
+                   if w.get('last_lat') is not None
+                   and w.get('last_lng') is not None
+                   and w.get('active', True)]
         shift_tints = {s['id']: lighten(s.get('color')) for s in DB['shifts']}
         # On-duty crew for the CURRENT time slot, from the 2-week plan
         # (Settings -> Time Slots & Shifts, names per hour). Supervisors
