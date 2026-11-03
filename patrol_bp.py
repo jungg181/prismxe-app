@@ -583,6 +583,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                shift_tints=shift_tints, crew=crew,
                                crew_slot_label=crew_slot.get('label', ''),
                                slot_missing=slot_missing, crew_bars=crew_bars,
+                               show_crew_today=DB.get('config', {}).get(
+                                   'show_crew_today', True),
                                zipcode=DB.get('config', {}).get('zipcode', ''))
 
 
@@ -635,6 +637,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                plan_start=plan_monday.isoformat(),
                                today_str=local_now().date().isoformat(),
                                zipcode=cfg.get('zipcode', ''),
+                               show_crew_today=cfg.get('show_crew_today', True),
                                app_version=eff_version,
                                apk_url=eff_url,
                                apk_cert_sha256=cfg.get('apk_cert_sha256', ''),
@@ -656,6 +659,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         sha = (data.get('apk_cert_sha256') or '').strip().upper().replace(' ', '')
         if sha:
             DB['config']['apk_cert_sha256'] = sha
+        if 'show_crew_today' in data:
+            DB['config']['show_crew_today'] = bool(data.get('show_crew_today'))
         save_db()
         return jsonify({'ok': True})
 
