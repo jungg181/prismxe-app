@@ -13,7 +13,20 @@
 
 <div class="toolbar">
   <a class="btn" href="{{ url_for('.payroll') }}">📊 Payroll report</a>
-  <a class="btn" href="{{ url_for('.timecard_export', site=fsite, status=fstatus, sort=sort) }}">⬇ Export CSV</a>
+  <input type="date" id="export-from" title="From">
+  <input type="date" id="export-to" title="To">
+  <button class="btn" onclick="exportCmCsv()">⬇ Export CSV</button>
+  <script>
+  function exportCmCsv(){
+    var f = document.getElementById('export-from').value;
+    var t = document.getElementById('export-to').value;
+    var url = "{{ url_for('.timecard_export', site=fsite, status=fstatus, sort=sort) }}";
+    var q = [];
+    if(f) q.push('from=' + encodeURIComponent(f));
+    if(t) q.push('to=' + encodeURIComponent(t));
+    location.href = q.length ? url + '&' + q.join('&') : url;
+  }
+  </script>
   <a class="btn" href="{{ url_for('.timecard_bulk') }}">Bulk time entry</a>
   <a class="btn primary" href="{{ url_for('.timecard_new') }}">+ Log timecard</a>
 </div>
