@@ -1107,16 +1107,25 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     @login_required
     @visit_action_required('timecard')
     def timecard_export():
+        # ?date=YYYY-MM-DD limits the export to pairs clocked in on
+        # that day (overnight shifts belong to their clock-in day).
+        # No date = the full export, as before.
+        day = (request.args.get('date') or '').strip()
+        if len(day) != 10 or day[4] != '-' or day[7] != '-':
+            day = ''
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(['date', 'name', 'email', 'clock_in', 'clock_out', 'hours'])
         for r in paired_records():
+            if day and (r['clock_in'] or '')[:10] != day:
+                continue
             w.writerow([(r['clock_in'] or '')[:10], r['name'], r['email'],
                         (r['clock_in'] or '')[11:16], (r['clock_out'] or '')[11:16],
                         r['hours'] or ''])
         data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+        name = f'patrol-timecards-{day}.csv' if day else 'patrol-timecards.csv'
         return send_file(data, mimetype='text/csv', as_attachment=True,
-                         download_name='patrol-timecards.csv')
+                         download_name=name)
 
 
     # ================= EMAIL HOURS =================
