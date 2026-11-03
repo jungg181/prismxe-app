@@ -13,6 +13,7 @@
 
 <div class="toolbar">
   <a class="btn" href="{{ url_for('.payroll') }}">📊 Payroll report</a>
+  <a class="btn" href="{{ url_for('.timecard_export', site=fsite, status=fstatus, sort=sort) }}">⬇ Export CSV</a>
   <a class="btn" href="{{ url_for('.timecard_bulk') }}">Bulk time entry</a>
   <a class="btn primary" href="{{ url_for('.timecard_new') }}">+ Log timecard</a>
 </div>
