@@ -1213,6 +1213,51 @@ def timecards():
                            active_now=active_now, attention=needs_attention_count())
 
 
+@bp.route('/timecards/export')
+def timecard_export():
+    # CSV download of the timecards list, honouring the page's filters.
+    fsite = request.args.get('site') or 'all'
+    fstatus = request.args.get('status') or 'all'
+    sort = request.args.get('sort') or 'newest'
+    rows = []
+    for t in DB['timecards']:
+        if fsite != 'all' and t.get('site_id') != fsite:
+            continue
+        if fstatus != 'all' and t.get('status') != fstatus:
+            continue
+        rows.append(t)
+    rows.sort(key=lambda t: t.get('clock_in') or '',
+              reverse=(sort == 'newest'))
+
+    def _d(dt):
+        return (f"{dt.day}-{dt.strftime('%b')}-{dt.strftime('%y')}"
+                if dt else '')
+
+    def _t(dt):
+        return dt.strftime('%-I:%M %p') if dt else ''
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
+                'Clock-Out Date', 'Clock-Out Time', 'Hours', 'Status', 'Notes'])
+    for t in rows:
+        ci = parse_iso(t.get('clock_in'))
+        co = parse_iso(t.get('clock_out'))
+        if co:
+            hours = t.get('hours')
+            if hours is None:
+                hours = compute_hours(t.get('clock_in'), t.get('clock_out'))
+        else:
+            hours = ''
+        w.writerow([worker_name(t.get('worker_id')), site_name(t.get('site_id')),
+                    _d(ci), _t(ci), _d(co), _t(co),
+                    hours, (t.get('status') or '').replace('_', ' ').title(),
+                    t.get('notes') or ''])
+    data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return send_file(data, mimetype='text/csv', as_attachment=True,
+                     download_name='cm-timecards.csv')
+
+
 @bp.route('/timecards/new', methods=['GET', 'POST'])
 def timecard_new():
     if request.method == 'POST':
