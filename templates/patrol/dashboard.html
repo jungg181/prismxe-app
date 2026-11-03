@@ -101,7 +101,7 @@
     </tr>
     {% endif %}
     {% endfor %}
-    {% if crew_bars %}
+    {% if show_crew_today and crew_bars %}
     <tr><td colspan="25" style="background:#e2e8f0;text-align:left;font-weight:800">👷 Crew today <span class="muted small" style="font-weight:400">— each person's working hours, from the 2-week plan</span></td></tr>
     {% for b in crew_bars %}
     <tr>
