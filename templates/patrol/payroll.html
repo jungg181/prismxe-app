@@ -18,11 +18,6 @@
     <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}" style="float:right">⬇ Basic CSV</a>
     {% endif %}
   </h2>
-  <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
-    <input type="date" name="from" value="{{ days[0].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
-    <input type="date" name="to" value="{{ days[-1].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
-    <button class="btn small" type="submit" style="flex:1;min-width:0">Show</button>
-  </form>
   <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
     {% if is_range %}
     <a class="btn small" href="{{ url_for('.payroll') }}?from={{ prev }}&to={{ prev_end }}" style="text-decoration:none">◀ Prev</a>
@@ -34,6 +29,11 @@
     <a class="btn small" href="{{ url_for('.payroll', start=nxt) }}" style="text-decoration:none">Next week ▶</a>
     {% endif %}
   </div>
+  <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
+    <input type="date" name="from" value="{{ days[0].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
+    <input type="date" name="to" value="{{ days[-1].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
+    <button class="btn small" type="submit" style="flex-shrink:0">Show</button>
+  </form>
   {% if not rows %}
   <p class="muted">{% if is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
   {% else %}
