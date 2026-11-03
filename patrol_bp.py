@@ -1089,9 +1089,10 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         in_ts = parse_day_time(d.get('date'), d.get('clock_in'))
         if not in_ts:
             return jsonify({'ok': False, 'error': 'Invalid date or clock-in time.'}), 400
-        out_ts = parse_day_time(d.get('date'), d.get('clock_out')) if d.get('clock_out') else None
+        out_day = d.get('clock_out_date') or d.get('date')
+        out_ts = parse_day_time(out_day, d.get('clock_out')) if d.get('clock_out') else None
         if d.get('clock_out') and not out_ts:
-            return jsonify({'ok': False, 'error': 'Invalid clock-out time.'}), 400
+            return jsonify({'ok': False, 'error': 'Invalid clock-out date or time.'}), 400
         if out_ts and out_ts <= in_ts:
             return jsonify({'ok': False, 'error': 'Clock-out must be after clock-in.'}), 400
         DB['punches'].append({"id": new_id(), "email": email, "name": name,
