@@ -139,6 +139,9 @@
     </label><br>
     <label class="small"><b>Clock out</b> <span class="muted">(empty = still clocked in)</span><br>
       <input type="time" id="add-out" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
+    </label><br>
+    <label class="small"><b>Clock out date</b> <span class="muted">(empty = same as clock-in date)</span><br>
+      <input type="date" id="add-out-date" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
     </label>
     <div style="display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap">
       <button class="btn" onclick="closeAdd()">Cancel</button>
@@ -238,6 +241,7 @@ function openAdd(){
   document.getElementById('add-date').valueAsDate = new Date();
   document.getElementById('add-in').value = '';
   document.getElementById('add-out').value = '';
+  document.getElementById('add-out-date').value = '';
   document.getElementById('add-modal').style.display = 'flex';
 }
 function closeAdd(){
@@ -251,15 +255,17 @@ async function saveAdd(){
   const day = document.getElementById('add-date').value;
   const cin = document.getElementById('add-in').value;
   const cout = document.getElementById('add-out').value;
+  const coutDay = document.getElementById('add-out-date').value || day;
   const err = document.getElementById('add-err');
   if(!wid){ err.textContent = 'Choose a worker.'; return; }
   if(!day){ err.textContent = 'Choose a date.'; return; }
   if(!cin){ err.textContent = 'Clock-in time is required.'; return; }
-  if(cout && cout <= cin){ err.textContent = 'Clock-out must be after clock-in.'; return; }
+  if(cout && (coutDay + 'T' + cout) <= (day + 'T' + cin)){ err.textContent = 'Clock-out must be after clock-in.'; return; }
   const r = await fetch("{{ url_for('.timecard_punch_add') }}", {method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({worker_id: wid, date: day,
-                          clock_in: cin, clock_out: cout || null})});
+                          clock_in: cin, clock_out: cout || null,
+                          clock_out_date: document.getElementById('add-out-date').value || null})});
   const j = await r.json();
   if(!j.ok){ err.textContent = j.error || 'Failed'; return; }
   location.reload();
