@@ -1128,7 +1128,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 staffing_by_email[em] = w.get('staffing', '') or ''
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(['date', 'name', 'email', 'clock_in', 'clock_out', 'hours',
+        w.writerow(['date', 'name', 'clock_in', 'clock_out', 'hours',
                     'notes'])
         for r in paired_records():
             d = (r['clock_in'] or '')[:10]
@@ -1138,7 +1138,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 continue
             if to and d > to:
                 continue
-            w.writerow([d, r['name'], r['email'],
+            w.writerow([d, r['name'],
                         (r['clock_in'] or '')[11:16], (r['clock_out'] or '')[11:16],
                         r['hours'] or '',
                         staffing_by_email.get((r['email'] or '').strip().lower(), '')])
