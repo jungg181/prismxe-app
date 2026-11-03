@@ -1,6 +1,6 @@
 {% extends "patrol/base.html" %}
 {% set nav='time' %}
-{% block title %}Weekly Payroll · Equipment Patrol Timetable{% endblock %}
+{% block title %}{% if is_range %}Payroll{% else %}Weekly Payroll{% endif %} · Equipment Patrol Timetable{% endblock %}
 {% block body %}
 <h1 style="margin-top:0">Timecard</h1>
 <div style="display:flex;gap:.5rem;margin-bottom:1rem">
@@ -9,17 +9,33 @@
   <a class="btn primary" href="{{ url_for('.payroll') }}" style="text-decoration:none">Payroll</a>
 </div>
 <div class="card">
-  <h2 style="margin-top:0">Weekly Payroll
+  <h2 style="margin-top:0">{% if is_range %}Payroll{% else %}Weekly Payroll{% endif %}
+    {% if is_range %}
+    <a class="btn small" href="{{ url_for('.payroll_xlsx') }}?from={{ from_s }}&to={{ to_s }}" style="float:right">⬇ Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv') }}?from={{ from_s }}&to={{ to_s }}" style="float:right">⬇ Basic CSV</a>
+    {% else %}
     <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}" style="float:right">⬇ Download Excel</a>
     <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}" style="float:right">⬇ Basic CSV</a>
+    {% endif %}
   </h2>
+  <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
+    <input type="date" name="from" value="{{ days[0].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
+    <input type="date" name="to" value="{{ days[-1].isoformat() }}" style="flex:1;min-width:0;padding:.35rem">
+    <button class="btn small" type="submit" style="flex-shrink:0">Show</button>
+  </form>
   <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
+    {% if is_range %}
+    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ prev }}&to={{ prev_end }}" style="text-decoration:none">◀ Prev</a>
+    <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[-1].strftime('%a, %b %d, %Y') }}</b>
+    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ nxt }}&to={{ nxt_end }}" style="text-decoration:none">Next ▶</a>
+    {% else %}
     <a class="btn small" href="{{ url_for('.payroll', start=prev) }}" style="text-decoration:none">◀ Prev week</a>
-    <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[6].strftime('%a, %b %d, %Y') }}</b>
+    <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[-1].strftime('%a, %b %d, %Y') }}</b>
     <a class="btn small" href="{{ url_for('.payroll', start=nxt) }}" style="text-decoration:none">Next week ▶</a>
+    {% endif %}
   </div>
   {% if not rows %}
-  <p class="muted">No records this week.</p>
+  <p class="muted">{% if is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
   {% else %}
   <style>
     .payroll-tbl{border-collapse:collapse;min-width:920px;background:#fff}
@@ -58,7 +74,7 @@
     </tr>
     {% endfor %}
     <tr>
-      <td colspan="10" style="text-align:right"><b>Grand total</b></td>
+      <td colspan="{{ 3 + days|length }}" style="text-align:right"><b>Grand total</b></td>
       <td><b>{{ '%.2f'|format(grand) }}</b></td>
       <td colspan="3"></td>
     </tr>
