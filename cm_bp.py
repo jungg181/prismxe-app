@@ -1215,15 +1215,32 @@ def timecards():
 
 @bp.route('/timecards/export')
 def timecard_export():
-    # CSV download of the timecards list, honouring the page's filters.
+    # CSV download of the timecards list, honouring the page's filters
+    # plus an optional ?from=YYYY-MM-DD&to=YYYY-MM-DD clock-in range
+    # (inclusive; overnight shifts belong to their clock-in day).
+    # A reversed range is swapped; missing bounds are open-ended.
     fsite = request.args.get('site') or 'all'
     fstatus = request.args.get('status') or 'all'
     sort = request.args.get('sort') or 'newest'
+
+    def _day(v):
+        v = (v or '').strip()
+        return v if len(v) == 10 and v[4] == '-' and v[7] == '-' else ''
+    frm, to = _day(request.args.get('from')), _day(request.args.get('to'))
+    if frm and to and frm > to:
+        frm, to = to, frm
     rows = []
     for t in DB['timecards']:
         if fsite != 'all' and t.get('site_id') != fsite:
             continue
         if fstatus != 'all' and t.get('status') != fstatus:
+            continue
+        d = (t.get('clock_in') or '')[:10]
+        if (frm or to) and not d:
+            continue
+        if frm and d < frm:
+            continue
+        if to and d > to:
             continue
         rows.append(t)
     rows.sort(key=lambda t: t.get('clock_in') or '',
@@ -1254,8 +1271,16 @@ def timecard_export():
                     hours, (t.get('status') or '').replace('_', ' ').title(),
                     t.get('notes') or ''])
     data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    if frm and to:
+        name = f'cm-timecards-{frm}_to_{to}.csv'
+    elif frm:
+        name = f'cm-timecards-from-{frm}.csv'
+    elif to:
+        name = f'cm-timecards-to-{to}.csv'
+    else:
+        name = 'cm-timecards.csv'
     return send_file(data, mimetype='text/csv', as_attachment=True,
-                     download_name='cm-timecards.csv')
+                     download_name=name)
 
 
 @bp.route('/timecards/new', methods=['GET', 'POST'])
