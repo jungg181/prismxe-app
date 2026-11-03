@@ -1474,6 +1474,56 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         wb.save(buf)
         return buf.getvalue()
 
+    def _payroll_basic_csv_bytes(monday):
+        """Flat one-line-per-shift CSV in the timecard-detail style.
+
+        One row per clock-in/out pair for the displayed week, so the
+        file drops straight into Google Sheets for pay calculation:
+        Employee, Site, Clock-In/Out Date/Time, Gross Hours, Meal
+        Break Deduction Hours, Payroll Hours, Payroll/Timecard Status,
+        Notes. Patrol has no meal deduction, so that column is 0.00
+        and Payroll Hours equals Gross Hours. Open pairs (still
+        clocked in) get blank clock-out/hours. Dates/times use the
+        same 'Oct 1, 2026' / '07:00 AM' formatting as the CM detail
+        CSV, and the file carries a UTF-8 BOM so Excel opens it
+        correctly.
+        """
+        from datetime import timedelta as _td
+        days = [monday + _td(days=i) for i in range(7)]
+        buf = io.StringIO()
+        w = csv.writer(buf, quoting=csv.QUOTE_ALL)
+        w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
+                    'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
+                    'Meal Break Deduction Hours', 'Payroll Hours',
+                    'Payroll Status', 'Timecard Status', 'Notes'])
+
+        def fday(ts):
+            dt = datetime.fromisoformat(ts)
+            return f"{dt.strftime('%b')} {dt.day}, {dt.year}"
+
+        def ftm(ts):
+            return datetime.fromisoformat(ts).strftime('%I:%M %p')
+
+        for entry in hours_summary(days[0].isoformat(),
+                                   days[-1].isoformat()):
+            shifts = sorted(entry['shifts'],
+                            key=lambda s: s.get('clock_in') or '')
+            for s in shifts:
+                cin = s.get('clock_in') or ''
+                cout = s.get('clock_out') or ''
+                hrs = s.get('hours')
+                status = 'Clocked Out' if cout else 'Clocked In'
+                w.writerow([
+                    entry['name'], company_display_name,
+                    fday(cin) if cin else '', ftm(cin) if cin else '',
+                    fday(cout) if cout else '', ftm(cout) if cout else '',
+                    f'{hrs:.2f}' if hrs is not None else '',
+                    '0.00',
+                    f'{hrs:.2f}' if hrs is not None else '',
+                    status, status, '',
+                ])
+        return b'\xef\xbb\xbf' + buf.getvalue().encode('utf-8')
+
     @bp.route('/payroll', methods=['GET', 'POST'])
     @visit_gate('payroll', 'Weekly Payroll')
     def payroll():
@@ -1500,6 +1550,19 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             io.BytesIO(data),
             mimetype='application/vnd.openxmlformats-officedocument.'
                      'spreadsheetml.sheet',
+            as_attachment=True, download_name=fn)
+
+    @bp.route('/payroll-basic.csv')
+    @visit_action_required('payroll')
+    def payroll_basic_csv():
+        from datetime import timedelta as _td
+        monday = _week_monday(request.args.get('start'))
+        data = _payroll_basic_csv_bytes(monday)
+        fn = (f'Patrol_Payroll_Detail_{monday.isoformat()}_'
+              f'{(monday + _td(days=6)).isoformat()}.csv')
+        return send_file(
+            io.BytesIO(data),
+            mimetype='text/csv',
             as_attachment=True, download_name=fn)
 
     def hours_email(name, start_s, end_s, shifts, total, confirm_url=None):
