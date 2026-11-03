@@ -85,7 +85,7 @@
   <p class="muted small">Workers can also clock in from their own phones by scanning the QR code on the dashboard.</p>
 </div>
 <div class="card">
-  <h2>Records <span style="float:right;display:inline-flex;gap:.4rem;align-items:center"><input type="date" id="export-from" title="From" style="padding:.35rem"><input type="date" id="export-to" title="To" style="padding:.35rem"><button class="btn small" onclick="exportCsv()">⬇ Export CSV</button></span><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">➕ Add record</button></h2>
+  <h2>Records <span style="float:right;display:inline-flex;gap:.4rem;align-items:center"><input type="date" id="export-from" title="From" style="padding:.35rem"><input type="date" id="export-to" title="To" style="padding:.35rem"><button class="btn small" onclick="exportCsv()">⬇ Export CSV</button></span><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">➕ Add record</button><button class="btn small" onclick="openBulk()" style="float:right;margin-right:.4rem">➕ Bulk add</button></h2>
   <table>
     <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th></th></tr>
     {% for r in records %}
@@ -145,6 +145,29 @@
       <button class="btn primary" onclick="saveAdd()">Save</button>
     </div>
     <p class="muted small" id="add-err" style="color:#991b1b"></p>
+  </div>
+</div>
+<!-- Bulk add modal -->
+<div id="bulk-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center">
+  <div class="card" style="width:min(680px,94vw);margin:0;max-height:92vh;overflow:auto">
+    <h2 style="margin-top:0">Bulk add</h2>
+    <p class="muted small">Add up to 8 records at once. Rows without a worker are skipped.</p>
+    <table>
+      <tr><th>Worker</th><th>Date</th><th>In</th><th>Out</th></tr>
+      {% for i in range(8) %}
+      <tr class="bulk-row">
+        <td><select class="bulk-worker" style="width:100%;padding:.4rem"><option value="">—</option>{% for s in status %}<option value="{{ s.worker.id }}">{{ s.worker.name }}</option>{% endfor %}</select></td>
+        <td><input type="date" class="bulk-date" style="width:100%;padding:.4rem"></td>
+        <td><input type="time" class="bulk-in" style="width:100%;padding:.4rem"></td>
+        <td><input type="time" class="bulk-out" style="width:100%;padding:.4rem"></td>
+      </tr>
+      {% endfor %}
+    </table>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap;margin-top:1rem">
+      <button class="btn" onclick="closeBulk()">Cancel</button>
+      <button class="btn primary" onclick="saveBulk()">Add records</button>
+    </div>
+    <p class="muted small" id="bulk-err" style="color:#991b1b"></p>
   </div>
 </div>
 {% endblock %}
@@ -240,6 +263,39 @@ async function saveAdd(){
   const j = await r.json();
   if(!j.ok){ err.textContent = j.error || 'Failed'; return; }
   location.reload();
+}
+function openBulk(){
+  document.getElementById('bulk-err').textContent = '';
+  document.querySelectorAll('.bulk-date').forEach(el=>{ el.valueAsDate = new Date(); });
+  document.querySelectorAll('.bulk-in').forEach(el=>{ el.value = ''; });
+  document.querySelectorAll('.bulk-out').forEach(el=>{ el.value = ''; });
+  document.getElementById('bulk-modal').style.display = 'flex';
+}
+function closeBulk(){
+  document.getElementById('bulk-modal').style.display = 'none';
+}
+document.getElementById('bulk-modal').addEventListener('click', function(e){
+  if(e.target === this) closeBulk();
+});
+async function saveBulk(){
+  const rows = [...document.querySelectorAll('#bulk-modal tr.bulk-row')].map(tr=>({
+    worker_id: tr.querySelector('.bulk-worker').value,
+    date: tr.querySelector('.bulk-date').value,
+    clock_in: tr.querySelector('.bulk-in').value,
+    clock_out: tr.querySelector('.bulk-out').value
+  })).filter(r=>r.worker_id);
+  const err = document.getElementById('bulk-err');
+  err.textContent = '';
+  if(!rows.length){ err.textContent = 'Choose at least one worker.'; return; }
+  const r = await fetch("{{ url_for('.timecard_punch_bulk_add') }}", {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rows})});
+  const j = await r.json();
+  if(!j.ok){ err.textContent = j.error || 'Failed'; return; }
+  let msg = j.added + ' record(s) added.';
+  if(j.errors && j.errors.length) msg += ' Skipped: ' + j.errors.join(' ');
+  err.textContent = msg;
+  if(j.added) setTimeout(()=>location.reload(), 900);
 }
 async function clockIt(wid, action){
   const r = await fetch("{{ url_for('.timecard_clock') }}", {method:'POST',
