@@ -12,8 +12,8 @@
 </div>
 
 <div class="toolbar">
-  <a class="btn" href="{{ url_for('.payroll') }}">📊 Payroll report</a>
   <span style="display:flex;gap:.4rem;align-items:center;width:100%">
+    <a class="btn" href="{{ url_for('.payroll') }}" style="flex-shrink:0">📊 Payroll report</a>
     <input type="date" id="export-from" title="From" style="flex:1;min-width:0">
     <input type="date" id="export-to" title="To" style="flex:1;min-width:0">
     <button class="btn" onclick="exportCmCsv()" style="flex-shrink:0">⬇ Export CSV</button>
