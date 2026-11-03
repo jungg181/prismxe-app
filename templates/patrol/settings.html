@@ -159,6 +159,12 @@ function saveDisplay(){
           {% for r in ['Supervisor','Foreman','Helper'] %}<option value="{{ r }}" {{ 'selected' if w.role==r else '' }}>{{ r }}</option>{% endfor %}
         </select>
       </div>
+      <div><div class="small muted">STATUS</div>
+        <select class="wk-status">
+          <option value="active" {{ 'selected' if w.get('active', True) else '' }}>Active</option>
+          <option value="inactive" {{ 'selected' if not w.get('active', True) else '' }}>Inactive</option>
+        </select>
+      </div>
       <div><div class="small muted">&nbsp;</div><button class="btn small danger" onclick="delWorker('{{ w.id }}')">Delete</button></div>
     </div>
     {% endfor %}
@@ -385,7 +391,8 @@ async function saveWorkers(){
     email: row.querySelector('.wk-email').value,
     phone: row.querySelector('.wk-phone') ? row.querySelector('.wk-phone').value : '',
     shift_id: row.querySelector('.wk-shift').value,
-    role: row.querySelector('.wk-role') ? row.querySelector('.wk-role').value : ''
+    role: row.querySelector('.wk-role') ? row.querySelector('.wk-role').value : '',
+    active: row.querySelector('.wk-status') ? row.querySelector('.wk-status').value === 'active' : true
   }));
   await post("{{ url_for('.settings_workers_save') }}", {workers: rows});
   document.getElementById('wk-msg').textContent = 'Saved ✓';
