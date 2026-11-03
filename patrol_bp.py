@@ -1105,6 +1105,57 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return jsonify({'ok': True})
 
 
+    @bp.route('/timecard/punch/bulk-add', methods=['POST'])
+    @login_required
+    @visit_action_required('timecard')
+    def timecard_punch_bulk_add():
+        """Add up to 8 records at once (CM bulk-entry pattern).
+        Rows without a worker are skipped; rows with bad times are
+        reported and skipped, valid rows still save."""
+        d = request.get_json(force=True) or {}
+
+        def parse_day_time(day, t):
+            if not day or not t:
+                return None
+            try:
+                return datetime.fromisoformat(f"{day}T{t}").replace(
+                    tzinfo=None).isoformat(timespec='seconds')
+            except (ValueError, TypeError):
+                return None
+
+        added = 0
+        errors = []
+        for i, row in enumerate((d.get('rows') or [])[:8], 1):
+            w = find('workers', row.get('worker_id'))
+            if not w:
+                continue
+            email = (w.get('email') or '').strip()
+            name = w.get('name', '')
+            in_ts = parse_day_time(row.get('date'), row.get('clock_in'))
+            if not in_ts:
+                errors.append(f'Row {i} ({name}): invalid date or clock-in time.')
+                continue
+            out_ts = (parse_day_time(row.get('date'), row.get('clock_out'))
+                      if row.get('clock_out') else None)
+            if row.get('clock_out') and not out_ts:
+                errors.append(f'Row {i} ({name}): invalid clock-out time.')
+                continue
+            if out_ts and out_ts <= in_ts:
+                errors.append(f'Row {i} ({name}): clock-out must be after clock-in.')
+                continue
+            DB['punches'].append({"id": new_id(), "email": email, "name": name,
+                                  "action": 'in', "ts": in_ts,
+                                  "source": "manual-add"})
+            if out_ts:
+                DB['punches'].append({"id": new_id(), "email": email, "name": name,
+                                      "action": 'out', "ts": out_ts,
+                                      "source": "manual-add"})
+            added += 1
+        if added:
+            save_db()
+        return jsonify({'ok': True, 'added': added, 'errors': errors})
+
+
     @bp.route('/timecard/export')
     @login_required
     @visit_action_required('timecard')
