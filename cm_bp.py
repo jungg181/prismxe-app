@@ -1206,7 +1206,48 @@ def timecards():
                       for t in rows if t.get('clock_out'))
     gps_n = sum(1 for t in rows if t.get('clock_in_lat') not in (None, ''))
     active_now = sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_in')
-    return render_template('cm/timecards.html', rows=rows, fsite=fsite,
+    # Grouped view: one row per worker, with that worker's dates
+    # (date + clock in/out + hours) listed together in one cell.
+    # Groups follow the page sort: lines in sort order, groups ordered
+    # by their first line. Per-record Edit/Approve/Delete stay on each
+    # line so no action is lost by grouping.
+    by_worker = {}
+    for t in rows:
+        by_worker.setdefault(t.get('worker_id'), []).append(t)
+    groups = []
+    for wid, ts in sorted(by_worker.items(),
+                          key=lambda kv: kv[1][0].get('clock_in') or '',
+                          reverse=(sort == 'newest')):
+        recs = []
+        for t in ts:
+            ci = parse_iso(t.get('clock_in'))
+            co = parse_iso(t.get('clock_out'))
+            if co:
+                h = t.get('hours')
+                if h is None:
+                    h = compute_hours(t.get('clock_in'), t.get('clock_out'))
+            else:
+                h = ''
+            recs.append({'id': t.get('id'),
+                         'date': ci.strftime('%m/%d') if ci else '',
+                         'in': ci.strftime('%-I:%M %p') if ci else '',
+                         'out': co.strftime('%-I:%M %p') if co else '',
+                         'hours': h,
+                         'status': t.get('status') or '',
+                         'notes': t.get('notes') or '',
+                         'reported': t.get('reported_hours')})
+        seen_sites = []
+        for t in ts:
+            sn = site_name(t.get('site_id'))
+            if sn not in seen_sites:
+                seen_sites.append(sn)
+        gtotal = sum(t.get('hours') or compute_hours(t.get('clock_in'),
+                                                     t.get('clock_out'))
+                       for t in ts if t.get('clock_out'))
+        groups.append({'worker_id': wid, 'name': worker_name(wid),
+                       'sites': ', '.join(seen_sites), 'records': recs,
+                       'total_hours': round(gtotal, 1)})
+    return render_template('cm/timecards.html', groups=groups, fsite=fsite,
                            fstatus=fstatus, sort=sort, sites=DB['sites'],
                            total_hours=round(total_hours, 1), total=len(rows),
                            gps_pct=round(100 * gps_n / len(rows)) if rows else 0,
