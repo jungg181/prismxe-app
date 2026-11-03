@@ -513,14 +513,23 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 nxt, nxt_list = j, pl
                 break
         slot_counts = [len(patrols_at(i)) for i in range(24)]
-        located = [{"name": w.get("name", ""),
-                    "lat": w["last_lat"], "lng": w["last_lng"],
-                    "color": _worker_color(w),
-                    "ts": (w.get("last_loc_ts") or "")[:16].replace("T", " ")}
-                   for w in DB.get('workers', [])
-                   if w.get('last_lat') is not None
-                   and w.get('last_lng') is not None
-                   and w.get('active', True)]
+        # Staff Locations map: only workers currently clocked in.
+        # (A clocked-out worker's last pin would otherwise sit on the
+        # map forever, and Inactive workers are excluded too.)
+        located = []
+        for w in DB.get('workers', []):
+            if w.get('last_lat') is None or w.get('last_lng') is None:
+                continue
+            if not w.get('active', True):
+                continue
+            em = (w.get('email') or '').strip().lower()
+            cin, _ = punch_status(em) if em else (False, None)
+            if not cin:
+                continue
+            located.append({"name": w.get("name", ""),
+                            "lat": w["last_lat"], "lng": w["last_lng"],
+                            "color": _worker_color(w),
+                            "ts": (w.get("last_loc_ts") or "")[:16].replace("T", " ")})
         shift_tints = {s['id']: lighten(s.get('color')) for s in DB['shifts']}
         # On-duty crew for the CURRENT time slot, from the 2-week plan
         # (Settings -> Time Slots & Shifts, names per hour). Supervisors
