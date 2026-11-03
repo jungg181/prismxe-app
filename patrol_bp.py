@@ -837,6 +837,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 w['role'] = item.get('role', '')
             if 'phone' in item:
                 w['phone'] = item.get('phone', '')
+            if 'active' in item:
+                w['active'] = bool(item.get('active'))
         save_db()
         return jsonify({'ok': True})
 
@@ -895,16 +897,24 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def timecard():
         workers = sorted(DB['workers'], key=lambda w: w.get('name', ''))
         status = []
+        inactive_status = []
         for w in workers:
             em = (w.get('email') or '').strip().lower()
             if em:
                 cin, last = punch_status(em)
             else:
                 cin, last = False, None
-            status.append({"worker": w, "clocked_in": cin,
-                           "since": last.get('ts') if last else None})
+            entry = {"worker": w, "clocked_in": cin,
+                     "since": last.get('ts') if last else None}
+            # Workers without an 'active' key count as Active, so
+            # existing workers stay visible until marked Inactive.
+            if w.get('active', True):
+                status.append(entry)
+            else:
+                inactive_status.append(entry)
         return render_template('patrol/timecard.html', view='records',
-                               status=status, records=paired_records())
+                               status=status, inactive_status=inactive_status,
+                               records=paired_records())
 
     @bp.route('/timecard/batch/resend', methods=['POST'])
     @visit_action_required('timecard_batch')
