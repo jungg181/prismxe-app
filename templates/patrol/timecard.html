@@ -64,6 +64,24 @@
     <p class="muted">No workers yet — add them in Settings.</p>
     {% endfor %}
   </div>
+  {% if inactive_status %}
+  <details style="margin-top:.8rem">
+    <summary class="muted small" style="cursor:pointer">Inactive workers ({{ inactive_status|length }}) — show</summary>
+    <div style="margin-top:.5rem">
+    {% for s in inactive_status %}
+    <div class="rowline" data-wid="{{ s.worker.id }}">
+      <span style="font-size:1.3rem">👷</span>
+      <div class="grow"><b>{{ s.worker.name }}</b>{% if s.worker.phone %} <span class="muted small">📞 {{ s.worker.phone }}</span>{% endif %}
+        <span class="muted small" style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:99px">Inactive</span>
+        {% if s.clocked_in %}<div class="muted small">in since {{ s.since[11:16] if s.since and s.since|length>16 else s.since }}</div>{% endif %}
+      </div>
+      <button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}">🟢 IN</button>
+      <button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:#fee2e2;color:#991b1b' if s.clocked_in else '' }}">🔴 OUT</button>
+    </div>
+    {% endfor %}
+    </div>
+  </details>
+  {% endif %}
   <p class="muted small">Workers can also clock in from their own phones by scanning the QR code on the dashboard.</p>
 </div>
 <div class="card">
