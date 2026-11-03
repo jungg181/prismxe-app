@@ -1307,11 +1307,47 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             d0 = datetime.now(TZ).date()
         return d0 - _td(days=d0.weekday())
 
-    def _payroll_week(monday):
-        """Attendance-sheet style week grid built from paired punches.
+    def _parse_payroll_range():
+        """Custom ?from=&to= range, or None unless BOTH are valid dates.
 
-        Returns one row per worker who has shifts that week:
-        {name, email, days: [ {in, out, hours, split, pairs} | None x7 ],
+        Strict YYYY-MM-DD only; reversed ranges are swapped.
+        """
+        from datetime import date as _date
+        try:
+            f = request.args.get('from')
+            t = request.args.get('to')
+            if not f or not t:
+                return None
+            if (len(f) != 10 or f[4] != '-' or f[7] != '-'
+                    or len(t) != 10 or t[4] != '-' or t[7] != '-'):
+                return None
+            d0 = _date.fromisoformat(f)
+            d1 = _date.fromisoformat(t)
+        except (ValueError, TypeError):
+            return None
+        if d1 < d0:
+            d0, d1 = d1, d0
+        return d0, d1
+
+    def _payroll_period():
+        """(start_date, end_date, is_range) for the payroll view/exports.
+
+        A valid custom ?from=&to= wins; otherwise the Mon-Sun week
+        containing ?start= (or today, America/Phoenix).
+        """
+        from datetime import timedelta as _td
+        rng = _parse_payroll_range()
+        if rng:
+            return rng[0], rng[1], True
+        monday = _week_monday(request.args.get('start'))
+        return monday, monday + _td(days=6), False
+
+    def _payroll_range(start_date, end_date):
+        """Attendance-sheet style grid built from paired punches, for
+        any inclusive date range (not just one week).
+
+        Returns one row per worker who has shifts in the range:
+        {name, email, days: [ {in, out, hours, split, pairs} | None ],
          total, reg, ot}.
         Times are minute-truncated 'HH:MM'; hours come from those minutes
         (overnight shifts wrap past midnight), matching the paper sheet.
@@ -1319,9 +1355,17 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         the first clock-in, out is the last clock-out, hours is the SUM
         of the pairs (the gap between pairs is not counted), split is
         True, and pairs lists every pair for the Detail sheet.
+        Overtime stays WEEKLY even for multi-week ranges: each worker's
+        daily hours are grouped by the Monday of that day's calendar
+        week, reg = sum over weeks of min(week_hours, 40), ot = sum
+        over weeks of max(week_hours - 40, 0). Partial weeks at the
+        range edges count only the hours inside the range. For a
+        single Mon-Sun week this equals min(total, 40) /
+        max(total - 40, 0) exactly.
         """
         from datetime import timedelta as _td
-        days = [monday + _td(days=i) for i in range(7)]
+        ndays = (end_date - start_date).days + 1
+        days = [start_date + _td(days=i) for i in range(ndays)]
         rows = []
         for entry in hours_summary(days[0].isoformat(),
                                    days[-1].isoformat()):
@@ -1363,31 +1407,50 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             day_list = [cells.get(d.isoformat()) for d in days]
             total = round(sum(c['hours'] for c in cells.values()
                               if c['hours'] is not None), 2)
+            # Weekly overtime: group daily hours by calendar week.
+            week_hours = {}
+            for d in days:
+                c = cells.get(d.isoformat())
+                if c and c['hours'] is not None:
+                    wk = d - _td(days=d.weekday())
+                    week_hours[wk] = week_hours.get(wk, 0) + c['hours']
             rows.append({'name': entry['name'], 'email': entry['email'],
                          'days': day_list, 'total': total,
-                         'reg': min(total, 40),
-                         'ot': round(max(total - 40, 0), 2)})
+                         'reg': round(sum(min(wh, 40)
+                                          for wh in week_hours.values()), 2),
+                         'ot': round(sum(max(wh - 40, 0)
+                                         for wh in week_hours.values()), 2)})
         return rows
 
-    def _payroll_xlsx_bytes(monday, rows):
-        """The week grid as an .xlsx in the paper Attendance Sheet layout.
+    def _payroll_xlsx_bytes(days, rows):
+        """The payroll grid as an .xlsx in the paper Attendance Sheet layout.
 
-        In/Out are real time values; Hours/Total/Reg/OT are formulas so
-        edited times recalculate. The Sign column is left blank for the
-        worker's signature.
+        days is the list of date objects for the period (one week or a
+        custom range). In/Out are real time values; Hours/Total are
+        formulas so edited times recalculate. Reg/OT are formulas
+        (MIN/MAX against 40) for a single Mon-Sun week, and the
+        Python-computed weekly values from rows for custom ranges
+        (so overtime stays weekly-correct there). The Sign column is
+        left blank for the worker's signature.
         """
-        from datetime import timedelta as _td, time as _time
+        from datetime import time as _time
         from openpyxl import Workbook
         from openpyxl.styles import (Font, Alignment, Border, Side,
                                      PatternFill)
         from openpyxl.comments import Comment
         from openpyxl.utils import get_column_letter
-        days = [monday + _td(days=i) for i in range(7)]
-        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
-                     'Friday', 'Saturday', 'Sunday']
+        n_days = len(days)
+        is_week = n_days == 7 and days[0].weekday() == 0
+        # No, Name, Day/Date + one column per day + Total/Reg/OT/Sign.
+        ncols = 3 + n_days + 4
+        tot_col = 4 + n_days
+        reg_col = 5 + n_days
+        ot_col = 6 + n_days
+        sign_col = 7 + n_days
+        sheet_title = 'Weekly Payroll' if is_week else 'Payroll'
         wb = Workbook()
         ws = wb.active
-        ws.title = 'Weekly Payroll'
+        ws.title = sheet_title
         ws.sheet_properties.pageSetUpPr.fitToPage = True
         ws.page_setup.orientation = 'landscape'
         ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
@@ -1399,24 +1462,31 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         hdr_fill = PatternFill('solid', fgColor='D9D9D9')
         center = Alignment(horizontal='center', vertical='center',
                            wrap_text=True)
-        ncols = 14
-        for col, w in {'A': 5, 'B': 22, 'C': 11, 'K': 9, 'L': 9,
-                       'M': 9, 'N': 26}.items():
+        ncols_widths = {'A': 5, 'B': 22, 'C': 11}
+        ncols_widths[get_column_letter(tot_col)] = 9
+        ncols_widths[get_column_letter(reg_col)] = 9
+        ncols_widths[get_column_letter(ot_col)] = 9
+        ncols_widths[get_column_letter(sign_col)] = 26
+        for col, w in ncols_widths.items():
             ws.column_dimensions[col].width = w
-        for i in range(7):
+        for i in range(n_days):
             ws.column_dimensions[get_column_letter(4 + i)].width = 10
         ws.merge_cells(start_row=1, start_column=1, end_row=1,
                        end_column=ncols)
         c = ws.cell(row=1, column=1,
-                    value=f'Weekly Payroll — {company_display_name} Patrol')
+                    value=f'{sheet_title} — {company_display_name} Patrol')
         c.font = Font(bold=True, size=16)
         c.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[1].height = 26
         ws.merge_cells(start_row=2, start_column=1, end_row=2,
                        end_column=ncols)
-        c = ws.cell(row=2, column=1,
-                    value=f"Week of Monday, {days[0].strftime('%B %d, %Y')}"
-                          f" – Sunday, {days[-1].strftime('%B %d, %Y')}")
+        if is_week:
+            subtitle = (f"Week of Monday, {days[0].strftime('%B %d, %Y')}"
+                        f" – Sunday, {days[-1].strftime('%B %d, %Y')}")
+        else:
+            subtitle = (f"{days[0].strftime('%B %d, %Y')} – "
+                        f"{days[-1].strftime('%B %d, %Y')}")
+        c = ws.cell(row=2, column=1, value=subtitle)
         c.font = Font(bold=True, size=11)
         c.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[2].height = 18
@@ -1430,14 +1500,15 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             c.alignment = center
         for i, day in enumerate(days):
             col = 4 + i
-            for r, val in [(hr, day_names[i]),
+            for r, val in [(hr, day.strftime('%A')),
                            (hr + 1, day.strftime('%Y/%m/%d'))]:
                 c = ws.cell(row=r, column=col, value=val)
                 c.font = Font(bold=True, size=10)
                 c.fill = hdr_fill
                 c.alignment = center
-        for col, label in [(11, 'Total Hours'), (12, 'Regular (≤40)'),
-                           (13, 'Overtime (>40)'), (14, 'Sign')]:
+        for col, label in [(tot_col, 'Total Hours'),
+                           (reg_col, 'Regular (≤40)'),
+                           (ot_col, 'Overtime (>40)'), (sign_col, 'Sign')]:
             ws.merge_cells(start_row=hr, start_column=col,
                            end_row=hr + 1, end_column=col)
             c = ws.cell(row=hr, column=col, value=label)
@@ -1451,7 +1522,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         first = row
         for idx, entry in enumerate(rows, start=1):
             base = row
-            for col in (1, 2, 11, 12, 13, 14):
+            for col in (1, 2, tot_col, reg_col, ot_col, sign_col):
                 ws.merge_cells(start_row=base, start_column=col,
                                end_row=base + 2, end_column=col)
             c = ws.cell(row=base, column=1, value=idx)
@@ -1462,7 +1533,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 c = ws.cell(row=base + j, column=3, value=label)
                 c.alignment = center
                 c.font = Font(size=9, italic=(j == 2))
-            for i in range(7):
+            for i in range(n_days):
                 col = 4 + i
                 L = get_column_letter(col)
                 cell = entry['days'][i]
@@ -1496,16 +1567,27 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                f'+IF({L}{base + 1}<{L}{base},1,0))*24)')
                 h.number_format = '0.00'
                 h.alignment = center
-            tot = ws.cell(row=base, column=11,
-                          value=f'=SUM(D{base + 2}:J{base + 2})')
+            tot_L = get_column_letter(tot_col)
+            tot = ws.cell(row=base, column=tot_col,
+                          value=f'=SUM(D{base + 2}:'
+                                f'{get_column_letter(3 + n_days)}'
+                                f'{base + 2})')
             tot.number_format = '0.00'
             tot.alignment = center
             tot.font = Font(bold=True)
-            reg = ws.cell(row=base, column=12, value=f'=MIN(K{base},40)')
+            if is_week:
+                reg_val = f'=MIN({tot_L}{base},40)'
+                ot_val = f'=MAX({tot_L}{base}-40,0)'
+            else:
+                # Custom range: weekly-correct values from the rows
+                # (a MIN/MAX formula over the whole range would
+                # overstate OT for multi-week ranges).
+                reg_val = entry['reg']
+                ot_val = entry['ot']
+            reg = ws.cell(row=base, column=reg_col, value=reg_val)
             reg.number_format = '0.00'
             reg.alignment = center
-            ot = ws.cell(row=base, column=13,
-                         value=f'=MAX(K{base}-40,0)')
+            ot = ws.cell(row=base, column=ot_col, value=ot_val)
             ot.number_format = '0.00'
             ot.alignment = center
             for r in range(base, base + 3):
@@ -1514,7 +1596,9 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             row += 3
         ws.cell(row=row, column=2, value='TOTAL').font = Font(bold=True)
         bases = [first + 3 * i for i in range(len(rows))]
-        for col, letter in [(11, 'K'), (12, 'L'), (13, 'M')]:
+        for col, letter in [(tot_col, get_column_letter(tot_col)),
+                            (reg_col, get_column_letter(reg_col)),
+                            (ot_col, get_column_letter(ot_col))]:
             c = ws.cell(row=row, column=col,
                         value='=' + '+'.join(f'{letter}{b}' for b in bases))
             c.font = Font(bold=True)
@@ -1537,7 +1621,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             for col in range(9, 13):
                 ws.cell(row=row, column=col).border = Border(bottom=thin)
             row += 2
-        ws.print_area = f'A1:N{row - 1}'
+        ws.print_area = f'A1:{get_column_letter(ncols)}{row - 1}'
         # Detail sheet: every clock-in/out pair, so split days stay
         # auditable and the grid hours can be traced back to pairs.
         det = wb.create_sheet('Detail')
@@ -1587,11 +1671,12 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         wb.save(buf)
         return buf.getvalue()
 
-    def _payroll_basic_csv_bytes(monday):
+    def _payroll_basic_csv_bytes(start_s, end_s):
         """Flat one-line-per-shift CSV in the timecard-detail style.
 
-        One row per clock-in/out pair for the displayed week, so the
-        file drops straight into Google Sheets for pay calculation:
+        One row per clock-in/out pair whose clock-in date falls in
+        [start_s, end_s], so the file drops straight into Google
+        Sheets for pay calculation:
         Employee, Site, Clock-In/Out Date/Time, Gross Hours, Meal
         Break Deduction Hours, Payroll Hours, Payroll/Timecard Status,
         Notes. Patrol has no meal deduction, so that column is 0.00
@@ -1601,8 +1686,6 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         CSV, and the file carries a UTF-8 BOM so Excel opens it
         correctly.
         """
-        from datetime import timedelta as _td
-        days = [monday + _td(days=i) for i in range(7)]
         buf = io.StringIO()
         w = csv.writer(buf, quoting=csv.QUOTE_ALL)
         w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
@@ -1617,8 +1700,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         def ftm(ts):
             return datetime.fromisoformat(ts).strftime('%I:%M %p')
 
-        for entry in hours_summary(days[0].isoformat(),
-                                   days[-1].isoformat()):
+        for entry in hours_summary(start_s, end_s):
             shifts = sorted(entry['shifts'],
                             key=lambda s: s.get('clock_in') or '')
             for s in shifts:
@@ -1641,24 +1723,36 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     @visit_gate('payroll', 'Weekly Payroll')
     def payroll():
         from datetime import timedelta as _td
-        monday = _week_monday(request.args.get('start'))
-        days = [monday + _td(days=i) for i in range(7)]
-        rows = _payroll_week(monday)
+        start_d, end_d, is_range = _payroll_period()
+        n = (end_d - start_d).days + 1
+        days = [start_d + _td(days=i) for i in range(n)]
+        rows = _payroll_range(start_d, end_d)
         return render_template(
-            'patrol/payroll.html', view='payroll', monday=monday,
+            'patrol/payroll.html', view='payroll', monday=start_d,
             days=days, rows=rows,
-            prev=(monday - _td(days=7)).isoformat(),
-            nxt=(monday + _td(days=7)).isoformat(),
-            grand=round(sum(r['total'] for r in rows), 2))
+            prev=(start_d - _td(days=n)).isoformat(),
+            prev_end=(start_d - _td(days=1)).isoformat(),
+            nxt=(end_d + _td(days=1)).isoformat(),
+            nxt_end=(end_d + _td(days=n)).isoformat(),
+            grand=round(sum(r['total'] for r in rows), 2),
+            is_range=is_range,
+            from_s=start_d.isoformat() if is_range else '',
+            to_s=end_d.isoformat() if is_range else '')
 
     @bp.route('/payroll.xlsx')
     @visit_action_required('payroll')
     def payroll_xlsx():
         from datetime import timedelta as _td
-        monday = _week_monday(request.args.get('start'))
-        data = _payroll_xlsx_bytes(monday, _payroll_week(monday))
-        fn = (f'Weekly_Payroll_{monday.isoformat()}_'
-              f'{(monday + _td(days=6)).isoformat()}.xlsx')
+        start_d, end_d, is_range = _payroll_period()
+        n = (end_d - start_d).days + 1
+        days = [start_d + _td(days=i) for i in range(n)]
+        data = _payroll_xlsx_bytes(days, _payroll_range(start_d, end_d))
+        if is_range:
+            fn = (f'Payroll_{start_d.isoformat()}_to_'
+                  f'{end_d.isoformat()}.xlsx')
+        else:
+            fn = (f'Weekly_Payroll_{start_d.isoformat()}_'
+                  f'{end_d.isoformat()}.xlsx')
         return send_file(
             io.BytesIO(data),
             mimetype='application/vnd.openxmlformats-officedocument.'
@@ -1668,11 +1762,15 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     @bp.route('/payroll-basic.csv')
     @visit_action_required('payroll')
     def payroll_basic_csv():
-        from datetime import timedelta as _td
-        monday = _week_monday(request.args.get('start'))
-        data = _payroll_basic_csv_bytes(monday)
-        fn = (f'Patrol_Payroll_Detail_{monday.isoformat()}_'
-              f'{(monday + _td(days=6)).isoformat()}.csv')
+        start_d, end_d, is_range = _payroll_period()
+        data = _payroll_basic_csv_bytes(start_d.isoformat(),
+                                        end_d.isoformat())
+        if is_range:
+            fn = (f'Patrol_Payroll_Detail_{start_d.isoformat()}_to_'
+                  f'{end_d.isoformat()}.csv')
+        else:
+            fn = (f'Patrol_Payroll_Detail_{start_d.isoformat()}_'
+                  f'{end_d.isoformat()}.csv')
         return send_file(
             io.BytesIO(data),
             mimetype='text/csv',
