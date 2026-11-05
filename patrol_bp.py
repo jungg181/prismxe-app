@@ -1322,8 +1322,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             'confirmed_at': entry.get('confirmed_at') or '',
             'problem_note': entry.get('problem_note') or ''})
 
-    def hours_summary(start_s, end_s):
-        """Every worker with their paired shifts inside [start_s, end_s]."""
+    def hours_summary(start_s, end_s, worker_ids=None):
+        """Every worker with their paired shifts inside [start_s, end_s].
+
+        worker_ids None = everyone; a list restricts to those ids.
+        """
         by_email = {}
         for r in paired_records():
             cin = r.get('clock_in') or ''
@@ -1332,6 +1335,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 by_email.setdefault(key, []).append(r)
         out = []
         for w in sorted(DB['workers'], key=lambda x: x.get('name', '')):
+            if worker_ids is not None and w.get('id') not in worker_ids:
+                continue
             em = (w.get('email') or '').strip().lower()
             shifts = by_email.get(em, []) if em else []
             total = round(sum(s['hours'] for s in shifts
@@ -1389,7 +1394,20 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         monday = _week_monday(request.args.get('start'))
         return monday, monday + _td(days=6), False
 
-    def _payroll_range(start_date, end_date):
+    def _selected_worker_ids():
+        """Worker ids picked by ?w=... (checkboxes on the payroll page).
+
+        Returns None when nothing is picked (show everyone), else the
+        picked ids that actually exist, in DB order. Unknown ids are
+        dropped, so a stale link never shows a phantom worker.
+        """
+        picked = {(v or "").strip() for v in request.args.getlist('w')}
+        if not picked:
+            return None
+        return [w.get('id') for w in DB.get('workers', [])
+                if w.get('id') in picked]
+
+    def _payroll_range(start_date, end_date, worker_ids=None):
         """Attendance-sheet style grid built from paired punches, for
         any inclusive date range (not just one week).
 
@@ -1415,7 +1433,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         days = [start_date + _td(days=i) for i in range(ndays)]
         rows = []
         for entry in hours_summary(days[0].isoformat(),
-                                   days[-1].isoformat()):
+                                   days[-1].isoformat(), worker_ids):
             cells = {}
             for s in entry['shifts']:
                 cin = s.get('clock_in') or ''
@@ -1718,7 +1736,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         wb.save(buf)
         return buf.getvalue()
 
-    def _payroll_basic_csv_bytes(start_s, end_s):
+    def _payroll_basic_csv_bytes(start_s, end_s, worker_ids=None):
         """Flat one-line-per-shift CSV in the timecard-detail style.
 
         One row per clock-in/out pair whose clock-in date falls in
@@ -1747,7 +1765,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         def ftm(ts):
             return datetime.fromisoformat(ts).strftime('%I:%M %p')
 
-        for entry in hours_summary(start_s, end_s):
+        for entry in hours_summary(start_s, end_s, worker_ids):
             shifts = sorted(entry['shifts'],
                             key=lambda s: s.get('clock_in') or '')
             for s in shifts:
@@ -1773,7 +1791,10 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         start_d, end_d, is_range = _payroll_period()
         n = (end_d - start_d).days + 1
         days = [start_d + _td(days=i) for i in range(n)]
-        rows = _payroll_range(start_d, end_d)
+        sel_ids = _selected_worker_ids()
+        rows = _payroll_range(start_d, end_d, sel_ids)
+        all_workers = sorted(DB.get('workers', []),
+                             key=lambda w: (w.get('name') or '').lower())
         return render_template(
             'patrol/payroll.html', view='payroll', monday=start_d,
             days=days, rows=rows,
@@ -1784,7 +1805,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             grand=round(sum(r['total'] for r in rows), 2),
             is_range=is_range,
             from_s=start_d.isoformat() if is_range else '',
-            to_s=end_d.isoformat() if is_range else '')
+            to_s=end_d.isoformat() if is_range else '',
+            selected_ids=set(sel_ids or []),
+            filter_active=sel_ids is not None,
+            all_workers=all_workers,
+            workers_qs=''.join(f'&w={i}' for i in (sel_ids or [])))
 
     @bp.route('/payroll.xlsx')
     @visit_action_required('payroll')
@@ -1793,7 +1818,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         start_d, end_d, is_range = _payroll_period()
         n = (end_d - start_d).days + 1
         days = [start_d + _td(days=i) for i in range(n)]
-        data = _payroll_xlsx_bytes(days, _payroll_range(start_d, end_d))
+        data = _payroll_xlsx_bytes(days, _payroll_range(
+            start_d, end_d, _selected_worker_ids()))
         if is_range:
             fn = (f'Payroll_{start_d.isoformat()}_to_'
                   f'{end_d.isoformat()}.xlsx')
@@ -1811,7 +1837,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def payroll_basic_csv():
         start_d, end_d, is_range = _payroll_period()
         data = _payroll_basic_csv_bytes(start_d.isoformat(),
-                                        end_d.isoformat())
+                                        end_d.isoformat(),
+                                        _selected_worker_ids())
         if is_range:
             fn = (f'Patrol_Payroll_Detail_{start_d.isoformat()}_to_'
                   f'{end_d.isoformat()}.csv')
