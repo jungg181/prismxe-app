@@ -1,0 +1,91 @@
+{% extends "payroll/base.html" %}
+{% block title %}Import from App — {{ company.name }}{% endblock %}
+{% block content %}
+<h1>Import from App</h1>
+<p class="sub">Pull time records from {{ company.name }}'s source apps into this payroll. Preview first — nothing is imported until you confirm.</p>
+
+<div class="card">
+  <form method="get" action="{{ url_for('.import_app', company=company.slug) }}">
+    <div class="form-grid">
+      <div><label for="source">Source</label><select id="source" name="source">
+        <option value="">— pick a source —</option>
+        {% for key, info in sources.items() %}<option value="{{ key }}"{% if key == source %} selected{% endif %}>{{ info.label }}</option>{% endfor %}
+      </select></div>
+      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ start }}" required></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ end }}" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Show Preview</button>
+      <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug, **{'from': start, 'to': end}) }}">Back to Payroll</a>
+    </div>
+  </form>
+</div>
+
+{% if preview %}
+<div class="card">
+  <h2 style="margin-top:0">{{ preview.label }} — Preview ({{ start }} → {{ end }})</h2>
+  <p class="small muted">{{ hours_rule }}</p>
+  {% if preview.rows %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th><th>Date</th><th class="num">Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Matched Rate Row</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for r in preview.rows %}
+        <tr{% if not r.matched %} class="zero"{% endif %}>
+          <td>{{ r.employee }}</td><td>{{ r.date }}</td><td class="num">{{ r.hours }}</td>
+          <td>{{ r.clock_in or '—' }}</td><td>{{ r.clock_out or '—' }}</td>
+          <td>{{ r.matched or '—' }}</td>
+          <td>{% if r.matched %}<span class="badge ok">Ready</span>{% else %}<span class="badge">No rate match</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>No records found in {{ preview.label }} for this period.</p>
+  {% endif %}
+
+  {% if unmatched %}
+  <h2>Map Unmatched Names</h2>
+  <p class="small muted">These rows will NOT be imported until mapped. Pick the matching rate row — nothing is guessed. After mapping, come back here and confirm.</p>
+  {% for name in unmatched %}
+  <form method="post" action="{{ url_for('.save_alias', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="alias" value="{{ name }}">
+    <input type="hidden" name="next" value="{{ preview_url }}">
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:140px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
+      <div style="flex:1;min-width:180px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
+      <button class="btn small" type="submit">Map</button>
+      <a class="btn secondary small" href="{{ url_for('.rates', name=name, company=company.name) }}">Add as new rate</a>
+    </div>
+  </form>
+  {% endfor %}
+  {% endif %}
+
+  {% if preview.skipped %}
+  <h2>Skipped — Still Clocked In</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th><th>Clock-In</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for s in preview.skipped %}
+        <tr><td>{{ s.employee or '—' }}</td><td>{{ s.clock_in or '—' }}</td><td>{{ s.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% set n_matched = preview.rows | selectattr('matched') | list | length %}
+  {% if n_matched %}
+  <form method="post" action="{{ url_for('.import_app_confirm', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="source" value="{{ source }}">
+    <p class="small muted">Confirming imports the {{ n_matched }} matched row(s). Exact duplicates (same employee, date and hours) are skipped. Unmatched rows are not imported.</p>
+    <div class="btn-row"><button class="btn" type="submit">Import {{ n_matched }} Matched Row(s)</button></div>
+  </form>
+  {% elif preview.rows %}
+  <p class="small"><span class="badge">No rate match</span> None of these rows match a rate row yet — map the names above first.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
