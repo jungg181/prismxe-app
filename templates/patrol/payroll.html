@@ -11,29 +11,45 @@
 <div class="card">
   <h2 style="margin-top:0">{% if is_range %}Payroll{% else %}Weekly Payroll{% endif %}
     {% if is_range %}
-    <a class="btn small" href="{{ url_for('.payroll_xlsx') }}?from={{ from_s }}&to={{ to_s }}" style="float:right">⬇ Download Excel</a>
-    <a class="btn small" href="{{ url_for('.payroll_basic_csv') }}?from={{ from_s }}&to={{ to_s }}" style="float:right">⬇ Basic CSV</a>
+    <a class="btn small" href="{{ url_for('.payroll_xlsx') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">⬇ Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">⬇ Basic CSV</a>
     {% else %}
-    <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}" style="float:right">⬇ Download Excel</a>
-    <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}" style="float:right">⬇ Basic CSV</a>
+    <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">⬇ Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">⬇ Basic CSV</a>
     {% endif %}
   </h2>
   <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
     {% if is_range %}
-    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ prev }}&to={{ prev_end }}" style="text-decoration:none">◀ Prev</a>
+    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ prev }}&to={{ prev_end }}{{ workers_qs }}" style="text-decoration:none">◀ Prev</a>
     <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[-1].strftime('%a, %b %d, %Y') }}</b>
-    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ nxt }}&to={{ nxt_end }}" style="text-decoration:none">Next ▶</a>
+    <a class="btn small" href="{{ url_for('.payroll') }}?from={{ nxt }}&to={{ nxt_end }}{{ workers_qs }}" style="text-decoration:none">Next ▶</a>
     {% else %}
-    <a class="btn small" href="{{ url_for('.payroll', start=prev) }}" style="text-decoration:none">◀ Prev week</a>
+    <a class="btn small" href="{{ url_for('.payroll', start=prev) }}{{ workers_qs }}" style="text-decoration:none">◀ Prev week</a>
     <b>{{ days[0].strftime('%a, %b %d, %Y') }} – {{ days[-1].strftime('%a, %b %d, %Y') }}</b>
-    <a class="btn small" href="{{ url_for('.payroll', start=nxt) }}" style="text-decoration:none">Next week ▶</a>
+    <a class="btn small" href="{{ url_for('.payroll', start=nxt) }}{{ workers_qs }}" style="text-decoration:none">Next week ▶</a>
     {% endif %}
     <input type="date" name="from" value="{{ days[0].isoformat() }}" style="flex:0 1 190px;min-width:0;padding:.35rem">
     <input type="date" name="to" value="{{ days[-1].isoformat() }}" style="flex:0 1 190px;min-width:0;padding:.35rem">
     <button class="btn small" type="submit" style="flex-shrink:0">Show</button>
   </form>
+  <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.4rem .9rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
+    {% if is_range %}
+    <input type="hidden" name="from" value="{{ from_s }}">
+    <input type="hidden" name="to" value="{{ to_s }}">
+    {% else %}
+    <input type="hidden" name="start" value="{{ monday.isoformat() }}">
+    {% endif %}
+    <b class="small">Workers</b>
+    {% for w in all_workers %}
+    <label class="small" style="white-space:nowrap"><input type="checkbox" name="w" value="{{ w.id }}" {% if w.id in selected_ids %}checked{% endif %}> {{ w.name }}{% if w.active is defined and not w.active %} <span class="muted">(inactive)</span>{% endif %}</label>
+    {% endfor %}
+    <button class="btn small" type="submit">Show selected</button>
+    {% if filter_active %}
+    <a class="btn small" href="{{ url_for('.payroll') }}{% if is_range %}?from={{ from_s }}&to={{ to_s }}{% else %}?start={{ monday.isoformat() }}{% endif %}">Show all</a>
+    {% endif %}
+  </form>
   {% if not rows %}
-  <p class="muted">{% if is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
+  <p class="muted">{% if filter_active %}No records for the selected workers in this period.{% elif is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
   {% else %}
   <style>
     .payroll-tbl{border-collapse:collapse;min-width:920px;background:#fff}
