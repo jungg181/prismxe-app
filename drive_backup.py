@@ -13,6 +13,7 @@ Backup files in the folder:
   Gauge_Data.json     gauge database
   BibleUsers.json     bible user registrations/progress
   PortalConfig.json   portal folder/app config
+  Payroll_Data.json   payroll companies/rates/entries/expenses
 
 Everything is best-effort and never raises: if the Apps Script hasn't been
 updated with the saveFile/getFile actions yet, backups are skipped.
@@ -42,6 +43,7 @@ ALL_BACKUPS = [
     ('data_gauge_settings.json', 'GaugeSettings.json'),
     ('data/bible_users.json', 'BibleUsers.json'),
     ('portal_config.json', 'PortalConfig.json'),
+    ('data_payroll.json', 'Payroll_Data.json'),
 ]
 
 # action -> human label, used by the /coa/backup status page
