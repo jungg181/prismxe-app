@@ -1,0 +1,116 @@
+{% extends "payroll/base.html" %}
+{% block title %}{{ company.name }} Payroll{% endblock %}
+{% block content %}
+<h1>{{ company.name }} Payroll</h1>
+<p class="sub">{{ start }} → {{ end }} · Overtime: hours over 40 in a Mon–Sun week at 1.5×</p>
+
+<div class="card">
+  <form method="get" action="{{ url_for('.company_payroll', company=company.slug) }}">
+    <div class="form-grid">
+      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ start }}" required></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ end }}" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Show Payroll</button>
+      <a class="btn secondary" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">Time Entries</a>
+      <a class="btn secondary" href="{{ url_for('.import_app', company=company.slug, **{'from': start, 'to': end}) }}">Import from App</a>
+      <a class="btn secondary" href="{{ url_for('.invoice', company=company.slug, **{'from': start, 'to': end}) }}">Invoice</a>
+      <a class="btn secondary" href="{{ url_for('.export_csv', company=company.slug, **{'from': start, 'to': end}) }}">Export CSV</a>
+      <a class="btn secondary" href="{{ url_for('.export_xlsx', company=company.slug, **{'from': start, 'to': end}) }}">Export XLSX</a>
+    </div>
+  </form>
+</div>
+
+{% if result.rows %}
+<div class="stat-row">
+  <div class="stat"><div class="k">Total Hours</div><div class="v">{{ fmt_hours(result.totals.total_hours) }}</div></div>
+  <div class="stat"><div class="k">Regular</div><div class="v">{{ fmt_hours(result.totals.total_reg_hours) }}</div></div>
+  <div class="stat"><div class="k">Overtime</div><div class="v">{{ fmt_hours(result.totals.total_ot_hours) }}</div></div>
+  <div class="stat"><div class="k">Gross Pay</div><div class="v">{{ money(result.totals.total_gross_pay) }}</div></div>
+  <div class="stat"><div class="k">Billing</div><div class="v">{{ money(result.totals.total_billing_gross) }}</div></div>
+</div>
+
+<div class="card">
+  <div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th>Employee</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Total</th>
+        <th class="num">Staffing Rate</th><th class="num">Gross Pay</th>
+        <th class="num">Billing Rate</th><th class="num">Billing Gross</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for r in result.rows %}
+        <tr{% if r.no_rate %} class="zero"{% endif %}>
+          <td>{{ r.employee }}</td>
+          <td class="num">{{ fmt_hours(r.reg_hours) }}</td>
+          <td class="num">{{ fmt_hours(r.ot_hours) }}</td>
+          <td class="num">{{ fmt_hours(r.total_hours) }}</td>
+          <td class="num">{{ '—' if r.staffing is none else money(r.staffing) }}</td>
+          <td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td>
+          <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
+          <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
+          <td>{% if r.no_rate %}<span class="badge">No rate</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr class="total">
+          <td>PAYROLL TOTAL</td>
+          <td class="num">{{ fmt_hours(result.totals.total_reg_hours) }}</td>
+          <td class="num">{{ fmt_hours(result.totals.total_ot_hours) }}</td>
+          <td class="num">{{ fmt_hours(result.totals.total_hours) }}</td>
+          <td></td>
+          <td class="num">{{ money(result.totals.total_gross_pay) }}</td>
+          <td></td>
+          <td class="num">{{ money(result.totals.total_billing_gross) }}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% if result.totals.no_rate_count %}
+  <p class="small" style="margin-top:10px"><span class="badge">No rate</span> {{ result.totals.no_rate_count }} employee(s) have hours but no rate for {{ company.name }} — their pay and billing are left blank, never $0. Add the rate under <a href="{{ url_for('.rates') }}">Rates</a>.</p>
+  {% endif %}
+</div>
+
+{% if variances %}
+<div class="card">
+  <h2 style="margin-top:0">⚠️ Rate Variance — Sheet vs PrismXe Info</h2>
+  <p class="small muted">Pay is computed at PrismXe Info rates. The sheet pays these employees at a different rate — the gap is flagged here, not adjusted.</p>
+  <div class="table-scroll">
+    {% set show_billing = variances|selectattr('sheet_billing')|list|length > 0 %}
+    <table>
+      <thead><tr><th>Employee</th><th class="num">Info Rate</th><th class="num">Sheet Rate</th><th class="num">Computed Gross</th><th class="num">Sheet Gross</th><th class="num">Gap</th>{% if show_billing %}<th class="num">Info Billing</th><th class="num">Sheet Billing</th><th class="num">Billing Gap</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for v in variances %}
+        <tr><td>{{ v.employee }}</td><td class="num">{{ money(v.staffing) }}</td><td class="num">{{ money(v.sheet_staffing) }}</td><td class="num">{{ money(v.computed_gross) }}</td><td class="num">{{ money(v.sheet_gross) }}</td><td class="num">{{ money(v.gap) }}</td>{% if show_billing %}{% if v.sheet_billing is defined %}<td class="num">{{ money(v.billing) }}</td><td class="num">{{ money(v.sheet_billing) }}</td><td class="num">{{ money(v.billing_gap) }}</td>{% else %}<td class="num">·</td><td class="num">·</td><td class="num">·</td>{% endif %}{% endif %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% for v in variances %}
+  <p class="small" style="margin-top:8px">{{ v.employee }}: {{ v.note }}</p>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0">Hours per Day</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num">{{ d[5:] }}</th>{% endfor %}<th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for r in result.rows %}
+        <tr><td>{{ r.employee }}</td>{% for d in result.days %}<td class="num">{{ fmt_hours(r.days[d]) if r.days[d] else '·' }}</td>{% endfor %}<td class="num">{{ fmt_hours(r.total_hours) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <p>No time entries for {{ company.name }} in this period.</p>
+  <div class="btn-row">
+    <a class="btn" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">Add Time Entries</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
