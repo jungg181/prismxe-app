@@ -1,0 +1,62 @@
+{% extends "payroll/base.html" %}
+{% block title %}Invoice {{ number }}{% endblock %}
+{% block content %}
+<h1>Invoice {{ number }}</h1>
+<p class="sub">{{ company.vendor }} · {{ start }} → {{ end }} · {{ company.category }} · Ship to: {{ company.ship_to }}</p>
+
+<div class="card">
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th><th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for line in inv.lines %}
+        <tr{% if line.qty == 0 %} class="zero"{% endif %}>
+          <td>{{ line.employee }}</td><td>{{ line.type }}</td>
+          <td class="num">{{ line.qty }}</td><td class="num">{{ money(line.unit) }}</td>
+          <td class="num">{{ money(line.total) }}</td>
+        </tr>
+        {% endfor %}
+        {% for ex in inv.expenses %}
+        <tr><td>{{ ex.description }}</td><td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td colspan="4">Labour Total</td><td class="num">{{ money(inv.labour_total) }}</td></tr>
+        <tr><td colspan="4">Expenses Total</td><td class="num">{{ money(inv.expense_total) }}</td></tr>
+        <tr class="total"><td colspan="4">TOTAL</td><td class="num">{{ money(inv.total) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% if inv.excluded %}
+  <p class="small" style="margin-top:10px"><span class="badge">Not billed</span> {{ inv.excluded | join(', ') }} — no rate for {{ company.name }}, so no invoice line was created.</p>
+  {% endif %}
+  <p class="small muted">Bank: {{ bank.bank }}, {{ bank.branch }} · Routing {{ bank.routing }} · Account {{ bank.account }} ({{ bank.account_name }}) · Approved by {{ approved_by }}</p>
+  <div class="btn-row">
+    <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug, **{'from': start, 'to': end}) }}">Back to Payroll</a>
+    <a class="btn secondary" href="{{ url_for('.export_xlsx', company=company.slug, **{'from': start, 'to': end}) }}">Export XLSX</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Add Expense</h2>
+  <form method="post" action="{{ url_for('.add_expense', company=company.slug, **{'from': start, 'to': end}) }}">
+    <div class="form-grid">
+      <div><label for="description">Description</label><input id="description" name="description" placeholder="e.g. Home Depot" required></div>
+      <div><label for="amount">Amount ($)</label><input id="amount" name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Expense</button></div>
+  </form>
+  {% if inv.expenses %}
+  <h2>Expenses for this period</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
+      <tbody>
+        {% for ex in inv.expenses %}
+        <tr><td>{{ ex.description }}</td><td class="num">{{ money(ex.amount) }}</td>
+        <td><form class="inline-form" method="post" action="{{ url_for('.delete_expense', company=company.slug, exp_id=ex.id, **{'from': start, 'to': end}) }}"><button class="btn danger small" type="submit">Remove</button></form></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
