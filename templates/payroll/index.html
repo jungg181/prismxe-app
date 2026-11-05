@@ -22,11 +22,31 @@
 
 <div class="cards">
   {% for c in companies %}
-  <a class="company-card" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
-    <span class="icon">💵</span>
-    <h3>{{ c.name }}</h3>
-    <p>Invoice prefix {{ c.prefix }} · {{ c.category }}</p>
-  </a>
+  <div>
+    <a class="company-card" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
+      <span class="icon">💵</span>
+      <h3>{{ c.name }}</h3>
+      <p>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</p>
+    </a>
+    <form class="inline-form" method="post" action="{{ url_for('.delete_company', slug=c.slug) }}" onsubmit="return confirm('Remove {{ c.name }}? Only companies with no entries, rates or mappings can be removed.')" style="display:block;margin-top:8px">
+      <button class="btn danger small" type="submit">Remove {{ c.name }}</button>
+    </form>
+  </div>
   {% endfor %}
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Add a company</h2>
+  <p class="small muted">A new company shows up here and on the Rates page right away, with its own payroll, invoice and import pages. The invoice prefix goes on its invoice numbers (e.g. KBL11052026).</p>
+  <form method="post" action="{{ url_for('.add_company') }}">
+    <div class="form-grid">
+      <div><label for="cname">Company name</label><input type="text" id="cname" name="name" placeholder="e.g. Myeongjin" required></div>
+      <div><label for="cprefix">Invoice prefix</label><input type="text" id="cprefix" name="prefix" placeholder="e.g. MJ" maxlength="6" required></div>
+      <div><label for="cvendor">Bill to (vendor)</label><input type="text" id="cvendor" name="vendor" placeholder="Defaults to the company name"></div>
+      <div><label for="cship">Ship to</label><input type="text" id="cship" name="ship_to" placeholder="e.g. Queen Creek AZ"></div>
+      <div><label for="ccat">Category</label><input type="text" id="ccat" name="category" placeholder="e.g. LG Alpha / Myeongjin"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add company</button></div>
+  </form>
 </div>
 {% endblock %}
