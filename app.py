@@ -74,6 +74,9 @@ BLUEPRINT_APPS = {
     "cm": {"name": "Construction Manager", "icon": "🏗️",
            "desc": "Sites, workers, timecards, incidents, QA/QC",
            "company": "Construction", "company_icon": "🏗️"},
+    "payroll": {"name": "Payroll", "icon": "💵",
+                "desc": "Payroll calculation for KB Link and Hanseong",
+                "company": "PRISM", "company_icon": "🏢"},
     "patrol_coa": {"name": "Patrol COA", "icon": "📋",
                    "desc": "COA patrol board",
                    "company": "COA", "company_icon": "🧹"},
@@ -148,6 +151,7 @@ from gauge_bp import bp as gauge_bp
 from cm_bp import bp as cm_bp, register_jinja as register_cm_jinja
 from patrol_bp import bp as patrol_bp, patrol_coa_bp
 from burner_bp import bp as burner_bp
+from payroll_bp import bp as payroll_bp
 from bible_bp import bp as bible_bp
 from checklist_bp import bp as checklist_bp
 # NOTE: coa_bp must stay registered — it was dropped twice by app.py
@@ -160,6 +164,7 @@ app.register_blueprint(cm_bp)
 app.register_blueprint(patrol_bp)
 app.register_blueprint(patrol_coa_bp)
 app.register_blueprint(burner_bp)
+app.register_blueprint(payroll_bp)
 app.register_blueprint(bible_bp)
 app.register_blueprint(checklist_bp)
 app.register_blueprint(coa_bp)
