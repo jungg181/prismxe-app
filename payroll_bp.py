@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Payroll — KB Link + Hanseong payroll calculation (replaces sheet formulas).
+"""Payroll — payroll calculation for any company (replaces sheet formulas).
 
 - GET  /payroll/                        company cards + period picker
+- POST /payroll/companies              add a company
+- POST /payroll/companies/<slug>/delete  remove an empty company
 - GET  /payroll/<company>              per-employee payroll for a period
 - GET  /payroll/<company>/export.csv   CSV export of the payroll table
 - GET  /payroll/<company>/export.xlsx  XLSX export (Payroll + Invoice)
@@ -28,6 +30,7 @@ import csv
 import io
 import json
 import os
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -216,6 +219,78 @@ def index():
         default_from=monday.isoformat(),
         default_to=(monday + timedelta(days=6)).isoformat(),
     )
+
+
+# ---------------------------------------------------------------- companies
+def _slugify(name):
+    slug = re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower())
+    return slug.strip("-")
+
+
+@bp.post("/companies")
+def add_company():
+    """Add a company from the index page. It appears on the index,
+    on the Rates page, and gets its own payroll / invoice / import
+    pages immediately — every other route looks companies up by slug.
+    """
+    name = (request.form.get("name") or "").strip()
+    prefix = (request.form.get("prefix") or "").strip().upper()
+    vendor = (request.form.get("vendor") or "").strip() or name
+    ship_to = (request.form.get("ship_to") or "").strip()
+    category = (request.form.get("category") or "").strip()
+    if not name:
+        flash("Company name is required.")
+        return redirect(url_for(".index"))
+    slug = _slugify(name)
+    if not slug:
+        flash("Company name must contain letters or numbers.")
+        return redirect(url_for(".index"))
+    if find_company(slug) is not None:
+        flash(f"A company named {name} already exists.")
+        return redirect(url_for(".index"))
+    if not prefix or not prefix.isalnum() or len(prefix) > 6:
+        flash("Invoice prefix is required: letters and numbers only, "
+              "up to 6 characters.")
+        return redirect(url_for(".index"))
+    if any((c.get("prefix") or "").upper() == prefix
+           for c in DB.get("companies", [])):
+        flash(f"Invoice prefix {prefix} is already used by another company.")
+        return redirect(url_for(".index"))
+    DB.setdefault("companies", []).append({
+        "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
+        "ship_to": ship_to, "category": category,
+    })
+    save_db()
+    flash(f"Company {name} added. Add its rates under Rates, then import "
+          "time entries.")
+    return redirect(url_for(".index"))
+
+
+@bp.post("/companies/<slug>/delete")
+def delete_company(slug):
+    """Remove a company — only when it has no entries, rates, aliases,
+    variances or expenses, so payroll history can never be deleted
+    by accident."""
+    co = find_company(slug)
+    if co is None:
+        flash("Unknown company.")
+        return redirect(url_for(".index"))
+    name = co["name"]
+    in_use = (
+        any(e.get("company") == name for e in DB.get("entries", []))
+        or any(r.get("company") == name for r in DB.get("rates", []))
+        or any(a.get("company") == name for a in DB.get("aliases", []))
+        or any(v.get("company") == name for v in DB.get("variances", []))
+        or any(x.get("company") == name for x in DB.get("expenses", []))
+    )
+    if in_use:
+        flash(f"Cannot remove {name}: it still has entries, rates or "
+              "mappings. Remove those first.")
+        return redirect(url_for(".index"))
+    DB["companies"] = [c for c in DB.get("companies", []) if c is not co]
+    save_db()
+    flash(f"Company {name} removed.")
+    return redirect(url_for(".index"))
 
 
 # ---------------------------------------------------------------- payroll
