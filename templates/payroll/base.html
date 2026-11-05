@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>{% block title %}Payroll{% endblock %} · PrismXE Payroll</title>
+<style>
+:root{
+  --ink:#f1f5f9; --ink-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+  --bg:#0b1220; --card:#141d33; --line:#263350; --line-soft:#1c2740;
+  --input-bg:#0f1830; --hover-bg:#1a2440; --thead-bg:#101a30; --tile-bg:#1a2440;
+  --brand:#f59e0b; --brand-strong:#fbbf24; --brand-soft:#2b2210;
+  --green:#4ade80; --green-bg:#12351f; --red:#f87171; --red-bg:#3d1518;
+  --amber:#fbbf24; --amber-bg:#3a2c10; --blue:#60a5fa; --blue-bg:#16294d;
+  --radius:16px; --radius-sm:10px;
+  --shadow:0 1px 2px rgba(0,0,0,.45); --shadow-lg:0 8px 24px -12px rgba(0,0,0,.65);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;padding-bottom:32px}
+a{color:var(--brand-strong);text-decoration:none}
+a:hover{text-decoration:underline}
+header.topbar{background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px;position:sticky;top:0;z-index:10}
+.topbar-inner{max-width:1020px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{color:var(--ink);font-weight:800;font-size:1.15rem;letter-spacing:-.02em}
+.brand small{display:block;font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.topnav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.topnav a{color:var(--ink-2);padding:8px 12px;border-radius:var(--radius-sm);font-weight:600;font-size:.92rem}
+.topnav a:hover{background:var(--hover-bg);text-decoration:none}
+.topnav a.active{background:var(--brand-soft);color:var(--brand-strong)}
+main{max-width:1020px;margin:0 auto;padding:18px 16px}
+h1{font-size:1.45rem;margin:6px 0 2px;letter-spacing:-.02em;font-weight:800}
+h2{font-size:1.1rem;margin:22px 0 8px}
+p.sub{color:var(--muted);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.flash{margin-bottom:14px}
+.flash div{background:var(--blue-bg);border:1px solid var(--line);color:var(--ink);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
+.btn{display:inline-block;background:var(--brand);color:#1a1206;border:0;border-radius:var(--radius-sm);padding:10px 16px;font-weight:700;font-size:.95rem;cursor:pointer;text-align:center}
+.btn:hover{filter:brightness(1.08);text-decoration:none}
+.btn.secondary{background:var(--tile-bg);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:var(--red-bg);color:var(--red);border:1px solid var(--line)}
+.btn.small{padding:6px 10px;font-size:.85rem}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label{display:block;font-size:.85rem;font-weight:600;color:var(--ink-2);margin:10px 0 4px}
+input,select,textarea{width:100%;background:var(--input-bg);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:1rem}
+input[type=date]{min-height:44px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:var(--brand)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm)}
+table{width:100%;border-collapse:collapse;font-size:.92rem;white-space:nowrap}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line-soft)}
+th{background:var(--thead-bg);color:var(--ink-2);font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.total td{font-weight:800;background:var(--thead-bg);border-top:2px solid var(--line)}
+tr.zero td{color:var(--faint)}
+.badge{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--amber-bg);color:var(--amber)}
+.badge.ok{background:var(--green-bg);color:var(--green)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.company-card{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;color:var(--ink);box-shadow:var(--shadow)}
+.company-card:hover{border-color:var(--brand);text-decoration:none}
+.company-card .icon{font-size:1.8rem}
+.company-card h3{margin:6px 0 2px;font-size:1.15rem}
+.company-card p{margin:0;color:var(--muted);font-size:.9rem}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--tile-bg);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:10px 12px}
+.stat .k{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat .v{font-size:1.25rem;font-weight:800}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+.inline-form{display:inline}
+@media (max-width:640px){ .btn-row .btn{flex:1} }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{{ url_for('.index') }}">💵 Payroll<small>PrismXE</small></a>
+    <nav class="topnav">
+      <a href="{{ url_for('.index') }}">Payroll</a>
+      <a href="{{ url_for('.rates') }}">Rates</a>
+      <a href="/">Portal</a>
+    </nav>
+  </div>
+</header>
+<main>
+  {% with msgs = get_flashed_messages() %}
+  {% if msgs %}<div class="flash">{% for m in msgs %}<div>{{ m }}</div>{% endfor %}</div>{% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>
