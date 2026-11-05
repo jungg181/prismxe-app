@@ -86,6 +86,17 @@
 </div>
 <div class="card">
   <h2>Records <span style="float:right;display:inline-flex;gap:.4rem;align-items:center"><input type="date" id="export-from" title="From" style="padding:.35rem"><input type="date" id="export-to" title="To" style="padding:.35rem"><button class="btn small" onclick="exportCsv()">⬇ Export CSV</button></span><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">➕ Add record</button><button class="btn small" onclick="openBulk()" style="float:right;margin-right:.4rem">➕ Bulk add</button></h2>
+  <div style="display:flex;gap:.5rem;align-items:center;margin:.2rem 0 .7rem">
+    <label for="sort" class="muted small" style="margin:0">Sort</label>
+    <select id="sort" onchange="applySort()" style="padding:.35rem">
+      <option value="date_desc" {% if sort|default('date_desc') == 'date_desc' %}selected{% endif %}>Date: newest first</option>
+      <option value="date_asc" {% if sort|default('date_desc') == 'date_asc' %}selected{% endif %}>Date: oldest first</option>
+      <option value="name_asc" {% if sort|default('date_desc') == 'name_asc' %}selected{% endif %}>Name: A–Z</option>
+      <option value="name_desc" {% if sort|default('date_desc') == 'name_desc' %}selected{% endif %}>Name: Z–A</option>
+      <option value="hours_desc" {% if sort|default('date_desc') == 'hours_desc' %}selected{% endif %}>Hours: most first</option>
+      <option value="hours_asc" {% if sort|default('date_desc') == 'hours_asc' %}selected{% endif %}>Hours: least first</option>
+    </select>
+  </div>
   <table>
     <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th></th></tr>
     {% for r in records %}
@@ -234,7 +245,13 @@ function exportCsv(){
   var q = [];
   if(f) q.push('from=' + encodeURIComponent(f));
   if(t) q.push('to=' + encodeURIComponent(t));
+  q.push('sort=' + encodeURIComponent(document.getElementById('sort').value));
   location.href = q.length ? url + '?' + q.join('&') : url;
+}
+function applySort(){
+  var u = new URL(location.href);
+  u.searchParams.set('sort', document.getElementById('sort').value);
+  location.href = u.toString();
 }
 function openAdd(){
   document.getElementById('add-err').textContent = '';
