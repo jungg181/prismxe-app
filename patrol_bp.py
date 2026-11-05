@@ -435,8 +435,23 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return out
 
 
-    def paired_records():
-        """Pair in/out punches per email for payroll, newest first."""
+    # Sort orders for the Records table on /timecard (and its CSV export).
+    RECORD_SORTS = ("date_desc", "date_asc", "name_asc", "name_desc",
+                    "hours_desc", "hours_asc")
+
+
+    def _record_sort(arg):
+        s = (arg or "").strip()
+        return s if s in RECORD_SORTS else "date_desc"
+
+
+    def paired_records(sort="date_desc"):
+        """Pair in/out punches per email for payroll.
+
+        sort: date_desc (newest first, default), date_asc, name_asc,
+        name_desc, hours_desc, hours_asc. Ties keep newest-first
+        order; open shifts (no hours yet) sort last on the hours sorts.
+        """
         by_email = {}
         for p in sorted(DB.get('punches', []), key=lambda x: x.get('ts') or ''):
             by_email.setdefault((p.get('email') or '').strip().lower(), []).append(p)
@@ -470,6 +485,16 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 else:
                     i += 1
         rows.sort(key=lambda r: r['clock_in'] or '', reverse=True)
+        if sort == "date_asc":
+            rows.reverse()
+        elif sort == "name_asc":
+            rows.sort(key=lambda r: (r.get('name') or '').lower())
+        elif sort == "name_desc":
+            rows.sort(key=lambda r: (r.get('name') or '').lower(), reverse=True)
+        elif sort == "hours_desc":
+            rows.sort(key=lambda r: (r['hours'] is None, -(r['hours'] or 0)))
+        elif sort == "hours_asc":
+            rows.sort(key=lambda r: (r['hours'] is None, r['hours'] or 0))
         return rows
 
 
@@ -930,9 +955,10 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 status.append(entry)
             else:
                 inactive_status.append(entry)
+        sort = _record_sort(request.args.get('sort'))
         return render_template('patrol/timecard.html', view='records',
                                status=status, inactive_status=inactive_status,
-                               records=paired_records())
+                               records=paired_records(sort), sort=sort)
 
     @bp.route('/timecard/batch/resend', methods=['POST'])
     @visit_action_required('timecard_batch')
@@ -1171,6 +1197,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         frm, to = _day(request.args.get('from')), _day(request.args.get('to'))
         if frm and to and frm > to:
             frm, to = to, frm
+        sort = _record_sort(request.args.get('sort'))
         # Notes = the worker's Staffing company (set in Settings ->
         # Workers), so a download shows which side each worker is from.
         staffing_by_email = {}
@@ -1192,7 +1219,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         def ftm(ts):
             return datetime.fromisoformat(ts).strftime('%I:%M %p')
 
-        for r in paired_records():
+        for r in paired_records(sort):
             d = (r['clock_in'] or '')[:10]
             if (frm or to) and not d:
                 continue
