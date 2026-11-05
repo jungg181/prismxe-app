@@ -1,0 +1,32 @@
+{% extends "payroll/base.html" %}
+{% block title %}Payroll{% endblock %}
+{% block content %}
+<h1>Payroll</h1>
+<p class="sub">Weekly overtime (Mon–Sun, over 40h at 1.5×). Rates come from PrismXe Info and can be edited under Rates.</p>
+
+<div class="card">
+  <form method="get" action="{{ url_for('.index') }}">
+    <div class="form-grid">
+      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ request.args.get('from', default_from) }}" required></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ request.args.get('to', default_to) }}" required></div>
+    </div>
+    <p class="small muted" style="margin:10px 0 12px">Pick a period, then choose a company. Only hours inside the period count; a week that straddles the period edge is split at the boundary.</p>
+    <div class="btn-row">
+      {% for c in companies %}
+      <button class="btn" type="submit" formaction="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }} Payroll</button>
+      {% endfor %}
+      <a class="btn secondary" href="{{ url_for('.rates') }}">Edit Rates</a>
+    </div>
+  </form>
+</div>
+
+<div class="cards">
+  {% for c in companies %}
+  <a class="company-card" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
+    <span class="icon">💵</span>
+    <h3>{{ c.name }}</h3>
+    <p>Invoice prefix {{ c.prefix }} · {{ c.category }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
