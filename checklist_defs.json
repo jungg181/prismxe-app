@@ -76,7 +76,7 @@
        "range": "0 ~ 100",
        "type": "number",
        "choices": [],
-       "monitor": false
+       "monitor": true
       },
       {
        "no": 4,
