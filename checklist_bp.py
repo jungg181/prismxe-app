@@ -572,6 +572,32 @@ def loc_photo():
     return jsonify({"ok": True, "file": stored, "updated": now})
 
 
+@bp.post("/api/loc-assign")
+def loc_assign():
+    """Register an ALREADY-UPLOADED photo as the location photo for one
+    checklist point (JSON: system, equipment, row, file). No byte copy —
+    the file must already exist in checklist_photos/ (uploaded via
+    POST /api/photo). One photo per point, shared by every device."""
+    data = request.get_json(silent=True) or {}
+    system = data.get("system", "")
+    equipment = data.get("equipment", "")
+    row = data.get("row", "")
+    f = data.get("file", "")
+    if not system or not row or not f:
+        return jsonify({"ok": False, "error": "system, row and file required"}), 400
+    if "/" in f or "\\" in f or not os.path.isfile(
+            os.path.join(PHOTOS_DIR, os.path.basename(f))):
+        return jsonify({"ok": False, "error": "photo not found on server"}), 404
+    stored = os.path.basename(f)
+    key = "{}|{}|{}".format(system, equipment, row)
+    now = datetime.now(timezone.utc).isoformat()
+    with _lock:
+        d = _load()
+        d.setdefault("loc_photos", {})[key] = {"file": stored, "updated": now}
+        _save(d)
+    return jsonify({"ok": True, "file": stored, "updated": now})
+
+
 @bp.get("/api/loc-index")
 def loc_index():
     """Location-photo index for one system (+equipment when given):
