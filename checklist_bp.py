@@ -598,6 +598,30 @@ def loc_assign():
     return jsonify({"ok": True, "file": stored, "updated": now})
 
 
+@bp.post("/api/loc-remove")
+def loc_remove():
+    """Remove the location-photo mapping for one checklist point
+    (JSON: system, equipment, row). Idempotent: removing a mapping
+    that does not exist reports removed=false, not an error. The
+    photo file itself is NOT deleted from checklist_photos/ (its
+    tags stay keyed by the file name), so the photo can be
+    re-assigned later via POST /api/loc-assign."""
+    data = request.get_json(silent=True) or {}
+    system = data.get("system", "")
+    equipment = data.get("equipment", "")
+    row = data.get("row", "")
+    if not system or not row:
+        return jsonify({"ok": False, "error": "system and row required"}), 400
+    key = "{}|{}|{}".format(system, equipment, row)
+    with _lock:
+        d = _load()
+        removed = key in (d.get("loc_photos") or {})
+        if removed:
+            del d["loc_photos"][key]
+            _save(d)
+    return jsonify({"ok": True, "removed": removed})
+
+
 @bp.get("/api/loc-index")
 def loc_index():
     """Location-photo index for one system (+equipment when given):
