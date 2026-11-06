@@ -23,7 +23,8 @@ import threading
 import urllib.request
 from datetime import datetime, timezone
 
-from flask import Blueprint, request, jsonify, send_file
+from flask import (Blueprint, request, jsonify, send_file, render_template,
+                    redirect, url_for, flash)
 
 bp = Blueprint("checklist", __name__, url_prefix="/checklist")
 
@@ -907,3 +908,187 @@ def read_photo():
     return jsonify({"ok": True, "values": values, "unclear": unclear,
                     "quality": quality,
                     "screen_equipment": parsed.get("screen_equipment")})
+
+
+# ---------------------------------------------------------------------------
+# MNT — mark a whole round as not done (maintenance)
+#
+# When a patrol round could not be done (no time), the whole slot is
+# marked MNT: one submission record whose every value is "MNT". It flows
+# through the normal pipeline untouched, so it shows as MNT in the app's
+# previous-data view (day()), the PDF, and the Excel writer queue.
+# The Android app itself cannot gain a button (no app source), so the
+# marking happens on this small web page, opened in the tablet browser.
+# ---------------------------------------------------------------------------
+
+from datetime import timedelta as _td
+
+
+def _phoenix_now():
+    """Current time in America/Phoenix (MST, no DST — always UTC-7)."""
+    return datetime.now(timezone.utc) - _td(hours=7)
+
+
+def _mnt_system(system_id):
+    for s in _defs().get("systems", []):
+        if s.get("id") == system_id:
+            return s
+    return None
+
+
+def _mnt_values(system):
+    """Every check-item row of the system, all set to MNT."""
+    values = {}
+    for sec in system.get("sections", []):
+        for it in sec.get("items", []):
+            values[str(it.get("row"))] = "MNT"
+    return values
+
+
+def _mnt_id(system_id, equipment, date_s, slot):
+    return "{}|{}|{}|{}".format(system_id, equipment or "", date_s, slot)
+
+
+def _mnt_status(system_id, equipment, date_s, slot):
+    """('empty'|'submitted'|'mnt', record-or-None) for one round."""
+    rid = _mnt_id(system_id, equipment, date_s, slot)
+    with _lock:
+        d = _load()
+    for s in d.get("submissions", []):
+        if s.get("id") == rid:
+            return ("mnt" if s.get("mnt") else "submitted", s)
+    return ("empty", None)
+
+
+def _mnt_default_slot(system):
+    """Latest slot at or before now (Phoenix); first slot if none yet."""
+    hhmm = _phoenix_now().strftime("%H:%M")
+    slots = system.get("slots", []) or []
+    past = [s for s in slots if s <= hhmm]
+    return past[-1] if past else (slots[0] if slots else "")
+
+
+def _mnt_validate(system_id, equipment, date_s, slot):
+    """(system, equipment, error-or-None) for a mark/unmark request."""
+    system = _mnt_system(system_id)
+    if system is None:
+        return None, "", "Unknown system."
+    equipments = system.get("equipments", []) or []
+    if equipments:
+        if equipment not in equipments:
+            return None, "", "Pick an equipment for this system."
+    else:
+        equipment = ""
+    try:
+        datetime.strptime(date_s, "%Y-%m-%d")
+    except Exception:
+        return None, "", "Pick a valid date."
+    if slot not in (system.get("slots", []) or []):
+        return None, "", "Pick a valid time slot."
+    return system, equipment, None
+
+
+def _mnt_redirect(system_id, equipment, date_s, slot):
+    return redirect(url_for("checklist.mnt_page", system=system_id,
+                            equipment=equipment, date=date_s, slot=slot))
+
+
+@bp.get("/mnt")
+def mnt_page():
+    systems = _defs().get("systems", []) or []
+    system_id = request.args.get("system") or "NMP"
+    system = _mnt_system(system_id) or (systems[0] if systems else None)
+    if system is None:
+        return "No checklist systems configured.", 500
+    system_id = system.get("id", "")
+    equipments = system.get("equipments", []) or []
+    equipment = request.args.get("equipment") or ""
+    if equipments and equipment not in equipments:
+        equipment = equipments[0]
+    if not equipments:
+        equipment = ""
+    date_s = request.args.get("date") or ""
+    try:
+        datetime.strptime(date_s, "%Y-%m-%d")
+    except Exception:
+        date_s = _phoenix_now().strftime("%Y-%m-%d")
+    slots = system.get("slots", []) or []
+    slot = request.args.get("slot") or ""
+    if slot not in slots:
+        slot = _mnt_default_slot(system)
+    status, rec = _mnt_status(system_id, equipment, date_s, slot)
+    return render_template(
+        "checklist/mnt.html", systems=systems, system_id=system_id,
+        equipments=equipments, equipment=equipment, date_s=date_s,
+        slots=slots, slot=slot, status=status, rec=rec)
+
+
+@bp.post("/mnt/mark")
+def mnt_mark():
+    system_id = (request.form.get("system") or "").strip()
+    equipment = (request.form.get("equipment") or "").strip()
+    date_s = (request.form.get("date") or "").strip()
+    slot = (request.form.get("slot") or "").strip()
+    system, equipment, err = _mnt_validate(system_id, equipment, date_s,
+                                           slot)
+    if err:
+        flash(err)
+        return redirect(url_for("checklist.mnt_page"))
+    rid = _mnt_id(system_id, equipment, date_s, slot)
+    with _lock:
+        d = _load()
+        for s in d.get("submissions", []):
+            if s.get("id") == rid:
+                if s.get("mnt"):
+                    flash("This round is already marked MNT.")
+                else:
+                    flash("This round was already submitted — MNT "
+                          "cannot overwrite a real round.")
+                return _mnt_redirect(system_id, equipment, date_s, slot)
+        now = datetime.now(timezone.utc).isoformat()
+        rec = {
+            "id": rid, "system": system_id, "equipment": equipment,
+            "date": date_s, "slot": slot,
+            "values": _mnt_values(system),
+            "note": "MNT — round not done (no time to patrol)",
+            "target_file": "", "saved_at": now, "device": "mnt-page",
+            "received_at": now, "written": False, "mnt": True,
+        }
+        d["submissions"].append(rec)
+        _save(d)
+    _issue_pdf(rec)
+    if WRITE_SCRIPT_URL:
+        threading.Thread(target=_flush_written, daemon=True).start()
+    flash("Marked {} {} {} as MNT — every item in this round shows MNT."
+          .format(system_id, date_s, slot))
+    return _mnt_redirect(system_id, equipment, date_s, slot)
+
+
+@bp.post("/mnt/unmark")
+def mnt_unmark():
+    system_id = (request.form.get("system") or "").strip()
+    equipment = (request.form.get("equipment") or "").strip()
+    date_s = (request.form.get("date") or "").strip()
+    slot = (request.form.get("slot") or "").strip()
+    system, equipment, err = _mnt_validate(system_id, equipment, date_s,
+                                           slot)
+    if err:
+        flash(err)
+        return redirect(url_for("checklist.mnt_page"))
+    rid = _mnt_id(system_id, equipment, date_s, slot)
+    with _lock:
+        d = _load()
+        for i, s in enumerate(d.get("submissions", [])):
+            if s.get("id") == rid:
+                if not s.get("mnt"):
+                    flash("This round was really submitted — only an "
+                          "MNT mark can be undone here.")
+                    return _mnt_redirect(system_id, equipment, date_s,
+                                         slot)
+                del d["submissions"][i]
+                _save(d)
+                flash("MNT mark removed for {} {} {}."
+                      .format(system_id, date_s, slot))
+                return _mnt_redirect(system_id, equipment, date_s, slot)
+    flash("Nothing to undo — this round is not marked MNT.")
+    return _mnt_redirect(system_id, equipment, date_s, slot)
