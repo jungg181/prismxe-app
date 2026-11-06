@@ -767,7 +767,156 @@ def defs():
 def backup():
     with _lock:
         d = _load()
+    d["photo_tags"] = _load_tags()
+    d["tag_setting"] = {"tag_edit_enabled": _tag_edit_enabled()}
     return jsonify(d)
+
+
+# ---------------- photo pin tags (형아, 2026-10-28) ----------------
+# Pins with names placed on checklist photos (location / issue /
+# submission photos). Tags are keyed by the photo's stored FILE NAME
+# (형아's decision: name basis, so the same-named photo on another
+# device shows the same tags; renaming a file breaks the link).
+# Stored apart from data_checklist.json in
+# data_checklist_photo_tags.json:
+#   {"<file name>": [{"id","x","y","name","by","ts"}, ...], ...}
+# x/y are image ratios (0-1) so a pin stays put at any zoom/size.
+# The original photo file is never touched — pins are an overlay.
+# Tag Setting (admin, default On) lives in
+# data_checklist_tag_setting.json; when Off, photos open View-only:
+# tag saves are rejected here and the app hides Edit entry points.
+
+TAGS_PATH = os.path.join(BASE_DIR, "data_checklist_photo_tags.json")
+TAG_SETTING_PATH = os.path.join(BASE_DIR, "data_checklist_tag_setting.json")
+
+
+def _load_tags():
+    try:
+        with open(TAGS_PATH) as f:
+            t = json.load(f)
+        if isinstance(t, dict):
+            return t
+    except Exception:
+        pass
+    return {}
+
+
+def _save_tags(t):
+    tmp = TAGS_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(t, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, TAGS_PATH)
+
+
+def _tag_edit_enabled():
+    try:
+        with open(TAG_SETTING_PATH) as f:
+            s = json.load(f)
+        if isinstance(s, dict) and "tag_edit_enabled" in s:
+            return bool(s["tag_edit_enabled"])
+    except Exception:
+        pass
+    return True
+
+
+def _save_tag_setting(on):
+    tmp = TAG_SETTING_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"tag_edit_enabled": bool(on)}, f)
+    os.replace(tmp, TAG_SETTING_PATH)
+
+
+def _clean_tags(raw):
+    out = []
+    if not isinstance(raw, list):
+        return out
+    for t in raw[:200]:
+        if not isinstance(t, dict):
+            continue
+        try:
+            x = float(t.get("x"))
+            y = float(t.get("y"))
+        except Exception:
+            continue
+        if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
+            continue
+        out.append({
+            "id": str(t.get("id") or "")[:64],
+            "x": x, "y": y,
+            "name": str(t.get("name") or "")[:80],
+            "by": str(t.get("by") or "")[:40],
+            "ts": str(t.get("ts") or "")[:40],
+        })
+    return out
+
+
+@bp.get("/api/tag-setting")
+def tag_setting_get():
+    return jsonify({"ok": True, "on": _tag_edit_enabled()})
+
+
+@bp.post("/api/tag-setting")
+def tag_setting_set():
+    try:
+        e = request.get_json(force=True)
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    if not isinstance(e, dict) or "on" not in e:
+        return jsonify({"ok": False, "error": "on required"}), 400
+    with _lock:
+        _save_tag_setting(bool(e["on"]))
+    return jsonify({"ok": True, "on": _tag_edit_enabled()})
+
+
+@bp.get("/api/photo-tags")
+def photo_tags_get():
+    """Tags for one photo, by stored file name:
+    ?file=<name> -> {ok, file, tags, on}."""
+    name = os.path.basename(request.args.get("file", ""))
+    if not name:
+        return jsonify({"ok": False, "error": "file required"}), 400
+    with _lock:
+        tags = _load_tags()
+    return jsonify({"ok": True, "file": name,
+                    "tags": tags.get(name, []),
+                    "on": _tag_edit_enabled()})
+
+
+@bp.get("/api/photo-tags-index")
+def photo_tags_index():
+    """Tag counts per photo file name, for badging photo lists."""
+    with _lock:
+        tags = _load_tags()
+    return jsonify({"ok": True,
+                    "counts": {k: len(v) for k, v in tags.items() if v},
+                    "on": _tag_edit_enabled()})
+
+
+@bp.post("/api/photo-tags")
+def photo_tags_set():
+    """Replace the whole tag list for one photo file name:
+    {file, tags:[{id,x,y,name,by,ts}]}. Rejected when Tag Setting
+    is Off (View-only mode)."""
+    if not _tag_edit_enabled():
+        return jsonify({"ok": False, "error": "tag setting is off"}), 403
+    try:
+        e = request.get_json(force=True)
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    if not isinstance(e, dict):
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    name = os.path.basename(str(e.get("file") or ""))
+    if not name:
+        return jsonify({"ok": False, "error": "file required"}), 400
+    tags = _clean_tags(e.get("tags"))
+    with _lock:
+        all_tags = _load_tags()
+        if tags:
+            all_tags[name] = tags
+        else:
+            all_tags.pop(name, None)
+        _save_tags(all_tags)
+    return jsonify({"ok": True, "file": name, "tags": tags})
 
 
 # ---------------- monitor photo auto-read (vision) ----------------
