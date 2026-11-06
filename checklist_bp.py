@@ -1081,6 +1081,29 @@ def _monitor_items(system_id):
     return None
 
 
+def _fill_tic009_mv(system_id, values):
+    """HOB: the TIC-009 MV percent read from the monitor photo is filed as
+    FCV-001 (linkage open rate, a monitor item). The same number is also the
+    TIC-009 (MV) checklist value, but that item is not a monitor item so it
+    never appears in the vision prompt and never gets filled. Copy the value
+    over so the worker does not have to enter the same number twice. Rows are
+    looked up by tag, never hardcoded. Never overwrites an existing value."""
+    if system_id != "HOB" or not values:
+        return values
+    try:
+        items = [it for s in _defs().get("systems", [])
+                 if s.get("id") == "HOB"
+                 for sec in s.get("sections", [])
+                 for it in sec.get("items", [])]
+        src = next((str(it["row"]) for it in items if it.get("tag") == "FCV-001"), None)
+        dst = next((str(it["row"]) for it in items if it.get("tag") == "TIC-009 (MV)"), None)
+    except Exception:
+        return values
+    if src and dst and src in values and dst not in values:
+        values[dst] = values[src]
+    return values
+
+
 @bp.post("/api/read-photo")
 def read_photo():
     """Read monitor values from an HMI photo with the vision API.
@@ -1167,6 +1190,7 @@ def read_photo():
         except Exception:
             continue
         values[str(k)] = int(fv) if fv == int(fv) else fv
+    values = _fill_tic009_mv(system_id, values)
     known_tags = {str(it.get("tag", "")) for it in items}
     unclear = [str(t) for t in (parsed.get("unclear") or []) if str(t) in known_tags]
     quality = "poor" if str(parsed.get("quality", "")).lower() == "poor" else "good"
