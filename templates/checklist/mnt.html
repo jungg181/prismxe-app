@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark slot MNT · Hanseong Check List</title>
+<style>
+  body{margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+  h1{font-size:1.25rem;margin:0 0 4px}
+  .muted{color:#94a3b8;font-size:.85rem}
+  .card{background:#1e293b;border-radius:12px;padding:14px;margin-top:12px}
+  label{display:block;font-size:.8rem;color:#94a3b8;margin:10px 0 4px}
+  select,input[type=date]{width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:1rem;box-sizing:border-box}
+  .btn{display:block;width:100%;padding:12px;border:0;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:12px}
+  .btn-primary{background:#2563eb;color:#fff}
+  .btn-danger{background:#b91c1c;color:#fff}
+  .btn-ghost{background:#334155;color:#e2e8f0}
+  .status{padding:10px;border-radius:8px;margin-top:12px;font-weight:600}
+  .st-empty{background:#1e3a5f;color:#93c5fd}
+  .st-submitted{background:#14532d;color:#86efac}
+  .st-mnt{background:#713f12;color:#fde68a}
+  .flash{background:#334155;border-left:4px solid #38bdf8;padding:10px;border-radius:8px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mark slot MNT</h1>
+  <p class="muted">When a round could not be done, mark the whole slot MNT (maintenance — not done). Every item in that round shows MNT in the app's previous data, the Excel sheet and the PDF.</p>
+  {% with msgs = get_flashed_messages() %}
+  {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  <form method="get" action="{{ url_for('checklist.mnt_page') }}" class="card">
+    <label for="system">System</label>
+    <select id="system" name="system" onchange="this.form.submit()">
+      {% for s in systems %}
+      <option value="{{ s.id }}" {% if s.id == system_id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    {% if equipments %}
+    <label for="equipment">Equipment</label>
+    <select id="equipment" name="equipment" onchange="this.form.submit()">
+      {% for e in equipments %}
+      <option value="{{ e }}" {% if e == equipment %}selected{% endif %}>{{ e }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <label for="date">Date</label>
+    <input type="date" id="date" name="date" value="{{ date_s }}">
+    <label for="slot">Time slot</label>
+    <select id="slot" name="slot">
+      {% for t in slots %}
+      <option value="{{ t }}" {% if t == slot %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost" type="submit">Show</button>
+  </form>
+  <div class="card">
+    {% if status == 'mnt' %}
+    <div class="status st-mnt">MNT — this round is marked MNT (not done).</div>
+    {% elif status == 'submitted' %}
+    <div class="status st-submitted">Submitted — this round was really done. MNT cannot overwrite it.</div>
+    {% else %}
+    <div class="status st-empty">Empty — nothing submitted for this round yet.</div>
+    {% endif %}
+    <p class="muted">{{ system_id }}{% if equipment %} · {{ equipment }}{% endif %} · {{ date_s }} · {{ slot }}</p>
+    {% if status == 'empty' %}
+    <form method="post" action="{{ url_for('checklist.mnt_mark') }}">
+      <input type="hidden" name="system" value="{{ system_id }}">
+      <input type="hidden" name="equipment" value="{{ equipment }}">
+      <input type="hidden" name="date" value="{{ date_s }}">
+      <input type="hidden" name="slot" value="{{ slot }}">
+      <button class="btn btn-primary" type="submit">Mark whole slot MNT</button>
+    </form>
+    {% elif status == 'mnt' %}
+    <form method="post" action="{{ url_for('checklist.mnt_unmark') }}">
+      <input type="hidden" name="system" value="{{ system_id }}">
+      <input type="hidden" name="equipment" value="{{ equipment }}">
+      <input type="hidden" name="date" value="{{ date_s }}">
+      <input type="hidden" name="slot" value="{{ slot }}">
+      <button class="btn btn-danger" type="submit">Undo MNT mark</button>
+    </form>
+    <p class="muted">Undo removes the mark from the app view and the Excel queue. A PDF already sent to Drive stays.</p>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>
