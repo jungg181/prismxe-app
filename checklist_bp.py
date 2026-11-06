@@ -87,6 +87,9 @@ def submit():
                 "device": e.get("device", ""),
                 "received_at": now,
                 "written": False,
+                # the app sends "mnt" with an MNT mark; keep it so the
+                # web page and the app agree the round is maintenance
+                "mnt": bool(e.get("mnt", False)),
             }
             def _norm(k):
                 return "|".join(p for p in k.split("|") if p)
@@ -949,14 +952,42 @@ def _mnt_id(system_id, equipment, date_s, slot):
     return "{}|{}|{}|{}".format(system_id, equipment or "", date_s, slot)
 
 
-def _mnt_status(system_id, equipment, date_s, slot):
-    """('empty'|'submitted'|'mnt', record-or-None) for one round."""
-    rid = _mnt_id(system_id, equipment, date_s, slot)
+def _mnt_is_mnt(rec):
+    """True if a stored round is an MNT mark: flagged, or every value MNT."""
+    if rec.get("mnt"):
+        return True
+    vals = rec.get("values") or {}
+    return bool(vals) and all(v == "MNT" for v in vals.values())
+
+
+def _mnt_match(recs, system_id, equipment, date_s, slot):
+    """Rounds for one round, matched by fields (no locking; caller locks)."""
+    return [s for s in recs
+            if s.get("system") == system_id
+            and (s.get("equipment") or "") == (equipment or "")
+            and s.get("date") == date_s and s.get("slot") == slot]
+
+
+def _mnt_round_records(system_id, equipment, date_s, slot):
+    """All stored rounds for one round.
+
+    The app uploads ids like system|equipment|date|slot|timestamp, so an
+    exact-id lookup misses app-marked rounds. Match on the four fields.
+    """
     with _lock:
         d = _load()
-    for s in d.get("submissions", []):
-        if s.get("id") == rid:
-            return ("mnt" if s.get("mnt") else "submitted", s)
+    return _mnt_match(d.get("submissions", []), system_id, equipment,
+                      date_s, slot)
+
+
+def _mnt_status(system_id, equipment, date_s, slot):
+    """('empty'|'submitted'|'mnt', record-or-None) for one round."""
+    recs = _mnt_round_records(system_id, equipment, date_s, slot)
+    for s in recs:
+        if not _mnt_is_mnt(s):
+            return ("submitted", s)
+    if recs:
+        return ("mnt", recs[-1])
     return ("empty", None)
 
 
@@ -1037,14 +1068,15 @@ def mnt_mark():
     rid = _mnt_id(system_id, equipment, date_s, slot)
     with _lock:
         d = _load()
-        for s in d.get("submissions", []):
-            if s.get("id") == rid:
-                if s.get("mnt"):
-                    flash("This round is already marked MNT.")
-                else:
-                    flash("This round was already submitted — MNT "
-                          "cannot overwrite a real round.")
-                return _mnt_redirect(system_id, equipment, date_s, slot)
+        recs = _mnt_match(d.get("submissions", []), system_id, equipment,
+                          date_s, slot)
+        if recs:
+            if all(_mnt_is_mnt(s) for s in recs):
+                flash("This round is already marked MNT.")
+            else:
+                flash("This round was already submitted — MNT "
+                      "cannot overwrite a real round.")
+            return _mnt_redirect(system_id, equipment, date_s, slot)
         now = datetime.now(timezone.utc).isoformat()
         rec = {
             "id": rid, "system": system_id, "equipment": equipment,
@@ -1075,20 +1107,22 @@ def mnt_unmark():
     if err:
         flash(err)
         return redirect(url_for("checklist.mnt_page"))
-    rid = _mnt_id(system_id, equipment, date_s, slot)
     with _lock:
         d = _load()
-        for i, s in enumerate(d.get("submissions", [])):
-            if s.get("id") == rid:
-                if not s.get("mnt"):
-                    flash("This round was really submitted — only an "
-                          "MNT mark can be undone here.")
-                    return _mnt_redirect(system_id, equipment, date_s,
-                                         slot)
-                del d["submissions"][i]
-                _save(d)
-                flash("MNT mark removed for {} {} {}."
-                      .format(system_id, date_s, slot))
-                return _mnt_redirect(system_id, equipment, date_s, slot)
+        recs = _mnt_match(d.get("submissions", []), system_id, equipment,
+                          date_s, slot)
+        # remove every MNT mark for the round, never a real submission
+        mnt_ids = {s.get("id") for s in recs if _mnt_is_mnt(s)}
+        if recs and not mnt_ids:
+            flash("This round was really submitted — only an "
+                  "MNT mark can be undone here.")
+            return _mnt_redirect(system_id, equipment, date_s, slot)
+        if mnt_ids:
+            d["submissions"] = [s for s in d.get("submissions", [])
+                                if s.get("id") not in mnt_ids]
+            _save(d)
+            flash("MNT mark removed for {} {} {}."
+                  .format(system_id, date_s, slot))
+            return _mnt_redirect(system_id, equipment, date_s, slot)
     flash("Nothing to undo — this round is not marked MNT.")
     return _mnt_redirect(system_id, equipment, date_s, slot)
