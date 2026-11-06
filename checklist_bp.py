@@ -622,6 +622,69 @@ def loc_remove():
     return jsonify({"ok": True, "removed": removed})
 
 
+# ---------------- pin visibility (v1.87) ----------------
+# Per-item "show the Pin" setting, set by the user on the Check List
+# page inside Photo Pin Tags. Keyed "system|row" — NOT per equipment:
+# HOB's item list is shared across all 5 equipments (same tag at the
+# same row), so one HOB row has ONE visibility for every equipment.
+# Stored apart from data_checklist.json in
+# data_checklist_pin_visibility.json: {"<system>|<row>": true/false}.
+# Only explicitly stored keys are in the file; anything absent falls
+# back to the default rule (real tag -> shown, no tag -> hidden),
+# which the app computes from the defs — the server never needs
+# the defs for this.
+PIN_VISIBILITY_PATH = os.path.join(
+    BASE_DIR, "data_checklist_pin_visibility.json")
+
+
+def _load_pin_visibility():
+    try:
+        with open(PIN_VISIBILITY_PATH) as f:
+            v = json.load(f)
+        if isinstance(v, dict):
+            return {str(k): bool(x) for k, x in v.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_pin_visibility(v):
+    tmp = PIN_VISIBILITY_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(v, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, PIN_VISIBILITY_PATH)
+
+
+@bp.get("/api/pin-visibility")
+def pin_visibility_get():
+    """Whole pin-visibility map: {visibility: {"<system>|<row>": bool}}.
+    Empty {} when nothing has been saved yet; the app falls back to
+    the default rule (real tag -> shown) for absent keys."""
+    with _lock:
+        v = _load_pin_visibility()
+    return jsonify({"ok": True, "visibility": v})
+
+
+@bp.post("/api/pin-visibility")
+def pin_visibility_set():
+    """Set one item's pin visibility (JSON: system, row, show;
+    equipment accepted but ignored — HOB rows are shared across
+    equipments, so the key is "system|row"). Only that one key
+    changes; the rest of the map is untouched."""
+    data = request.get_json(silent=True) or {}
+    system = data.get("system", "")
+    row = data.get("row", "")
+    if not system or row == "" or row is None or "show" not in data:
+        return jsonify({"ok": False, "error": "system, row and show required"}), 400
+    key = "{}|{}".format(system, str(row))
+    with _lock:
+        v = _load_pin_visibility()
+        v[key] = bool(data["show"])
+        _save_pin_visibility(v)
+    return jsonify({"ok": True, "system": system, "row": str(row),
+                    "show": bool(data["show"])})
+
+
 @bp.get("/api/loc-index")
 def loc_index():
     """Location-photo index for one system (+equipment when given):
