@@ -1057,7 +1057,7 @@ _SCREEN_HINTS = {
     "HOB": ("The photo shows a hot oil heater burner HMI screen. The screen title names the heater: "
             "'#1 ANODE' = EAB01, '#2 ANODE' = EAB02, '#1 CATHODE' = ECB01, '#2 CATHODE' = ECB02, '#3 CATHODE' = ECB03. "
             "Also return \"screen_equipment\" with that equipment id. On this screen: FI-001 is the gas flow, "
-            "the TIC-009 MV percent is checklist FCV-001 (linkage open rate), and the O2 percent value is O2I-001. "
+            "the TIC-009 MV percent is both checklist FCV-001 (linkage open rate) and checklist TIC-009 (MV) - return the same percent for both rows, and the O2 percent value is O2I-001. "
             "UNIT RULES (important): PI-002, PI-003 and DPI-002 each appear TWICE on this screen - a green "
             "readout in psig and a black readout in bar. Return the BAR (black) value for these three tags, "
             "never the psig value. The bar twin of PI-002 is the black readout just above the PI-002 psig "
