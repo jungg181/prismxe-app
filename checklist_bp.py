@@ -752,6 +752,86 @@ def tag_override_set():
     return jsonify({"ok": True, "system": system, "row": str(row), "tag": tag})
 
 
+# ---------------- photo rotations (v2.01) ----------------
+# Per-photo display rotation, set by the user with the "Rotate"
+# button in a photo viewer and saved on the server so a rotated
+# photo looks the same on every device (v1.74 kept it in local
+# prefs only, per device). Keyed by the photo's stored server
+# file name. Stored apart from data_checklist.json in
+# data_checklist_photo_rotations.json: {"<file>": <degrees>}.
+# Rotation is one of 0/90/180/270. Only explicitly rotated photos
+# are in the file; anything absent is 0 (unrotated). A 0 rotation
+# clears the entry. The photo BYTES are NEVER modified and pins
+# stay canonical x/y — rotation is display metadata only.
+PHOTO_ROTATIONS_PATH = os.path.join(
+    BASE_DIR, "data_checklist_photo_rotations.json")
+
+
+def _load_photo_rotations():
+    try:
+        with open(PHOTO_ROTATIONS_PATH) as f:
+            v = json.load(f)
+        if isinstance(v, dict):
+            out = {}
+            for k, x in v.items():
+                try:
+                    d = int(x)
+                except Exception:
+                    continue
+                if d in (0, 90, 180, 270):
+                    out[str(k)] = d
+            return out
+    except Exception:
+        pass
+    return {}
+
+
+def _save_photo_rotations(v):
+    tmp = PHOTO_ROTATIONS_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(v, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, PHOTO_ROTATIONS_PATH)
+
+
+@bp.get("/api/photo-rotations")
+def photo_rotations_get():
+    """Whole photo-rotation map: {rotations: {"<file>": <degrees>}}.
+    Empty {} when nothing has been saved yet; the app falls back to
+    0 (unrotated) for absent files."""
+    with _lock:
+        v = _load_photo_rotations()
+    return jsonify({"ok": True, "rotations": v})
+
+
+@bp.post("/api/photo-rotation")
+def photo_rotation_set():
+    """Set (or clear) one photo's rotation (JSON: file, rotation).
+    Rotation must be one of 0/90/180/270. A 0 rotation removes the
+    entry (back to unrotated). Only that one key changes; the rest
+    of the map is untouched."""
+    data = request.get_json(silent=True) or {}
+    file = str(data.get("file") or "").strip()
+    if not file or "rotation" not in data:
+        return jsonify({"ok": False, "error": "file and rotation required"}), 400
+    raw = data.get("rotation")
+    try:
+        deg = int(raw)
+    except Exception:
+        return jsonify({"ok": False, "error": "rotation must be 0, 90, 180 or 270"}), 400
+    if isinstance(raw, float) and raw != deg:
+        return jsonify({"ok": False, "error": "rotation must be 0, 90, 180 or 270"}), 400
+    if deg not in (0, 90, 180, 270):
+        return jsonify({"ok": False, "error": "rotation must be 0, 90, 180 or 270"}), 400
+    with _lock:
+        v = _load_photo_rotations()
+        if deg:
+            v[file] = deg
+        else:
+            v.pop(file, None)
+        _save_photo_rotations(v)
+    return jsonify({"ok": True, "file": file, "rotation": deg})
+
+
 @bp.get("/api/loc-index")
 def loc_index():
     """Location-photo index for one system (+equipment when given):
