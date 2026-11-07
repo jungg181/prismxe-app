@@ -28,10 +28,10 @@
       <h3>{{ c.name }}</h3>
       <p>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</p>
     </a>
-    <div class="btn-row" style="margin-top:8px">
-      <a class="btn secondary small" href="{{ url_for('.edit_company', slug=c.slug) }}">Edit {{ c.name }}</a>
+    <div class="btn-row" style="margin-top:8px;flex-wrap:nowrap">
+      <a class="btn secondary small" href="{{ url_for('.edit_company', slug=c.slug) }}">Edit</a>
       <form class="inline-form" method="post" action="{{ url_for('.delete_company', slug=c.slug) }}" onsubmit="return confirm('Remove {{ c.name }}? Only companies with no entries, rates or mappings can be removed.')">
-        <button class="btn danger small" type="submit">Remove {{ c.name }}</button>
+        <button class="btn danger small" type="submit">Remove</button>
       </form>
     </div>
   </div>
