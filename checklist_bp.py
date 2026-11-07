@@ -685,6 +685,73 @@ def pin_visibility_set():
                     "show": bool(data["show"])})
 
 
+# ---------------- tag overrides (v2.00) ----------------
+# Per-item tag text overrides, set by the user by tapping the "Tag:"
+# line on the Check List page inside Photo Pin Tags. Keyed
+# "system|row" — NOT per equipment: HOB's item list is shared
+# across all 5 equipments (same tag at the same row), so one HOB
+# row has ONE tag for every equipment. Stored apart from
+# data_checklist.json in data_checklist_tag_overrides.json:
+# {"<system>|<row>": "<tag>"}. Only explicitly overridden keys are
+# in the file; anything absent falls back to the defs tag. The
+# defs file itself is NEVER modified; an override only shadows it.
+# An empty tag clears the override (reverts to the defs tag).
+TAG_OVERRIDES_PATH = os.path.join(
+    BASE_DIR, "data_checklist_tag_overrides.json")
+
+
+def _load_tag_overrides():
+    try:
+        with open(TAG_OVERRIDES_PATH) as f:
+            v = json.load(f)
+        if isinstance(v, dict):
+            return {str(k): str(x) for k, x in v.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_tag_overrides(v):
+    tmp = TAG_OVERRIDES_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(v, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, TAG_OVERRIDES_PATH)
+
+
+@bp.get("/api/tag-overrides")
+def tag_overrides_get():
+    """Whole tag-override map: {overrides: {"<system>|<row>": "<tag>"}}.
+    Empty {} when nothing has been saved yet; the app falls back to
+    the defs tag for absent keys."""
+    with _lock:
+        v = _load_tag_overrides()
+    return jsonify({"ok": True, "overrides": v})
+
+
+@bp.post("/api/tag-override")
+def tag_override_set():
+    """Set (or clear) one item's tag override (JSON: system, row, tag).
+    Equipment accepted but ignored — HOB rows are shared across
+    equipments, so the key is "system|row". An empty tag clears the
+    override, reverting to the defs tag. Only that one key changes;
+    the rest of the map is untouched."""
+    data = request.get_json(silent=True) or {}
+    system = data.get("system", "")
+    row = data.get("row", "")
+    if not system or row == "" or row is None or "tag" not in data:
+        return jsonify({"ok": False, "error": "system, row and tag required"}), 400
+    tag = str(data.get("tag") or "").strip()
+    key = "{}|{}".format(system, str(row))
+    with _lock:
+        v = _load_tag_overrides()
+        if tag:
+            v[key] = tag
+        else:
+            v.pop(key, None)
+        _save_tag_overrides(v)
+    return jsonify({"ok": True, "system": system, "row": str(row), "tag": tag})
+
+
 @bp.get("/api/loc-index")
 def loc_index():
     """Location-photo index for one system (+equipment when given):
@@ -1102,9 +1169,13 @@ def read_photo():
     img = f.read()
     if not img or len(img) > 6_000_000:
         return jsonify({"ok": False, "error": "photo missing or too large"}), 400
+    overrides = _load_tag_overrides()
     lines = "\n".join(
-        '  row {}: #{} {} (tag {}, unit {})'.format(it["row"], it["no"], it["name"],
-                                                   it.get("tag", ""), it.get("unit", ""))
+        '  row {}: #{} {} (tag {}, unit {})'.format(
+            it["row"], it["no"], it["name"],
+            overrides.get("{}|{}".format(system_id, it["row"]),
+                          it.get("tag", "")),
+            it.get("unit", ""))
         for it in items)
     prompt = (
         "You are reading a photo of an industrial monitor/HMI screen for a patrol checklist. "
@@ -1167,7 +1238,8 @@ def read_photo():
         except Exception:
             continue
         values[str(k)] = int(fv) if fv == int(fv) else fv
-    known_tags = {str(it.get("tag", "")) for it in items}
+    known_tags = {str(overrides.get("{}|{}".format(system_id, it["row"]),
+                                    it.get("tag", ""))) for it in items}
     unclear = [str(t) for t in (parsed.get("unclear") or []) if str(t) in known_tags]
     quality = "poor" if str(parsed.get("quality", "")).lower() == "poor" else "good"
     return jsonify({"ok": True, "values": values, "unclear": unclear,
