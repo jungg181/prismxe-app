@@ -1057,7 +1057,7 @@ _SCREEN_HINTS = {
     "HOB": ("The photo shows a hot oil heater burner HMI screen. The screen title names the heater: "
             "'#1 ANODE' = EAB01, '#2 ANODE' = EAB02, '#1 CATHODE' = ECB01, '#2 CATHODE' = ECB02, '#3 CATHODE' = ECB03. "
             "Also return \"screen_equipment\" with that equipment id. On this screen: FI-001 is the gas flow, "
-            "the TIC-009 MV percent is both checklist FCV-001 (linkage open rate) and checklist TIC-009 (MV) - return the same percent for both rows, and the O2 percent value is O2I-001. "
+            "FCV-001 (linkage open rate) and TIC-009 (MV) are two DIFFERENT numbers - read each from its own place and never copy one to the other. FCV-001 is the POS percent shown directly under the FCV-001 valve near the top centre of the screen (a green % number). TIC-009 (MV) is the MV percent in the TIC-009 box on the left (the red % number under 'MV'). The O2 percent value is O2I-001. "
             "UNIT RULES (important): PI-002, PI-003 and DPI-002 each appear TWICE on this screen - a green "
             "readout in psig and a black readout in bar. Return the BAR (black) value for these three tags, "
             "never the psig value. The bar twin of PI-002 is the black readout just above the PI-002 psig "
@@ -1079,29 +1079,6 @@ def _monitor_items(system_id):
         if s.get("id") == system_id:
             return [it for sec in s.get("sections", []) for it in sec.get("items", []) if it.get("monitor")]
     return None
-
-
-def _fill_tic009_mv(system_id, values):
-    """HOB: the TIC-009 MV percent read from the monitor photo is filed as
-    FCV-001 (linkage open rate, a monitor item). The same number is also the
-    TIC-009 (MV) checklist value, but that item is not a monitor item so it
-    never appears in the vision prompt and never gets filled. Copy the value
-    over so the worker does not have to enter the same number twice. Rows are
-    looked up by tag, never hardcoded. Never overwrites an existing value."""
-    if system_id != "HOB" or not values:
-        return values
-    try:
-        items = [it for s in _defs().get("systems", [])
-                 if s.get("id") == "HOB"
-                 for sec in s.get("sections", [])
-                 for it in sec.get("items", [])]
-        src = next((str(it["row"]) for it in items if it.get("tag") == "FCV-001"), None)
-        dst = next((str(it["row"]) for it in items if it.get("tag") == "TIC-009 (MV)"), None)
-    except Exception:
-        return values
-    if src and dst and src in values and dst not in values:
-        values[dst] = values[src]
-    return values
 
 
 @bp.post("/api/read-photo")
@@ -1190,7 +1167,6 @@ def read_photo():
         except Exception:
             continue
         values[str(k)] = int(fv) if fv == int(fv) else fv
-    values = _fill_tic009_mv(system_id, values)
     known_tags = {str(it.get("tag", "")) for it in items}
     unclear = [str(t) for t in (parsed.get("unclear") or []) if str(t) in known_tags]
     quality = "poor" if str(parsed.get("quality", "")).lower() == "poor" else "good"
