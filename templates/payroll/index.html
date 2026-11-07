@@ -1,5 +1,19 @@
 {% extends "payroll/base.html" %}
 {% block title %}Payroll{% endblock %}
+{% block head %}
+<style>
+.company-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.company-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.company-row:hover{border-color:var(--brand)}
+.company-row a.company-info{display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:var(--ink)}
+.company-row a.company-info:hover{text-decoration:none}
+.company-row .icon{font-size:1.5rem;flex:0 0 auto}
+.company-row .company-text{display:flex;flex-direction:column;min-width:0}
+.company-row .company-text strong{font-size:1.05rem}
+.company-row .company-text span{color:var(--muted);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.company-row .btn-row{flex:0 0 auto}
+</style>
+{% endblock %}
 {% block content %}
 <h1>Payroll</h1>
 <p class="sub">Weekly overtime (Mon–Sun, over 40h at 1.5×). Rates come from PrismXe Info and can be edited under Rates.</p>
@@ -20,15 +34,17 @@
   </form>
 </div>
 
-<div class="cards">
+<div class="company-list">
   {% for c in companies %}
-  <div>
-    <a class="company-card" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
+  <div class="company-row">
+    <a class="company-info" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
       <span class="icon">💵</span>
-      <h3>{{ c.name }}</h3>
-      <p>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</p>
+      <span class="company-text">
+        <strong>{{ c.name }}</strong>
+        <span>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</span>
+      </span>
     </a>
-    <div class="btn-row" style="margin-top:8px;flex-wrap:nowrap">
+    <div class="btn-row" style="flex-wrap:nowrap">
       <a class="btn secondary small" href="{{ url_for('.edit_company', slug=c.slug) }}">Edit</a>
       <form class="inline-form" method="post" action="{{ url_for('.delete_company', slug=c.slug) }}" onsubmit="return confirm('Remove {{ c.name }}? Only companies with no entries, rates or mappings can be removed.')">
         <button class="btn danger small" type="submit">Remove</button>
