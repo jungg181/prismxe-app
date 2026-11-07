@@ -4,6 +4,8 @@
 - GET  /payroll/                        company cards + period picker
 - POST /payroll/companies              add a company
 - POST /payroll/companies/<slug>/delete  remove an empty company
+- GET/POST /payroll/companies/<slug>/edit  edit company info (rename
+  migrates entries/rates/aliases/variances/expenses to the new name)
 - GET  /payroll/<company>              per-employee payroll for a period
 - GET  /payroll/<company>/export.csv   CSV export of the payroll table
 - GET  /payroll/<company>/export.xlsx  XLSX export (Payroll + Invoice)
@@ -290,6 +292,63 @@ def delete_company(slug):
     DB["companies"] = [c for c in DB.get("companies", []) if c is not co]
     save_db()
     flash(f"Company {name} removed.")
+    return redirect(url_for(".index"))
+
+
+@bp.route("/companies/<slug>/edit", methods=["GET", "POST"])
+def edit_company(slug):
+    """Edit a company's info. Renaming also migrates every
+    entry/rate/alias/variance/expense stored under the old company
+    name to the new name (all of them key off the NAME, not the
+    slug), and recomputes the slug — so payroll history follows
+    the rename instead of being orphaned."""
+    co = find_company(slug)
+    if co is None:
+        flash("Unknown company.")
+        return redirect(url_for(".index"))
+    if request.method == "GET":
+        return render_template("payroll/edit_company.html", company=co)
+    old_name = co["name"]
+    name = (request.form.get("name") or "").strip()
+    prefix = (request.form.get("prefix") or "").strip().upper()
+    vendor = (request.form.get("vendor") or "").strip() or name
+    ship_to = (request.form.get("ship_to") or "").strip()
+    category = (request.form.get("category") or "").strip()
+    if not name:
+        flash("Company name is required.")
+        return render_template("payroll/edit_company.html", company=co)
+    new_slug = _slugify(name)
+    if not new_slug:
+        flash("Company name must contain letters or numbers.")
+        return render_template("payroll/edit_company.html", company=co)
+    other = [c for c in DB.get("companies", []) if c is not co]
+    if any((c.get("slug") or "").lower() == new_slug for c in other):
+        flash(f"A company named {name} already exists.")
+        return render_template("payroll/edit_company.html", company=co)
+    if not prefix or not prefix.isalnum() or len(prefix) > 6:
+        flash("Invoice prefix is required: letters and numbers only, "
+              "up to 6 characters.")
+        return render_template("payroll/edit_company.html", company=co)
+    if any((c.get("prefix") or "").upper() == prefix for c in other):
+        flash(f"Invoice prefix {prefix} is already used by another company.")
+        return render_template("payroll/edit_company.html", company=co)
+    renamed = name != old_name
+    co["name"] = name
+    co["slug"] = new_slug
+    co["prefix"] = prefix
+    co["vendor"] = vendor
+    co["ship_to"] = ship_to
+    co["category"] = category
+    if renamed:
+        for coll in ("entries", "rates", "aliases", "variances",
+                     "expenses"):
+            for row in DB.get(coll, []):
+                if row.get("company") == old_name:
+                    row["company"] = name
+    save_db()
+    flash(f"Company {name} updated."
+          + (" Entries, rates and mappings moved to the new name."
+             if renamed else ""))
     return redirect(url_for(".index"))
 
 
