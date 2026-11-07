@@ -1,0 +1,22 @@
+{% extends "payroll/base.html" %}
+{% block title %}Edit company{% endblock %}
+{% block content %}
+<h1>Edit company</h1>
+<p class="sub">Renaming a company also moves its entries, rates and mappings to the new name, so payroll history is kept.</p>
+
+<div class="card">
+  <form method="post" action="{{ url_for('.edit_company', slug=company.slug) }}">
+    <div class="form-grid">
+      <div><label for="ename">Company name</label><input type="text" id="ename" name="name" value="{{ company.name }}" required></div>
+      <div><label for="eprefix">Invoice prefix</label><input type="text" id="eprefix" name="prefix" value="{{ company.prefix }}" maxlength="6" required></div>
+      <div><label for="evendor">Bill to (vendor)</label><input type="text" id="evendor" name="vendor" value="{{ company.vendor }}" placeholder="Defaults to the company name"></div>
+      <div><label for="eship">Ship to</label><input type="text" id="eship" name="ship_to" value="{{ company.ship_to }}" placeholder="e.g. Queen Creek AZ"></div>
+      <div><label for="ecat">Category</label><input type="text" id="ecat" name="category" value="{{ company.category }}" placeholder="e.g. LG Alpha / Myeongjin"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Save changes</button>
+      <a class="btn secondary" href="{{ url_for('.index') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
