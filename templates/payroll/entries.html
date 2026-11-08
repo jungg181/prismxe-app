@@ -72,11 +72,20 @@
   {% for name in unmatched %}
   <form method="post" action="{{ url_for('.save_alias', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="alias" value="{{ name }}">
-    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
       <div style="flex:1;min-width:140px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
       <div style="flex:1;min-width:180px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
       <button class="btn small" type="submit">Map</button>
       <a class="btn secondary small" href="{{ url_for('.rates', name=name, company=company.name) }}">Add as new rate</a>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" onsubmit="return confirm('Move all entries for {{ name }} from {{ company.name }} to the chosen company?')">
+    <input type="hidden" name="action" value="move_company">
+    <input type="hidden" name="employee" value="{{ name }}">
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:1;min-width:180px"><label style="margin-top:0">Move to another company</label><select name="to_company" required><option value="">— pick a company —</option>{% for c in companies %}{% if c.name != company.name %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
+      <div style="flex:1;min-width:180px"><label style="margin-top:0">Note</label><input name="notes" value="{{ unmatched_notes.get(name, '') }}" placeholder="Note for the moved entries"></div>
+      <button class="btn small" type="submit">Move</button>
     </div>
   </form>
   {% endfor %}
