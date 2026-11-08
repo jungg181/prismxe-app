@@ -41,7 +41,7 @@
       <tbody>
         {% for r in result.rows %}
         <tr{% if r.no_rate %} class="zero"{% endif %}>
-          <td>{{ r.employee }}</td>
+          <td><a href="{{ url_for('.employee_page', company=company.slug, name=r.employee) }}">{{ r.employee }}</a></td>
           <td class="num">{{ fmt_hours(r.reg_hours) }}</td>
           <td class="num">{{ fmt_hours(r.ot_hours) }}</td>
           <td class="num">{{ fmt_hours(r.total_hours) }}</td>
