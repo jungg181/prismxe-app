@@ -276,11 +276,13 @@ def compute_payroll(entries, rates, company, start, end,
     return {"rows": rows, "totals": totals, "days": days}
 
 
-def invoice_number(prefix, today=None):
-    """Invoice number: company prefix + today's date MMDDYYYY,
-    exactly like the sheets (prefix from the Company mapping)."""
+def invoice_number(prefix, today=None, suffix=""):
+    """Invoice number: company prefix + today's date MMDDYYYY + the
+    company's Prefix End code (suffix), exactly like the sheets
+    (prefix from the Company mapping). An empty suffix leaves the
+    number unchanged."""
     today = today or date.today()
-    return f"{prefix}{today.strftime('%m%d%Y')}"
+    return f"{prefix}{today.strftime('%m%d%Y')}{suffix or ''}"
 
 
 def invoice_lines(rows, expenses=None, ot_multiplier=DEFAULT_OT_MULTIPLIER):
