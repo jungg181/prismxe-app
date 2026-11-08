@@ -1694,16 +1694,15 @@ def employee_page(company):
                       f"exists in {target['name']}.")
                 return redirect(url_for(".employee_page",
                                         company=co["slug"], name=name))
-        # Refuse an employee ID already used by another worker in the
-        # target company.
+        # Refuse an employee ID already used by another worker
+        # anywhere (the ID identifies one person across companies).
         if employee_id:
             dup = next((r for r in DB.get("rates", [])
-                        if r.get("company") == target["name"]
-                        and (r.get("employee_id") or "").strip() == employee_id
+                        if (r.get("employee_id") or "").strip() == employee_id
                         and (r.get("name") or "") != new_name), None)
             if dup is not None:
                 flash(f"Employee ID {employee_id} is already used by "
-                      f"{dup.get('name')} in {target['name']}.")
+                      f"{dup.get('name')} ({dup.get('company')}).")
                 return redirect(url_for(".employee_page",
                                         company=co["slug"], name=name))
         # 1. Rename (within the current company).
@@ -1775,6 +1774,337 @@ def employee_page(company):
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
         money=_money, fmt_hours=_fmt_hours)
+
+
+def _group_employees():
+    """Group rate rows + time entries into persons (one worker across
+    all companies).
+
+    A person is keyed by employee_id when one is set, else by name. A
+    rate row without an ID joins the person with the same name, so a
+    worker who has an ID in one company and no ID yet in another is
+    still one person. Returns a list of person dicts, sorted by name:
+      {key, name, employee_id, companies: {company: rate row},
+       entries: [...]}
+    """
+    persons = {}
+    by_name = {}
+
+    def _person_for(name, employee_id):
+        eid = (employee_id or "").strip() or None
+        if eid:
+            key = ("id", eid)
+            if key not in persons:
+                # Merge in a no-ID person with this name, if any.
+                nkey = ("name", name)
+                if nkey in persons:
+                    p = persons.pop(nkey)
+                    p["key"] = key
+                    p["employee_id"] = eid
+                    persons[key] = p
+                else:
+                    persons[key] = {"key": key, "name": name,
+                                    "employee_id": eid, "companies": {},
+                                    "entries": []}
+            by_name[name] = key
+            return persons[key]
+        key = by_name.get(name)
+        if key is not None and key in persons:
+            return persons[key]
+        key = ("name", name)
+        if key not in persons:
+            persons[key] = {"key": key, "name": name,
+                            "employee_id": None, "companies": {},
+                            "entries": []}
+            by_name.setdefault(name, key)
+        return persons[key]
+
+    for r in DB.get("rates", []):
+        p = _person_for(r.get("name") or "", r.get("employee_id"))
+        p["companies"][r.get("company")] = r
+        if (r.get("employee_id") or "").strip():
+            p["employee_id"] = (r.get("employee_id") or "").strip()
+    for e in DB.get("entries", []):
+        p = _person_for(e.get("employee") or "", None)
+        p["entries"].append(e)
+    return sorted(persons.values(), key=lambda p: (p["name"] or "").lower())
+
+
+def _person_url_key(person):
+    """The URL key for a person: their employee ID when set, else name."""
+    return person.get("employee_id") or person.get("name") or ""
+
+
+def _find_person(key):
+    """Find one person by employee_id or by name (URL key)."""
+    key = (key or "").strip()
+    if not key:
+        return None
+    for p in _group_employees():
+        if (p.get("employee_id") or "") == key:
+            return p
+        if (p.get("name") or "") == key:
+            return p
+    return None
+
+
+def _person_db_rows(person):
+    """The DB rows belonging to one person: (rate rows, entries,
+    aliases). A rate row belongs to the person when its employee_id
+    matches the person's ID or its name matches the person's name."""
+    eid = person.get("employee_id")
+    name = person.get("name") or ""
+    rates = [r for r in DB.get("rates", [])
+             if ((eid and (r.get("employee_id") or "").strip() == eid)
+                 or (r.get("name") or "") == name)]
+    entries = [e for e in DB.get("entries", [])
+               if (e.get("employee") or "") == name]
+    aliases = [a for a in DB.get("aliases", [])
+               if (a.get("alias") or "") == name
+               or (a.get("canonical") or "") == name]
+    return rates, entries, aliases
+
+
+@bp.get("/employees")
+def employees():
+    """Employees, company first then employee: every company with its
+    workers (name, ID, rates, entries, hours in that company). One
+    worker can appear under several companies."""
+    persons = _group_employees()
+    companies = sorted(DB.get("companies", []),
+                       key=lambda c: (c.get("name") or "").lower())
+    # Per company: the persons who have a rate row or entries there.
+    by_company = {c["name"]: [] for c in companies}
+    for p in persons:
+        p_companies = set(p["companies"].keys())
+        for e in p["entries"]:
+            p_companies.add(e.get("company"))
+        for cname in p_companies:
+            if cname not in by_company:
+                continue
+            rate = p["companies"].get(cname)
+            centries = [e for e in p["entries"]
+                        if e.get("company") == cname]
+            hours = round(sum(float(e.get("payroll_hours") or 0)
+                              for e in centries), 2)
+            by_company[cname].append({
+                "person": p, "rate": rate,
+                "entries": len(centries), "hours": hours})
+    for cname in by_company:
+        by_company[cname].sort(key=lambda r: (r["person"]["name"] or "").lower())
+    return render_template(
+        "payroll/employees.html", companies=companies,
+        by_company=by_company, total=len(persons),
+        fmt_hours=_fmt_hours)
+
+
+@bp.post("/employees")
+def employees_add():
+    """Add a new employee to a company (creates their rate row)."""
+    name = (request.form.get("name") or "").strip()
+    to_slug = (request.form.get("to_company") or "").strip()
+    co = find_company(to_slug) if to_slug else None
+    employee_id = (request.form.get("employee_id") or "").strip()
+    try:
+        staffing = float(request.form.get("staffing"))
+    except (TypeError, ValueError):
+        staffing = None
+    try:
+        billing = float(request.form.get("billing"))
+    except (TypeError, ValueError):
+        billing = None
+    if not name or co is None:
+        flash("Pick a company and enter a name.")
+        return redirect(url_for(".employees"))
+    if any(r.get("company") == co["name"]
+           and (r.get("name") or "") == name
+           for r in DB.get("rates", [])):
+        flash(f"{name} already has a rate row in {co['name']}.")
+        return redirect(url_for(".employees"))
+    if employee_id:
+        dup = next((r for r in DB.get("rates", [])
+                    if (r.get("employee_id") or "").strip() == employee_id
+                    and (r.get("name") or "") != name), None)
+        if dup is not None:
+            flash(f"Employee ID {employee_id} is already used by "
+                  f"{dup.get('name')} ({dup.get('company')}).")
+            return redirect(url_for(".employees"))
+    DB["rates"].append({
+        "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
+        "company": co["name"], "staffing": staffing,
+        "billing": billing, "employee_id": employee_id or None,
+    })
+    save_db()
+    flash(f"Added {name} to {co['name']}.")
+    return redirect(url_for(".employee_detail",
+                            person=_person_url_key(
+                                _find_person(employee_id or name))))
+
+
+@bp.get("/employees/<person>")
+def employee_detail(person):
+    """One page to manage everything about one worker: their name and
+    employee ID, their rate in every company they belong to, adding
+    them to another company, and all their time entries."""
+    p = _find_person(person)
+    if p is None:
+        return "Unknown employee", 404
+    rates, entries, aliases = _person_db_rows(p)
+    companies = sorted(DB.get("companies", []),
+                       key=lambda c: (c.get("name") or "").lower())
+    in_companies = {r.get("company") for r in rates}
+    other_companies = [c for c in companies
+                       if c["name"] not in in_companies]
+    entries_sorted = sorted(entries, key=lambda e: (e.get("date") or ""))
+    total_hours = round(sum(float(e.get("payroll_hours") or 0)
+                            for e in entries), 2)
+    return render_template(
+        "payroll/employee_detail.html", person=p, rates=rates,
+        entries=entries_sorted, aliases=aliases,
+        companies=companies, other_companies=other_companies,
+        total_hours=total_hours, money=_money, fmt_hours=_fmt_hours)
+
+
+@bp.post("/employees/<person>")
+def employee_detail_post(person):
+    """Save changes for one worker: their name/ID, one company's rate,
+    adding them to another company, or removing them from one."""
+    p = _find_person(person)
+    if p is None:
+        return "Unknown employee", 404
+    action = request.form.get("action") or ""
+    rates, entries, aliases = _person_db_rows(p)
+    old_name = p["name"]
+    old_id = p.get("employee_id")
+
+    if action == "save_person":
+        new_name = (request.form.get("new_name") or "").strip() or old_name
+        new_id = (request.form.get("employee_id") or "").strip() or None
+        # Refuse a rename that would collide with a different person,
+        # and an ID already used by a different person.
+        for other in _group_employees():
+            if other["key"] == p["key"]:
+                continue
+            if (other.get("name") or "") == new_name:
+                flash(f"Cannot rename to {new_name}: that name already "
+                      f"belongs to another employee.")
+                return redirect(url_for(".employee_detail",
+                                        person=_person_url_key(p)))
+            if new_id and (other.get("employee_id") or "") == new_id:
+                flash(f"Employee ID {new_id} is already used by "
+                      f"{other.get('name')}.")
+                return redirect(url_for(".employee_detail",
+                                        person=_person_url_key(p)))
+        for r in rates:
+            r["name"] = new_name
+            r["employee_id"] = new_id
+        for e in entries:
+            e["employee"] = new_name
+        for a in aliases:
+            if (a.get("alias") or "") == old_name:
+                a["alias"] = new_name
+            if (a.get("canonical") or "") == old_name:
+                a["canonical"] = new_name
+        if not rates and new_id:
+            # No rate row to hold the ID: create one in the company of
+            # their earliest entry (or the first company).
+            first_co = None
+            if entries:
+                first_co = sorted(entries,
+                                  key=lambda e: (e.get("date") or ""))[0].get("company")
+            if not first_co and DB.get("companies"):
+                first_co = DB["companies"][0]["name"]
+            if first_co:
+                DB["rates"].append({
+                    "id": "rate-" + uuid.uuid4().hex[:8], "name": new_name,
+                    "company": first_co, "staffing": None, "billing": None,
+                    "employee_id": new_id,
+                })
+        save_db()
+        flash(f"Updated {new_name}.")
+        return redirect(url_for(".employee_detail",
+                                person=new_id or new_name))
+
+    if action == "save_rate":
+        to_slug = (request.form.get("to_company") or "").strip()
+        co = find_company(to_slug) if to_slug else None
+        if co is None:
+            flash("Unknown company.")
+            return redirect(url_for(".employee_detail",
+                                    person=_person_url_key(p)))
+        try:
+            staffing = float(request.form.get("staffing"))
+        except (TypeError, ValueError):
+            staffing = None
+        try:
+            billing = float(request.form.get("billing"))
+        except (TypeError, ValueError):
+            billing = None
+        rate = next((r for r in rates
+                     if r.get("company") == co["name"]), None)
+        if rate is None:
+            flash(f"{old_name} is not in {co['name']} yet — "
+                  f"add them to that company first.")
+        else:
+            rate["staffing"] = staffing
+            rate["billing"] = billing
+            save_db()
+            flash(f"Updated {old_name}'s rate in {co['name']}.")
+        return redirect(url_for(".employee_detail",
+                                person=_person_url_key(p)))
+
+    if action == "add_affiliation":
+        to_slug = (request.form.get("to_company") or "").strip()
+        co = find_company(to_slug) if to_slug else None
+        if co is None:
+            flash("Pick a company.")
+            return redirect(url_for(".employee_detail",
+                                    person=_person_url_key(p)))
+        if any(r.get("company") == co["name"] for r in rates):
+            flash(f"{old_name} is already in {co['name']}.")
+            return redirect(url_for(".employee_detail",
+                                    person=_person_url_key(p)))
+        try:
+            staffing = float(request.form.get("staffing"))
+        except (TypeError, ValueError):
+            staffing = None
+        try:
+            billing = float(request.form.get("billing"))
+        except (TypeError, ValueError):
+            billing = None
+        DB["rates"].append({
+            "id": "rate-" + uuid.uuid4().hex[:8], "name": old_name,
+            "company": co["name"], "staffing": staffing,
+            "billing": billing, "employee_id": old_id,
+        })
+        save_db()
+        flash(f"Added {old_name} to {co['name']}.")
+        return redirect(url_for(".employee_detail",
+                                person=_person_url_key(p)))
+
+    if action == "remove_affiliation":
+        to_slug = (request.form.get("to_company") or "").strip()
+        co = find_company(to_slug) if to_slug else None
+        if co is None:
+            flash("Unknown company.")
+            return redirect(url_for(".employee_detail",
+                                    person=_person_url_key(p)))
+        if any(e.get("company") == co["name"] for e in entries):
+            flash(f"{old_name} has time entries in {co['name']} — "
+                  f"remove those first.")
+            return redirect(url_for(".employee_detail",
+                                    person=_person_url_key(p)))
+        before = len(DB["rates"])
+        DB["rates"] = [r for r in DB["rates"]
+                       if not (r.get("company") == co["name"]
+                               and (r.get("name") or "") == old_name)]
+        if len(DB["rates"]) < before:
+            save_db()
+            flash(f"Removed {old_name} from {co['name']}.")
+        return redirect(url_for(".employee_detail",
+                                person=_person_url_key(p)))
+
+    return redirect(url_for(".employee_detail", person=_person_url_key(p)))
 
 
 # ----------------------------------------------------------------- aliases
