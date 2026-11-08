@@ -1635,6 +1635,123 @@ def import_csv(company):
                                "to": end.isoformat()}))
 
 
+# ----------------------------------------------------------------- employee
+@bp.route("/<company>/employee", methods=["GET", "POST"])
+def employee_page(company):
+    """One page to edit everything about an employee in this company:
+    their name, their company (department), and their rate. Their time
+    entries are listed below with an Edit link each. Renaming updates
+    the rate row, the entries and the name mappings together; moving
+    updates the rate row and the entries together. A rename is refused
+    when the new name already has a rate row or entries in the target
+    company, so two workers can never collide under one name."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return "Unknown employee", 404
+    if request.method == "POST":
+        new_name = (request.form.get("new_name") or "").strip() or name
+        to_slug = (request.form.get("to_company") or "").strip()
+        target = find_company(to_slug) if to_slug else co
+        if target is None:
+            target = co
+        try:
+            staffing = float(request.form.get("staffing"))
+        except (TypeError, ValueError):
+            staffing = None
+        try:
+            billing = float(request.form.get("billing"))
+        except (TypeError, ValueError):
+            billing = None
+        # Refuse a rename that would collide with an existing worker
+        # in the target company.
+        if new_name != name:
+            collision = any(
+                r.get("company") == target["name"]
+                and (r.get("name") or "") == new_name
+                for r in DB.get("rates", []))
+            if not collision:
+                collision = any(
+                    e.get("company") == target["name"]
+                    and (e.get("employee") or "") == new_name
+                    for e in DB.get("entries", []))
+            if collision:
+                flash(f"Cannot rename to {new_name}: that name already "
+                      f"exists in {target['name']}.")
+                return redirect(url_for(".employee_page",
+                                        company=co["slug"], name=name))
+        # 1. Rename (within the current company).
+        if new_name != name:
+            for r in DB.get("rates", []):
+                if (r.get("company") == co["name"]
+                        and (r.get("name") or "") == name):
+                    r["name"] = new_name
+            for e in DB.get("entries", []):
+                if (e.get("company") == co["name"]
+                        and (e.get("employee") or "") == name):
+                    e["employee"] = new_name
+            for a in DB.get("aliases", []):
+                if (a.get("company") or "").strip() == co["name"]:
+                    if (a.get("alias") or "") == name:
+                        a["alias"] = new_name
+                    if (a.get("canonical") or "") == name:
+                        a["canonical"] = new_name
+        # 2. Move to another company (the renamed worker).
+        if target["name"] != co["name"]:
+            for r in DB.get("rates", []):
+                if (r.get("company") == co["name"]
+                        and (r.get("name") or "") == new_name):
+                    r["company"] = target["name"]
+            for e in DB.get("entries", []):
+                if (e.get("company") == co["name"]
+                        and (e.get("employee") or "") == new_name):
+                    e["company"] = target["name"]
+            for a in DB.get("aliases", []):
+                if ((a.get("company") or "").strip() == co["name"]
+                        and ((a.get("alias") or "") == new_name
+                             or (a.get("canonical") or "") == new_name)):
+                    a["company"] = target["name"]
+        # 3. Rate for the (possibly new) name + company.
+        rate = next((r for r in DB.get("rates", [])
+                     if r.get("company") == target["name"]
+                     and (r.get("name") or "") == new_name), None)
+        if rate is not None:
+            rate["staffing"] = staffing
+            rate["billing"] = billing
+        elif staffing is not None or billing is not None:
+            DB["rates"].append({
+                "id": "rate-" + uuid.uuid4().hex[:8], "name": new_name,
+                "company": target["name"], "staffing": staffing,
+                "billing": billing,
+            })
+        save_db()
+        flash(f"Updated {new_name} ({target['name']}).")
+        return redirect(url_for(".employee_page",
+                                company=target["slug"], name=new_name))
+    rate = next((r for r in DB.get("rates", [])
+                 if r.get("company") == co["name"]
+                 and (r.get("name") or "") == name), None)
+    entries = sorted(
+        [e for e in DB.get("entries", [])
+         if e.get("company") == co["name"]
+         and (e.get("employee") or "") == name],
+        key=lambda e: (e.get("date") or ""))
+    aliases = [a for a in DB.get("aliases", [])
+               if (a.get("company") or "").strip() == co["name"]
+               and ((a.get("alias") or "") == name
+                    or (a.get("canonical") or "") == name)]
+    total_hours = round(sum(float(e.get("payroll_hours") or 0)
+                            for e in entries), 2)
+    return render_template(
+        "payroll/employee.html", company=co, name=name, rate=rate,
+        entries=entries, aliases=aliases, total_hours=total_hours,
+        companies=sorted(DB.get("companies", []),
+                         key=lambda c: (c.get("name") or "").lower()),
+        money=_money, fmt_hours=_fmt_hours)
+
+
 # ----------------------------------------------------------------- aliases
 @bp.post("/<company>/aliases")
 def save_alias(company):
