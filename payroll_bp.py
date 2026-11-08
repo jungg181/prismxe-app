@@ -292,28 +292,28 @@ def add_company():
     bank_zelle = (request.form.get("bank_zelle") or "").strip()
     pdf_top_margin = (request.form.get("pdf_top_margin") or "").strip()
     pdf_bottom_margin = (request.form.get("pdf_bottom_margin") or "").strip()
+    def _add_fail(msg):
+        # Back to the index with the Add Company form open, so the
+        # user can fix the error instead of finding it collapsed.
+        flash(msg)
+        return redirect(url_for(".index", show_add=1))
     if not name:
-        flash("Company name is required.")
-        return redirect(url_for(".index"))
+        return _add_fail("Company name is required.")
     slug = _slugify(name)
     if not slug:
-        flash("Company name must contain letters or numbers.")
-        return redirect(url_for(".index"))
+        return _add_fail("Company name must contain letters or numbers.")
     if find_company(slug) is not None:
-        flash(f"A company named {name} already exists.")
-        return redirect(url_for(".index"))
+        return _add_fail(f"A company named {name} already exists.")
     if not prefix or not prefix.isalnum() or len(prefix) > 6:
-        flash("Invoice prefix is required: letters and numbers only, "
-              "up to 6 characters.")
-        return redirect(url_for(".index"))
+        return _add_fail("Invoice prefix is required: letters and numbers "
+                         "only, up to 6 characters.")
     if any((c.get("prefix") or "").upper() == prefix
            for c in DB.get("companies", [])):
-        flash(f"Invoice prefix {prefix} is already used by another company.")
-        return redirect(url_for(".index"))
+        return _add_fail(f"Invoice prefix {prefix} is already used by "
+                         "another company.")
     if prefix_end and (not prefix_end.isalnum() or len(prefix_end) > 6):
-        flash("Prefix End is optional: letters and numbers only, "
-              "up to 6 characters.")
-        return redirect(url_for(".index"))
+        return _add_fail("Prefix End is optional: letters and numbers only, "
+                         "up to 6 characters.")
     DB.setdefault("companies", []).append({
         "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
         "phone": phone, "ship_to": ship_to, "category": category,
