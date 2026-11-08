@@ -588,7 +588,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     invoice has the bank box + totals + approval at the very bottom and
     a long invoice never overlaps them; very long invoices flow to
     page 2. Top/bottom margins come from the company record
-    (pdf_top_margin / pdf_bottom_margin, mm; defaults 5 / 10)."""
+    (pdf_top_margin / pdf_bottom_margin, mm; defaults 5 / 5)."""
     from fpdf import FPDF
 
     NAVY = (10, 48, 65)
@@ -602,7 +602,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     DATA_ROW = 4.5
     PAGE_H = 279.4
     TOP = _pdf_margin(co.get("pdf_top_margin"), 5, 0, 20)
-    BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 10, 5, 30)
+    BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 5, 5, 30)
 
     def money(v):
         # Negative amounts (discounts / deductions) read as -$2,500.00.
