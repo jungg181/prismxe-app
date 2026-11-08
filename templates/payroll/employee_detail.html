@@ -1,0 +1,122 @@
+{% extends "payroll/base.html" %}
+{% block title %}{{ person.name }} — Employee{% endblock %}
+{% block content %}
+<h1>{{ person.name }}</h1>
+<p class="sub">{% if person.employee_id %}ID {{ person.employee_id }} · {% endif %}{{ entries | length }} time entries · {{ fmt_hours(total_hours) }}h total · in {{ rates | length }} compan{{ 'y' if rates | length == 1 else 'ies' }}</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Edit employee</h2>
+  <p class="small muted">Change the name and employee ID here — it updates every company they belong to, all their time entries and their name mappings. A rename is refused when another employee already has that name; an ID is refused when another employee already uses it.</p>
+  <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}">
+    <input type="hidden" name="action" value="save_person">
+    <div class="form-grid">
+      <div><label for="dname">Name</label><input type="text" id="dname" name="new_name" value="{{ person.name }}" required></div>
+      <div><label for="did">Employee ID</label><input type="text" id="did" name="employee_id" value="{{ person.employee_id or '' }}" placeholder="Unique number for this employee"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Save changes</button>
+      <a class="btn secondary" href="{{ url_for('.employees') }}">Back to employees</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Companies &amp; rates</h2>
+  <p class="small muted">One rate per company — a worker can belong to several companies, each with its own staffing and billing rate.</p>
+  {% if rates %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Company</th><th class="num">Staffing ($/h)</th><th class="num">Billing ($/h)</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rates %}
+        <tr>
+          <td><a href="{{ url_for('.company_payroll', company=companies | selectattr('name', 'equalto', r.company) | map(attribute='slug') | first) }}">{{ r.company }}</a></td>
+          <td class="num">
+            <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}" id="rate-{{ loop.index }}">
+              <input type="hidden" name="action" value="save_rate">
+              <input type="hidden" name="to_company" value="{{ companies | selectattr('name', 'equalto', r.company) | map(attribute='slug') | first }}">
+              <input type="number" name="staffing" step="0.01" min="0" style="width:110px" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="—">
+            </form>
+          </td>
+          <td class="num"><input type="number" name="billing" step="0.01" min="0" style="width:110px" value="{{ r.billing if r.billing is not none else '' }}" placeholder="—" form="rate-{{ loop.index }}"></td>
+          <td style="white-space:nowrap">
+            <button class="btn secondary small" type="submit" form="rate-{{ loop.index }}">Save</button>
+            <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}" class="inline-form" onsubmit="return confirm('Remove {{ person.name }} from {{ r.company }}?')">
+              <input type="hidden" name="action" value="remove_affiliation">
+              <input type="hidden" name="to_company" value="{{ companies | selectattr('name', 'equalto', r.company) | map(attribute='slug') | first }}">
+              <button class="btn danger small" type="submit">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">{{ person.name }} has no rate row yet — add them to a company below.</p>
+  {% endif %}
+  {% if other_companies %}
+  <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}" style="margin-top:12px">
+    <input type="hidden" name="action" value="add_affiliation">
+    <div class="form-grid">
+      <div><label for="ncompany">Add to another company</label><select id="ncompany" name="to_company">{% for c in other_companies %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="nstaffing">Staffing rate ($/h)</label><input type="number" id="nstaffing" name="staffing" step="0.01" min="0" placeholder="What the worker is paid"></div>
+      <div><label for="nbilling">Billing rate ($/h)</label><input type="number" id="nbilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add to company</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+{% if aliases %}
+<div class="card">
+  <h2 style="margin-top:0">Name mappings</h2>
+  <p class="small muted">These as-entered names map to {{ person.name }}.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>As entered</th><th>Maps to (rate row)</th></tr></thead>
+      <tbody>
+        {% for a in aliases %}
+        <tr><td>{{ a.alias }}</td><td>{{ a.canonical }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0">Time entries ({{ entries | length }})</h2>
+  {% if entries %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Company</th><th class="num">Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td style="white-space:nowrap">{{ e.date }}</td>
+          <td>{{ e.company }}</td>
+          <td class="num">{{ e.payroll_hours }}</td>
+          <td>{{ e.clock_in or '—' }}</td>
+          <td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
+          <td>{{ e.site or '—' }}</td>
+          <td>{{ e.notes or '—' }}</td>
+          <td style="white-space:nowrap"><a class="btn secondary small" href="{{ url_for('.entries', company=companies | selectattr('name', 'equalto', e.company) | map(attribute='slug') | first, **{'from': e.date, 'to': e.date, 'edit': e.id}) }}">Edit</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No time entries for {{ person.name }} yet.</p>
+  {% endif %}
+</div>
+
+<div class="btn-row">
+  <a class="btn secondary" href="{{ url_for('.employees') }}">All employees</a>
+  <a class="btn secondary" href="{{ url_for('.rates') }}">Rates</a>
+  <a class="btn secondary" href="{{ url_for('.index') }}">All companies</a>
+</div>
+{% endblock %}
