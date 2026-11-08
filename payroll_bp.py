@@ -1423,6 +1423,36 @@ def entries(company):
             if len(DB["entries"]) < before:
                 save_db()
                 flash("Entry removed.")
+        elif action == "move_company":
+            # Move one worker's entries to another company (department).
+            # The user picks the destination themselves — nothing is
+            # guessed. Moves ALL of that employee's entries in this
+            # company (not just the shown period), because a department
+            # is a property of the worker. The Note field is applied
+            # to every moved entry as typed.
+            employee = (request.form.get("employee") or "").strip()
+            to_slug = (request.form.get("to_company") or "").strip()
+            notes = (request.form.get("notes") or "").strip()
+            target = find_company(to_slug) if to_slug else None
+            if not employee or target is None:
+                flash("Pick a company to move to.")
+            elif target["name"] == co["name"]:
+                flash("That is already the current company.")
+            else:
+                count = 0
+                for e in DB["entries"]:
+                    if (e.get("company") == co["name"]
+                            and (e.get("employee") or "") == employee):
+                        e["company"] = target["name"]
+                        e["notes"] = notes
+                        count += 1
+                if count:
+                    save_db()
+                    flash(f"Moved {count} entries for {employee} "
+                          f"from {co['name']} to {target['name']}.")
+                else:
+                    flash(f"No entries found for {employee} "
+                          f"in {co['name']}.")
         elif action == "assign_jobsite":
             # Tag every entry in this company + period that has no
             # jobsite yet with the chosen jobsite. Entries already
@@ -1503,10 +1533,23 @@ def entries(company):
         [e for e in DB.get("entries", [])
          if start.isoformat() <= (e.get("date") or "") <= end.isoformat()],
         DB.get("rates", []), DB.get("aliases", []), co["name"])
+    # Most common note per unmatched name in this company, so the
+    # "Move to another company" form can prefill the Note field.
+    from collections import Counter as _Counter
+    unmatched_notes = {}
+    for _n in unmatched:
+        _notes = _Counter((e.get("notes") or "")
+                          for e in DB.get("entries", [])
+                          if e.get("company") == co["name"]
+                          and (e.get("employee") or "") == _n)
+        unmatched_notes[_n] = _notes.most_common(1)[0][0] if _notes else ""
     return render_template(
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
         names=names, unmatched=unmatched,
+        unmatched_notes=unmatched_notes,
+        companies=sorted(DB.get("companies", []),
+                         key=lambda c: (c.get("name") or "").lower()),
         jobsites=sorted(DB.get("jobsites", []),
                         key=lambda j: (j.get("code") or "").lower()),
         jobsite_by_id={j.get("id"): j for j in DB.get("jobsites", [])},
