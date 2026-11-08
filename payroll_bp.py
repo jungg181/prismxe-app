@@ -548,13 +548,15 @@ def invoice(company):
 
 
 def _invoice_pdf_bytes(co, start, end, number, inv, bank):
-    """Build the invoice PDF matching the Hanseong sheet format exactly
-    (one page, Letter portrait): PRISM logo + blue Invoice title, contact
-    block, dark-navy VENDOR / SHIP TO bars, P.O. table, tall items table
-    (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL, Regular (RH) then Overtime
-    (OT) per employee), Bank Account Details box + SUB TOTAL / FREIGHT /
-    SHIPPING / HANDLING / TOTAL stack, Approved by with signature line.
-    The DPO reference footer is intentionally left out."""
+    """Build the invoice PDF matching the Hanseong sheet format (one page,
+    Letter portrait, compact so long invoices fit): PRISM logo + blue
+    Invoice title, contact block, dark-navy VENDOR / SHIP TO bars, P.O.
+    table, items table (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL, Regular
+    (RH) then Overtime (OT) per employee), Bank Account Details box +
+    SUB TOTAL / FREIGHT / SHIPPING / HANDLING / TOTAL stack, Approved by
+    with signature line. The DPO reference footer is intentionally left
+    out. The bottom section sits right after the table (dynamic y), so a
+    long invoice never overlaps it; very long invoices flow to page 2."""
     from fpdf import FPDF
 
     NAVY = (10, 48, 65)
@@ -562,6 +564,12 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     LEFT = 17.8
     RIGHT = 197.8
     W = RIGHT - LEFT  # 180.0
+    # Compact type: 9pt body, 5mm item rows, tight section gaps.
+    BODY = 9
+    ROW = 5
+    DATA_ROW = 4.5
+    PAGE_H = 279.4
+    BOTTOM_MARGIN = 12
 
     def money(v):
         return f"${v:,.2f}"
@@ -576,43 +584,43 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         return f"{d.month}/{d.day}/{d.year}"
 
     pdf = FPDF(orientation="P", unit="mm", format="Letter")
-    pdf.set_auto_page_break(auto=False)
-    pdf.set_margins(LEFT, 6.5, 17.8)
+    pdf.set_auto_page_break(auto=True, margin=BOTTOM_MARGIN)
+    pdf.set_margins(LEFT, 5, 17.8)
     pdf.add_page()
 
     # --- Top row: logo (left) + Invoice title (blue, right) ---
     logo_path = os.path.join(BASE_DIR, "static", "prism-logo.png")
     if os.path.exists(logo_path):
-        pdf.image(logo_path, x=LEFT, y=6.5, w=46)
-    pdf.set_xy(124, 7)
-    pdf.set_font("helvetica", "B", 26)
+        pdf.image(logo_path, x=LEFT, y=5, w=46)
+    pdf.set_xy(124, 5.5)
+    pdf.set_font("helvetica", "B", 22)
     pdf.set_text_color(*BLUE)
-    pdf.cell(60, 10, "Invoice", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(60, 9, "Invoice", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
 
     # --- Contact block (left) / NUMBER + CATEGORY + duration (right) ---
     # 4 mm line height: the 5th line (email) must end above the VENDOR bar.
-    y0 = 19.5
+    y0 = 18
     pdf.set_xy(LEFT, y0)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.cell(95, 4, INVOICE_COMPANY_NAME + ".", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     pdf.cell(95, 4, INVOICE_SITE_ADDRESS, new_x="LMARGIN", new_y="NEXT")
     pdf.cell(95, 4, INVOICE_CONTACT_NAME, new_x="LMARGIN", new_y="NEXT")
     pdf.cell(95, 4, f"Mobile: {INVOICE_CONTACT_PHONE}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(*BLUE)
-    pdf.set_font("helvetica", "U", 10)
+    pdf.set_font("helvetica", "U", BODY)
     pdf.cell(95, 4, INVOICE_CONTACT_EMAIL, link=f"mailto:{INVOICE_CONTACT_EMAIL}",
             new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     pdf.set_text_color(0, 0, 0)
 
     pdf.set_xy(115, y0)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.cell(83, 4, f"NUMBER : {number}", new_x="LMARGIN", new_y="NEXT")
     pdf.set_xy(115, y0 + 4)
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     cat = (co.get("category") or "").strip().replace(" / ", " ")
     pdf.cell(83, 4, f"CATEGORY : {cat}", new_x="LMARGIN", new_y="NEXT")
     pdf.set_xy(115, y0 + 13)
@@ -620,84 +628,84 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
             new_x="LMARGIN", new_y="NEXT")
 
     # --- VENDOR / SHIP TO dark bars ---
-    yb = 42.8
+    yb = 40
     pdf.set_fill_color(*NAVY)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.set_xy(LEFT, yb)
-    pdf.cell(84, 7, " VENDOR", fill=True, new_x="RIGHT", new_y="TOP")
+    pdf.cell(84, 6, " VENDOR", fill=True, new_x="RIGHT", new_y="TOP")
     pdf.set_xy(122, yb)
-    pdf.cell(76, 7, " SHIP TO", fill=True, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(76, 6, " SHIP TO", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
     # TO / COMPANY / ADDRESS (left) + ship-to value (right)
-    pdf.set_xy(LEFT, yb + 7.2)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(LEFT, yb + 6.5)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.cell(84, 4, "TO :", new_x="RIGHT", new_y="TOP")
-    pdf.set_xy(122, yb + 7.2)
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_xy(122, yb + 6.5)
+    pdf.set_font("helvetica", "", BODY)
     pdf.cell(76, 4, (co.get("ship_to") or "").strip(),
             new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(LEFT, yb + 11.2)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(LEFT, yb + 10.5)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.cell(84, 4, f"COMPANY : {(co.get('vendor') or '').strip()}",
             new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(LEFT, yb + 15.2)
+    pdf.set_xy(LEFT, yb + 14.5)
     pdf.cell(84, 4, "ADDRESS :", new_x="LMARGIN", new_y="NEXT")
 
     # --- TEL NUM + RH/OT legend ---
-    yt = 62.5
+    yt = 59
     pdf.set_xy(LEFT, yt)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     pdf.cell(60, 4, f"TEL NUM : {INVOICE_TEL_NUM}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_xy(124, yt)
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     pdf.cell(60, 4, "(RH) REGULAR HR.", new_x="LMARGIN", new_y="NEXT")
     pdf.set_xy(124, yt + 4)
     pdf.cell(60, 4, "(OT) OVER TIME HR", new_x="LMARGIN", new_y="NEXT")
 
     # --- P.O. table ---
-    yp = 71.0
+    yp = 68
     po_cols = [("P.O. DATE", 45), ("REQUISITIONER", 45),
                ("SHIPPED VIA", 30), ("F.O.B. POINT", 30),
                ("PROJECT NAME", 30)]
     pdf.set_xy(LEFT, yp)
     pdf.set_fill_color(*NAVY)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     for i, (label, cw) in enumerate(po_cols):
         last = i == len(po_cols) - 1
-        pdf.cell(cw, 5, label, border=1, align="C", fill=True,
+        pdf.cell(cw, ROW, label, border=1, align="C", fill=True,
                 new_x="LMARGIN" if last else "RIGHT",
                 new_y="NEXT" if last else "TOP")
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     po_vals = [(f"{mdy(start)}~{mdy(end)}", 45, "C"),
                (INVOICE_CONTACT_NAME, 45, "C"), ("-", 30, "C"),
                ("", 30, "C"), ("", 30, "C")]
     pdf.set_x(LEFT)
     for i, (txt, cw, al) in enumerate(po_vals):
         last = i == len(po_vals) - 1
-        pdf.cell(cw, 5, txt, border=1, align=al,
+        pdf.cell(cw, ROW, txt, border=1, align=al,
                 new_x="LMARGIN" if last else "RIGHT",
                 new_y="NEXT" if last else "TOP")
 
-    # --- Items table (dark header, tall body) ---
-    yi = 81.0
+    # --- Items table (dark header; rows flow across pages if long) ---
+    yi = 79
     cols = [("NO", 13.8, "C"), ("DESCRIPTION", 60.4, "C"),
             ("UNIT PRICE", 31.9, "C"), ("UOM", 14.8, "C"),
             ("QTY", 16.2, "C"), ("TOTAL", 42.9, "C")]
     pdf.set_xy(LEFT, yi)
     pdf.set_fill_color(*NAVY)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     for i, (label, cw, al) in enumerate(cols):
         last = i == len(cols) - 1
-        pdf.cell(cw, 6, label, border=1, align=al, fill=True,
+        pdf.cell(cw, ROW, label, border=1, align=al, fill=True,
                 new_x="LMARGIN" if last else "RIGHT",
                 new_y="NEXT" if last else "TOP")
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", "", 10)
+    pdf.set_font("helvetica", "", BODY)
     emp_no = 0
     for line in inv["lines"]:
         if line["type"] == "Regular":
@@ -711,59 +719,68 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
             tag = "(OT)"
         # NO
         pdf.set_x(LEFT)
-        pdf.cell(13.8, 6, no, border=1, align="C",
+        pdf.cell(13.8, DATA_ROW, no, border=1, align="C",
                 new_x="RIGHT", new_y="TOP")
         # DESCRIPTION: name left, (RH)/(OT) right
         x_desc = pdf.get_x()
         y_row = pdf.get_y()
-        pdf.cell(60.4, 6, f" {desc}", border=1, align="L",
+        pdf.cell(60.4, DATA_ROW, f" {desc}", border=1, align="L",
                 new_x="RIGHT", new_y="TOP")
         # overlay the tag right-aligned inside the description column
         pdf.set_xy(x_desc + 60.4 - 14, y_row)
-        pdf.cell(14, 6, tag, align="R", new_x="RIGHT", new_y="TOP")
-        pdf.cell(31.9, 6, money(line["unit"]), border=1, align="R",
+        pdf.cell(14, DATA_ROW, tag, align="R", new_x="RIGHT", new_y="TOP")
+        pdf.cell(31.9, DATA_ROW, money(line["unit"]), border=1, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(14.8, 6, "1", border=1, align="C",
+        pdf.cell(14.8, DATA_ROW, "1", border=1, align="C",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(16.2, 6, qty(line["qty"]), border=1, align="R",
+        pdf.cell(16.2, DATA_ROW, qty(line["qty"]), border=1, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(42.9, 6, money(line["total"]), border=1, align="R",
+        pdf.cell(42.9, DATA_ROW, money(line["total"]), border=1, align="R",
                 new_x="LMARGIN", new_y="NEXT")
     for ex in inv["expenses"]:
         pdf.set_x(LEFT)
-        pdf.cell(13.8, 6, "", border=1, new_x="RIGHT", new_y="TOP")
-        pdf.cell(60.4, 6, f" {ex['description']}", border=1, align="L",
+        pdf.cell(13.8, DATA_ROW, "", border=1, new_x="RIGHT", new_y="TOP")
+        pdf.cell(60.4, DATA_ROW, f" {ex['description']}", border=1, align="L",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(31.9, 6, money(ex["amount"]), border=1, align="R",
+        pdf.cell(31.9, DATA_ROW, money(ex["amount"]), border=1, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(14.8, 6, "1", border=1, align="C",
+        pdf.cell(14.8, DATA_ROW, "1", border=1, align="C",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(16.2, 6, "1.00", border=1, align="R",
+        pdf.cell(16.2, DATA_ROW, "1.00", border=1, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(42.9, 6, money(ex["amount"]), border=1, align="R",
+        pdf.cell(42.9, DATA_ROW, money(ex["amount"]), border=1, align="R",
                 new_x="LMARGIN", new_y="NEXT")
     if inv["excluded"]:
-        pdf.set_font("helvetica", "", 9)
+        pdf.set_font("helvetica", "", 8.5)
         pdf.set_x(LEFT)
-        pdf.cell(W, 6, "Not billed: " + ", ".join(inv["excluded"]) +
+        pdf.cell(W, 4.5, "Not billed: " + ", ".join(inv["excluded"]) +
                 " - no rate.", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("helvetica", "", 10)
-    # Fill the tall table body down to y=200 as ONE empty area: only the
-    # outer border and the column dividers, no horizontal grid lines
-    # (matches the sheet export, where the body is one tall empty box).
-    y_top = pdf.get_y()
-    y_bot = 200
-    if y_bot > y_top:
+        pdf.set_font("helvetica", "", BODY)
+
+    # --- Bottom section: short invoice -> tall empty table + fixed
+    # bottom (matches the sheet); long invoice -> bottom right after
+    # the table (dynamic y), new page if it would not fit.
+    y_after = pdf.get_y()
+    if pdf.page_no() == 1 and y_after <= 195:
+        # Short invoice: fill the tall table body down to y=200 as ONE
+        # empty area (outer border + column dividers, no horizontal
+        # grid lines), then the bottom at the sheet's fixed position.
+        y_top = y_after
+        y_bot = 200
         pdf.rect(LEFT, y_top, W, y_bot - y_top, style="D")
         x = LEFT
         for label, cw, al in cols[:-1]:
             x += cw
             pdf.line(x, y_top, x, y_bot)
-        pdf.set_y(y_bot)
-
-    # --- Bottom: Bank Account Details box (left) + totals stack (right) ---
-    yb2 = 202.8
-    # Bank box
+        yb2 = 202.8
+    else:
+        yb2 = y_after + 3
+    # Bank box + totals need ~34mm; move to a fresh page if they
+    # would run past the bottom margin.
+    if yb2 + 34 > PAGE_H - 4:
+        pdf.add_page()
+        yb2 = 10
+    # Bank box (left)
     bank_lines = [
         ("Bank Name: ", bank["bank"]),
         ("Branch Name: ", bank["branch"]),
@@ -773,23 +790,23 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         ("Account #: ", bank["account"]),
         ("Zelle: ", bank.get("zelle") or ""),
     ]
-    box_h = 5 + 4 * len(bank_lines)
+    box_h = 4.5 + 3.8 * len(bank_lines)
     pdf.set_xy(LEFT + 2, yb2)
-    pdf.set_font("helvetica", "BU", 10)
-    pdf.cell(76, 5, "Bank Account Details:", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 9)
+    pdf.set_font("helvetica", "BU", BODY)
+    pdf.cell(76, 4.5, "Bank Account Details:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 8.5)
     for label, val in bank_lines:
         pdf.set_x(LEFT + 2)
-        pdf.set_font("helvetica", "B", 9)
+        pdf.set_font("helvetica", "B", 8.5)
         lw = pdf.get_string_width(label)
-        pdf.cell(lw, 4, label, new_x="RIGHT", new_y="TOP")
-        pdf.set_font("helvetica", "", 9)
-        pdf.cell(76 - lw, 4, val, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(lw, 3.8, label, new_x="RIGHT", new_y="TOP")
+        pdf.set_font("helvetica", "", 8.5)
+        pdf.cell(76 - lw, 3.8, val, new_x="LMARGIN", new_y="NEXT")
     # box border around the bank block
     pdf.rect(LEFT, yb2, 80, box_h + 1, style="D")
     # Totals stack (right)
     pdf.set_xy(118, yb2)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     totals_rows = [
         ("SUB TOTAL", money(inv["sub_total"]), True),
         ("FREIGHT", "", False),
@@ -798,24 +815,27 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         ("TOTAL", money(inv["total"]), True),
     ]
     for label, amt, bold in totals_rows:
-        pdf.set_font("helvetica", "B" if bold else "", 10)
+        pdf.set_font("helvetica", "B" if bold else "", BODY)
         pdf.set_x(118)
-        pdf.cell(37, 6, label, border=1, align="R",
+        pdf.cell(37, ROW, label, border=1, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(43, 6, amt, border=1, align="R",
+        pdf.cell(43, ROW, amt, border=1, align="R",
                 new_x="LMARGIN", new_y="NEXT")
 
     # --- Approved by + signature line ---
-    ya = 252.0
+    ya = yb2 + box_h + 6
+    if ya + 8 > PAGE_H - 4:
+        pdf.add_page()
+        ya = 10
     pdf.set_xy(LEFT, ya)
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", BODY)
     appr = (f"Approved by Prism ME LLC. Chief Executive Officer "
             f"{APPROVED_BY}")
     tw = pdf.get_string_width(appr)
     cx = (LEFT + RIGHT - tw) / 2
     pdf.set_x(cx)
-    pdf.cell(tw, 6, appr, new_x="LMARGIN", new_y="NEXT")
-    pdf.line(cx, ya + 8, cx + tw, ya + 8)
+    pdf.cell(tw, 5, appr, new_x="LMARGIN", new_y="NEXT")
+    pdf.line(cx, ya + 7, cx + tw, ya + 7)
 
     return bytes(pdf.output())
 
