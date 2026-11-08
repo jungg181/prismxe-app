@@ -6,7 +6,8 @@
 
 <div class="card">
   <div class="table-scroll">
-    <table>
+    <table style="table-layout:fixed">
+      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:150px"></colgroup>
       <thead><tr><th>Employee</th><th class="num">Staffing Rate</th><th class="num">Billing Rate</th><th></th></tr></thead>
       <tbody>
         {% for r in rates %}
@@ -40,7 +41,8 @@
   <h2 style="margin-top:0">Missing rates — {{ missing|length }} employee{{ 's' if missing|length != 1 else '' }} with hours but no rate</h2>
   <p class="sub">These employees have payroll entries for {{ company.name }} but no rate row, so their pay shows $0. Fill in a rate to add it.</p>
   <div class="table-scroll">
-    <table>
+    <table style="table-layout:fixed">
+      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:150px"></colgroup>
       <thead><tr><th>Employee</th><th class="num">Staffing Rate</th><th class="num">Billing Rate</th><th></th></tr></thead>
       <tbody>
         {% for name in missing %}
