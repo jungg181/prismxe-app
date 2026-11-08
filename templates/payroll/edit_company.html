@@ -30,7 +30,7 @@
     <p class="small muted" style="margin:0 0 10px">Margins of the invoice PDF, in millimetres. Smaller margins leave more room for the table. Leave blank for the defaults.</p>
     <div class="form-grid">
       <div><label for="etopmargin">Top margin (mm)</label><input type="text" id="etopmargin" name="pdf_top_margin" value="{{ company.pdf_top_margin or '' }}" placeholder="5"></div>
-      <div><label for="ebottommargin">Bottom margin (mm)</label><input type="text" id="ebottommargin" name="pdf_bottom_margin" value="{{ company.pdf_bottom_margin or '' }}" placeholder="10"></div>
+      <div><label for="ebottommargin">Bottom margin (mm)</label><input type="text" id="ebottommargin" name="pdf_bottom_margin" value="{{ company.pdf_bottom_margin or '' }}" placeholder="5"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Save changes</button>
