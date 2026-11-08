@@ -835,8 +835,8 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.cell(83, 4, f"Payroll duration. ({md(start)}~{md(end)})",
             new_x="LMARGIN", new_y="NEXT")
 
-    # --- VENDOR / SHIP TO dark bars ---
-    yb = TOP + 35
+    # --- VENDOR / SHIP TO dark bars (tight: right after the contact block) ---
+    yb = TOP + 31
     pdf.set_fill_color(*NAVY)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("helvetica", "B", BODY)
@@ -865,7 +865,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     # (a lone "-" is a deliberate "no number yet" and shows as "-"),
     # otherwise the default number.
     tel_num = (co.get("phone") or "").strip() or INVOICE_TEL_NUM
-    yt = TOP + 54
+    yt = TOP + 50
     pdf.set_xy(LEFT, yt)
     pdf.set_font("helvetica", "B", BODY)
     pdf.cell(60, 4, f"TEL NUM : {tel_num}",
@@ -879,8 +879,8 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.cell(4, 4, "", new_x="RIGHT", new_y="TOP")
     pdf.cell(60, 4, "(OT) OVER TIME HR", new_x="LMARGIN", new_y="NEXT")
 
-    # --- P.O. table ---
-    yp = TOP + 63
+    # --- P.O. table (tight: right after TEL NUM / legend) ---
+    yp = TOP + 55
     po_cols = [("P.O. DATE", 45), ("REQUISITIONER", 45),
                ("SHIPPED VIA", 30), ("F.O.B. POINT", 30),
                ("PROJECT NAME", 30)]
@@ -906,7 +906,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
                 new_y="NEXT" if last else "TOP")
 
     # --- Items table (dark header; rows flow across pages if long) ---
-    yi = TOP + 74
+    yi = TOP + 65
     cols = [("NO", 13.8, "C"), ("DESCRIPTION", 60.4, "C"),
             ("UNIT PRICE", 31.9, "C"), ("UOM", 14.8, "C"),
             ("QTY", 16.2, "C"), ("TOTAL", 42.9, "C")]
