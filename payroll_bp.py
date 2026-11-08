@@ -266,6 +266,7 @@ def add_company():
     prefix = (request.form.get("prefix") or "").strip().upper()
     prefix_end = (request.form.get("prefix_end") or "").strip().upper()
     vendor = (request.form.get("vendor") or "").strip() or name
+    phone = (request.form.get("phone") or "").strip()
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
     bank_name = (request.form.get("bank_name") or "").strip()
@@ -299,7 +300,7 @@ def add_company():
         return redirect(url_for(".index"))
     DB.setdefault("companies", []).append({
         "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
-        "ship_to": ship_to, "category": category,
+        "phone": phone, "ship_to": ship_to, "category": category,
         "prefix_end": prefix_end,
         "bank_name": bank_name, "bank_branch": bank_branch,
         "bank_routing": bank_routing, "bank_account": bank_account,
@@ -357,6 +358,7 @@ def edit_company(slug):
     prefix = (request.form.get("prefix") or "").strip().upper()
     prefix_end = (request.form.get("prefix_end") or "").strip().upper()
     vendor = (request.form.get("vendor") or "").strip() or name
+    phone = (request.form.get("phone") or "").strip()
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
     bank_name = (request.form.get("bank_name") or "").strip()
@@ -394,6 +396,7 @@ def edit_company(slug):
     co["prefix"] = prefix
     co["prefix_end"] = prefix_end
     co["vendor"] = vendor
+    co["phone"] = phone
     co["ship_to"] = ship_to
     co["category"] = category
     co["bank_name"] = bank_name
@@ -653,10 +656,13 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.cell(84, 4, "ADDRESS :", new_x="LMARGIN", new_y="NEXT")
 
     # --- TEL NUM + RH/OT legend ---
+    # TEL NUM is the vendor's phone: the company's own phone when set,
+    # otherwise the default number.
+    tel_num = (co.get("phone") or "").strip() or INVOICE_TEL_NUM
     yt = 59
     pdf.set_xy(LEFT, yt)
     pdf.set_font("helvetica", "B", BODY)
-    pdf.cell(60, 4, f"TEL NUM : {INVOICE_TEL_NUM}",
+    pdf.cell(60, 4, f"TEL NUM : {tel_num}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_xy(124, yt)
     pdf.set_font("helvetica", "", BODY)
