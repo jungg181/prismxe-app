@@ -43,8 +43,9 @@ from flask import (Blueprint, Response, flash, redirect, render_template,
                    request, send_file, url_for)
 
 from payroll_calc import (DEFAULT_OT_MULTIPLIER, DEFAULT_OT_THRESHOLD,
-                          compute_payroll, find_unmatched, invoice_lines,
-                          invoice_number, variance_report)
+                          compute_jobsite_pnl, compute_payroll,
+                          find_unmatched, invoice_lines, invoice_number,
+                          variance_report)
 from payroll_import_app import (HOURS_RULE_TEXT, SOURCES, build_preview,
                                 import_rows)
 
@@ -54,7 +55,7 @@ bp = Blueprint("payroll", __name__, url_prefix="/payroll",
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data_payroll.json")
 COLLECTIONS = ["companies", "rates", "entries", "expenses", "settings",
-               "aliases", "variances"]
+               "aliases", "variances", "jobsites", "jobsite_costs"]
 
 # Bank details shown on invoices — from the KB Link / Hanseong invoice
 # templates (PrismXe Info Bank tab / invoice sheets, read 2026-11-05).
@@ -181,6 +182,36 @@ def _variances_for(company, result):
     return variance_report(result["rows"], DB.get("variances", []),
                            company["name"],
                            ot_multiplier=_settings()["ot_multiplier"])
+
+
+def find_jobsite(job_id):
+    job_id = (job_id or "").strip()
+    for j in DB.get("jobsites", []):
+        if (j.get("id") or "") == job_id:
+            return j
+    return None
+
+
+def _jobsite_summary(job):
+    """P&L for one jobsite: labor revenue + labor cost from the tagged
+    time entries (weekly OT allocated to the days that push the week
+    over 40), other purchase costs from jobsite_costs, and the
+    resulting profit + margin. Returns a dict with the pnl, the
+    other-cost rows, and the totals."""
+    s = _settings()
+    pnl = compute_jobsite_pnl(
+        DB.get("entries", []), DB.get("rates", []), job["id"],
+        ot_threshold=s["ot_threshold"], ot_multiplier=s["ot_multiplier"],
+        aliases=DB.get("aliases", []))
+    costs = sorted((c for c in DB.get("jobsite_costs", [])
+                    if c.get("jobsite_id") == job["id"]),
+                   key=lambda c: (c.get("date") or "", c.get("id") or ""))
+    other_total = round(sum(float(c.get("amount") or 0) for c in costs), 2)
+    profit = round(pnl["revenue"] - pnl["labor_cost"] - other_total, 2)
+    revenue = pnl["revenue"]
+    margin = round(profit / revenue * 100, 1) if revenue else None
+    return {"pnl": pnl, "costs": costs, "other_total": other_total,
+            "profit": profit, "margin": margin}
 
 
 def _alias_map(company):
@@ -1202,6 +1233,115 @@ def company_rates(company):
                            prefill_name=request.args.get("name") or "")
 
 
+# ---------------------------------------------------------------- jobsites
+@bp.route("/jobsites", methods=["GET", "POST"])
+def jobsites():
+    """Jobsites: one per job won. Each jobsite pulls its labor revenue
+    + labor cost from the time entries tagged with it (weekly OT
+    allocated to the days that push the week over 40) and its other
+    purchase costs from jobsite_costs; profit = revenue - labor -
+    other. The list shows the P&L summary per jobsite."""
+    if request.method == "POST":
+        code = (request.form.get("code") or "").strip()
+        name = (request.form.get("name") or "").strip()
+        company = (request.form.get("company") or "").strip()
+        site = (request.form.get("site") or "").strip()
+        if not code:
+            flash("Jobsite ID is required.")
+        elif any((j.get("code") or "").strip().lower() == code.lower()
+                 for j in DB.get("jobsites", [])):
+            flash(f"A jobsite with ID {code} already exists.")
+        elif not company:
+            flash("Company is required.")
+        else:
+            DB["jobsites"].append({
+                "id": "job-" + uuid.uuid4().hex[:8], "code": code,
+                "name": name or code, "company": company,
+                "site": site, "status": "active",
+            })
+            save_db()
+            flash(f"Jobsite {code} added.")
+        return redirect(url_for(".jobsites"))
+    summaries = []
+    for j in sorted(DB.get("jobsites", []),
+                    key=lambda x: (x.get("code") or "").lower()):
+        s = _jobsite_summary(j)
+        summaries.append({"job": j, "summary": s})
+    return render_template("payroll/jobsites.html", summaries=summaries,
+                           companies=DB.get("companies", []))
+
+
+@bp.post("/jobsites/<job_id>/delete")
+def delete_jobsite(job_id):
+    job = find_jobsite(job_id)
+    if job is None:
+        return "Unknown jobsite", 404
+    has_entries = any((e.get("jobsite_id") or "") == job["id"]
+                      for e in DB.get("entries", []))
+    has_costs = any((c.get("jobsite_id") or "") == job["id"]
+                    for c in DB.get("jobsite_costs", []))
+    if has_entries or has_costs:
+        flash(f"Cannot remove {job['code']}: it still has time entries "
+              "or purchase costs. Reassign them first.")
+    else:
+        DB["jobsites"] = [j for j in DB.get("jobsites", [])
+                          if j.get("id") != job["id"]]
+        save_db()
+        flash(f"Jobsite {job['code']} removed.")
+    return redirect(url_for(".jobsites"))
+
+
+@bp.route("/jobsites/<job_id>")
+def jobsite_detail(job_id):
+    job = find_jobsite(job_id)
+    if job is None:
+        return "Unknown jobsite", 404
+    s = _jobsite_summary(job)
+    return render_template("payroll/jobsite.html", job=job, summary=s,
+                           money=_money, fmt_hours=_fmt_hours)
+
+
+@bp.post("/jobsites/<job_id>/costs")
+def add_jobsite_cost(job_id):
+    job = find_jobsite(job_id)
+    if job is None:
+        return "Unknown jobsite", 404
+    desc = (request.form.get("description") or "").strip()
+    day = _parse_entry_date(request.form.get("date"))
+    try:
+        amount = float(request.form.get("amount") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    if desc and amount:
+        DB["jobsite_costs"].append({
+            "id": "jcost-" + uuid.uuid4().hex[:8],
+            "jobsite_id": job["id"], "description": desc,
+            "amount": round(amount, 2), "date": day,
+        })
+        save_db()
+        flash(f"Cost added to {job['code']}: {desc} "
+              f"${_money(amount)[1:]}.")
+    else:
+        flash("Enter a description and an amount.")
+    return redirect(url_for(".jobsite_detail", job_id=job["id"]))
+
+
+@bp.post("/jobsites/<job_id>/costs/<cost_id>/delete")
+def delete_jobsite_cost(job_id, cost_id):
+    job = find_jobsite(job_id)
+    if job is None:
+        return "Unknown jobsite", 404
+    before = len(DB.get("jobsite_costs", []))
+    DB["jobsite_costs"] = [
+        c for c in DB.get("jobsite_costs", [])
+        if not (c.get("id") == cost_id
+                and c.get("jobsite_id") == job["id"])]
+    if len(DB["jobsite_costs"]) < before:
+        save_db()
+        flash("Cost removed.")
+    return redirect(url_for(".jobsite_detail", job_id=job["id"]))
+
+
 # ----------------------------------------------------------------- entries
 @bp.route("/<company>/entries", methods=["GET", "POST"])
 def entries(company):
@@ -1219,6 +1359,31 @@ def entries(company):
             if len(DB["entries"]) < before:
                 save_db()
                 flash("Entry removed.")
+        elif action == "assign_jobsite":
+            # Tag every entry in this company + period that has no
+            # jobsite yet with the chosen jobsite. Entries already
+            # tagged to another jobsite are left alone — reassign
+            # those one by one with Edit.
+            job = find_jobsite(request.form.get("jobsite_id") or "")
+            if job is None:
+                flash("Pick a jobsite first.")
+            else:
+                count = 0
+                for e in DB["entries"]:
+                    if e.get("company") != co["name"]:
+                        continue
+                    if not (start.isoformat() <= (e.get("date") or "")
+                            <= end.isoformat()):
+                        continue
+                    if (e.get("jobsite_id") or ""):
+                        continue
+                    e["jobsite_id"] = job["id"]
+                    count += 1
+                if count:
+                    save_db()
+                    flash(f"{count} entries tagged to {job['code']}.")
+                else:
+                    flash("No untagged entries in this period.")
         else:
             employee = (request.form.get("employee") or "").strip()
             day = _parse_entry_date(request.form.get("date"))
@@ -1226,6 +1391,7 @@ def entries(company):
                 hours = float(request.form.get("payroll_hours") or 0)
             except ValueError:
                 hours = 0
+            jobsite_id = (request.form.get("jobsite_id") or "").strip()
             entry = {
                 "company": co["name"], "employee": employee, "date": day,
                 "payroll_hours": round(hours, 2),
@@ -1234,6 +1400,7 @@ def entries(company):
                 "clock_out_date": None, "gross_hours": None,
                 "site": (request.form.get("site") or "").strip(),
                 "notes": (request.form.get("notes") or "").strip(),
+                "jobsite_id": jobsite_id or None,
             }
             if not employee or not day:
                 flash("Employee and date are required.")
@@ -1276,6 +1443,9 @@ def entries(company):
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
         names=names, unmatched=unmatched,
+        jobsites=sorted(DB.get("jobsites", []),
+                        key=lambda j: (j.get("code") or "").lower()),
+        jobsite_by_id={j.get("id"): j for j in DB.get("jobsites", [])},
         alias_map=_alias_map(co),
         aliases=[a for a in DB.get("aliases", [])
                  if (a.get("company") or "").strip() == co["name"]])
