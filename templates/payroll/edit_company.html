@@ -11,6 +11,7 @@
       <div><label for="eprefix">Invoice prefix</label><input type="text" id="eprefix" name="prefix" value="{{ company.prefix }}" maxlength="6" required></div>
       <div><label for="epend">Prefix End</label><input type="text" id="epend" name="prefix_end" value="{{ company.prefix_end or '' }}" maxlength="6" placeholder="Code at the end of invoice numbers"></div>
       <div><label for="evendor">Bill to (vendor)</label><input type="text" id="evendor" name="vendor" value="{{ company.vendor }}" placeholder="Defaults to the company name"></div>
+      <div><label for="ephone">Vendor phone (TEL NUM)</label><input type="text" id="ephone" name="phone" value="{{ company.phone or '' }}" placeholder="213-905-1359"></div>
       <div><label for="eship">Ship to</label><input type="text" id="eship" name="ship_to" value="{{ company.ship_to }}" placeholder="e.g. Queen Creek AZ"></div>
       <div><label for="ecat">Category</label><input type="text" id="ecat" name="category" value="{{ company.category }}" placeholder="e.g. LG Alpha / Myeongjin"></div>
     </div>
