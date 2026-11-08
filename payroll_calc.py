@@ -276,6 +276,116 @@ def compute_payroll(entries, rates, company, start, end,
     return {"rows": rows, "totals": totals, "days": days}
 
 
+def compute_jobsite_pnl(entries, rates, jobsite_id,
+                        ot_threshold=DEFAULT_OT_THRESHOLD,
+                        ot_multiplier=DEFAULT_OT_MULTIPLIER,
+                        aliases=None):
+    """Profit & loss for ONE jobsite, from the time entries tagged
+    with that jobsite id.
+
+    Overtime is weekly per employee (hours over 40 in a Mon-Sun week
+    at 1.5x), so it belongs to the week as a whole. When a worker
+    splits a week across jobsites, the OT hours are the ones that
+    push the week over 40 — i.e. the LATER days in the week. So each
+    entry is split into a regular and an overtime portion by walking
+    the week's entries in date order and counting the first 40 hours
+    as regular. That makes the per-jobsite revenue and labor cost
+    add up exactly to the company payroll for the same entries.
+
+    entries: iterable of dicts with keys company, employee, date
+        (YYYY-MM-DD), payroll_hours, jobsite_id. Extra keys ignored.
+    rates: iterable of dicts with keys name, company, staffing, billing.
+    Returns {reg_hours, ot_hours, total_hours, revenue, labor_cost,
+             no_rate (sorted employee names with hours but no rate),
+             lines: [{employee, date, hours, reg_hours, ot_hours,
+                      revenue, labor_cost, no_rate}] — one per tagged
+             entry, in date order}. Money rounded to 2 decimals.
+    """
+    entries = resolve_aliases(entries, aliases)
+    rate_by_key = {}
+    for r in rates or []:
+        name = (r.get("name") or "").strip()
+        comp = (r.get("company") or "").strip()
+        if name and comp:
+            rate_by_key[(name, comp)] = r
+
+    # Group ALL entries (any jobsite) by (employee, week) so the
+    # weekly 40h threshold is applied to the worker's whole week,
+    # not just the hours on this jobsite.
+    by_week = {}   # (employee, monday_iso) -> [entry, ...]
+    for e in entries or []:
+        name = (e.get("employee") or "").strip()
+        if not name:
+            continue
+        try:
+            d = _to_date(e.get("date"))
+        except (ValueError, TypeError):
+            continue
+        h = _hours(e.get("payroll_hours"))
+        monday = week_monday(d).isoformat()
+        by_week.setdefault((name, monday), []).append((d, e, h))
+
+    reg_total = 0.0
+    ot_total = 0.0
+    revenue = 0.0
+    labor = 0.0
+    no_rate = set()
+    lines = []
+    for (name, _monday), items in sorted(by_week.items()):
+        # Chronological order within the week; the id breaks ties so
+        # the split is deterministic.
+        items.sort(key=lambda t: (t[0], str(t[1].get("id") or "")))
+        used = 0.0
+        comp = None
+        for d, e, h in items:
+            # Split this entry's hours: the part that keeps the week
+            # at or under 40 is regular, the rest is overtime.
+            reg_h = max(0.0, min(h, ot_threshold - used))
+            ot_h = max(0.0, h - reg_h)
+            used += h
+            if (e.get("jobsite_id") or "") != jobsite_id:
+                continue
+            if comp is None:
+                comp = (e.get("company") or "").strip()
+            rate = rate_by_key.get((name, comp))
+            staffing = rate.get("staffing") if rate else None
+            billing = rate.get("billing") if rate else None
+            staffing = float(staffing) if staffing is not None else None
+            billing = float(billing) if billing is not None else None
+            if staffing is None or billing is None:
+                no_rate.add(name)
+                lines.append({
+                    "employee": name, "date": d.isoformat(),
+                    "hours": round(h, 2), "reg_hours": round(reg_h, 2),
+                    "ot_hours": round(ot_h, 2),
+                    "revenue": None, "labor_cost": None, "no_rate": True,
+                })
+                continue
+            rev = reg_h * billing + ot_h * billing * ot_multiplier
+            lab = reg_h * staffing + ot_h * staffing * ot_multiplier
+            reg_total += reg_h
+            ot_total += ot_h
+            revenue += rev
+            labor += lab
+            lines.append({
+                "employee": name, "date": d.isoformat(),
+                "hours": round(h, 2), "reg_hours": round(reg_h, 2),
+                "ot_hours": round(ot_h, 2),
+                "revenue": _money(rev), "labor_cost": _money(lab),
+                "no_rate": False,
+            })
+    lines.sort(key=lambda x: (x["date"], x["employee"].lower()))
+    return {
+        "reg_hours": round(reg_total, 2),
+        "ot_hours": round(ot_total, 2),
+        "total_hours": round(reg_total + ot_total, 2),
+        "revenue": _money(revenue),
+        "labor_cost": _money(labor),
+        "no_rate": sorted(no_rate),
+        "lines": lines,
+    }
+
+
 def invoice_number(prefix, today=None, suffix=""):
     """Invoice number: company prefix + today's date MMDDYYYY + the
     company's Prefix End code (suffix), exactly like the sheets
