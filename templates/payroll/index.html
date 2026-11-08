@@ -16,7 +16,7 @@
 {% endblock %}
 {% block content %}
 <h1>Payroll</h1>
-<p class="sub">Weekly overtime (Mon–Sun, over 40h at 1.5×). Rates come from PrismXe Info and can be edited per company under Rates.</p>
+<p class="sub">Weekly overtime (Mon–Sun, over 40h at 1.5×). Rates come from PrismXe Info and can be edited per company under Rates. Track profit per job under <a href="{{ url_for('.jobsites') }}">Jobsites</a>.</p>
 
 <div class="card">
   <form method="get" action="{{ url_for('.index') }}">
