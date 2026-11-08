@@ -55,7 +55,11 @@
 </div>
 
 <div class="card">
-  <h2 style="margin-top:0">Add a company</h2>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+    <h2 style="margin:0">Add a company</h2>
+    <button class="btn secondary" type="button" id="add-company-toggle" onclick="toggleAddCompany()">＋ Add a company</button>
+  </div>
+  <div id="add-company-form" style="display:{% if request.args.get('show_add') %}block{% else %}none{% endif %}; margin-top:12px">
   <p class="small muted">A new company shows up here and on the Rates page right away, with its own payroll, invoice and import pages. The invoice prefix goes on its invoice numbers (e.g. KBL11052026).</p>
   <form method="post" action="{{ url_for('.add_company') }}">
     <div class="form-grid">
@@ -84,7 +88,24 @@
       <div><label for="ctopmargin">Top margin (mm)</label><input type="text" id="ctopmargin" name="pdf_top_margin" placeholder="5"></div>
       <div><label for="cbottommargin">Bottom margin (mm)</label><input type="text" id="cbottommargin" name="pdf_bottom_margin" placeholder="10"></div>
     </div>
-    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add company</button></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add company</button>
+      <button class="btn secondary" type="button" onclick="toggleAddCompany()">Cancel</button>
+    </div>
   </form>
+  </div>
 </div>
+<script>
+function toggleAddCompany() {
+  var f = document.getElementById('add-company-form');
+  var b = document.getElementById('add-company-toggle');
+  if (f.style.display === 'none') {
+    f.style.display = 'block';
+    b.textContent = '✕ Close';
+  } else {
+    f.style.display = 'none';
+    b.textContent = '＋ Add a company';
+  }
+}
+</script>
 {% endblock %}
