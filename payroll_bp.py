@@ -73,7 +73,7 @@ INVOICE_COMPANY_NAME = "Prism Multiple Entertainment LLC"
 INVOICE_SITE_ADDRESS = "255 N. 56th Place. Mesa AZ 85205"
 INVOICE_CONTACT_NAME = "Jungseok Kang"
 INVOICE_CONTACT_PHONE = "+1 213 905 1359"
-INVOICE_CONTACT_EMAIL = "jskang78@gmail.com"
+INVOICE_CONTACT_EMAIL = "info@prismxe.com"
 INVOICE_TEL_NUM = "213-905-1359"
 INVOICE_BANK_TELEPHONE = "+1 562 928 2278"
 
@@ -739,12 +739,14 @@ def invoice(company):
 
 def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     """Build the invoice PDF matching the Hanseong sheet format (Letter
-    portrait, compact so long invoices fit): PRISM logo + blue Invoice
-    title, contact block, dark-navy VENDOR / SHIP TO bars, P.O. table,
-    items table (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL, Regular (RH)
-    then Overtime (OT) per employee), Bank Account Details box + SUB
-    TOTAL / FREIGHT / SHIPPING / HANDLING / TOTAL stack, Approved by
-    with signature line. The DPO reference footer is intentionally left
+    portrait, compact so a 20-worker invoice fits on one page): PRISM
+    logo + blue Invoice title, contact block (email on the same line as
+    the phone, to its right), dark-navy VENDOR / SHIP TO bars, P.O.
+    table, items table (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL,
+    Regular (RH) then Overtime (OT) per employee), Bank Account Details
+    box + SUB TOTAL / FREIGHT / SHIPPING / HANDLING / TOTAL stack,
+    Approved by with signature line. The (RH)/(OT) legend sits side by
+    side on one line. The DPO reference footer is intentionally left
     out. The bottom section is ALWAYS pinned to the bottom of the page
     (its position is computed from the bottom margin upward), so a short
     invoice has the bank box + totals + approval at the very bottom and
@@ -758,10 +760,11 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     LEFT = 17.8
     RIGHT = 197.8
     W = RIGHT - LEFT  # 180.0
-    # Compact type: 9pt body, 5mm item rows, tight section gaps.
-    BODY = 9
-    ROW = 5
-    DATA_ROW = 4.5
+    # Compact type: 8pt body, 4.5mm header rows, 3.6mm item rows, tight
+    # section gaps — so a 20-worker invoice still fits on one page.
+    BODY = 8
+    ROW = 4.5
+    DATA_ROW = 3.6
     PAGE_H = 279.4
     TOP = _pdf_margin(co.get("pdf_top_margin"), 5, 0, 20)
     BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 5, 5, 30)
@@ -793,13 +796,14 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     if os.path.exists(logo_path):
         pdf.image(logo_path, x=LEFT, y=TOP, w=46)
     pdf.set_xy(124, TOP + 0.5)
-    pdf.set_font("helvetica", "B", 22)
+    pdf.set_font("helvetica", "B", 20)
     pdf.set_text_color(*BLUE)
     pdf.cell(60, 9, "Invoice", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
 
     # --- Contact block (left) / NUMBER + CATEGORY + duration (right) ---
-    # 4 mm line height: the 5th line (email) must end above the VENDOR bar.
+    # 4 mm line height. The email sits on the SAME line as the phone,
+    # to its right — so the block is 4 lines, not 5.
     y0 = TOP + 13
     pdf.set_xy(LEFT, y0)
     pdf.set_font("helvetica", "B", BODY)
@@ -807,11 +811,15 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_font("helvetica", "", BODY)
     pdf.cell(95, 4, INVOICE_SITE_ADDRESS, new_x="LMARGIN", new_y="NEXT")
     pdf.cell(95, 4, INVOICE_CONTACT_NAME, new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(95, 4, f"Mobile: {INVOICE_CONTACT_PHONE}",
-            new_x="LMARGIN", new_y="NEXT")
+    # Phone + email on one line: phone left, email right after it.
+    phone_txt = f"Mobile: {INVOICE_CONTACT_PHONE}"
+    pw = pdf.get_string_width(phone_txt)
+    pdf.cell(pw, 4, phone_txt, new_x="RIGHT", new_y="TOP")
+    pdf.cell(4, 4, "", new_x="RIGHT", new_y="TOP")
     pdf.set_text_color(*BLUE)
     pdf.set_font("helvetica", "U", BODY)
-    pdf.cell(95, 4, INVOICE_CONTACT_EMAIL, link=f"mailto:{INVOICE_CONTACT_EMAIL}",
+    pdf.cell(95 - pw - 4, 4, INVOICE_CONTACT_EMAIL,
+            link=f"mailto:{INVOICE_CONTACT_EMAIL}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("helvetica", "", BODY)
     pdf.set_text_color(0, 0, 0)
@@ -852,7 +860,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_xy(LEFT, yb + 14.5)
     pdf.cell(84, 4, "ADDRESS :", new_x="LMARGIN", new_y="NEXT")
 
-    # --- TEL NUM + RH/OT legend ---
+    # --- TEL NUM + RH/OT legend (side by side on ONE line) ---
     # TEL NUM is the vendor's phone: the company's own phone when set
     # (a lone "-" is a deliberate "no number yet" and shows as "-"),
     # otherwise the default number.
@@ -862,10 +870,13 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_font("helvetica", "B", BODY)
     pdf.cell(60, 4, f"TEL NUM : {tel_num}",
             new_x="LMARGIN", new_y="NEXT")
+    # (RH) and (OT) next to each other on the same line.
     pdf.set_xy(124, yt)
     pdf.set_font("helvetica", "", BODY)
-    pdf.cell(60, 4, "(RH) REGULAR HR.", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(124, yt + 4)
+    rh_txt = "(RH) REGULAR HR."
+    rh_w = pdf.get_string_width(rh_txt)
+    pdf.cell(rh_w, 4, rh_txt, new_x="RIGHT", new_y="TOP")
+    pdf.cell(4, 4, "", new_x="RIGHT", new_y="TOP")
     pdf.cell(60, 4, "(OT) OVER TIME HR", new_x="LMARGIN", new_y="NEXT")
 
     # --- P.O. table ---
@@ -961,9 +972,9 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         pdf.cell(42.9, DATA_ROW, money(ex["amount"]), border=1, align="R",
                 new_x="LMARGIN", new_y="NEXT")
     if inv["excluded"]:
-        pdf.set_font("helvetica", "", 8.5)
+        pdf.set_font("helvetica", "", 8)
         pdf.set_x(LEFT)
-        pdf.cell(W, 4.5, "Not billed: " + ", ".join(inv["excluded"]) +
+        pdf.cell(W, 4, "Not billed: " + ", ".join(inv["excluded"]) +
                 " - no rate.", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("helvetica", "", BODY)
 
@@ -983,7 +994,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         ("Account #: ", bank["account"]),
         ("Zelle: ", bank.get("zelle") or ""),
     ]
-    box_h = 4.5 + 3.8 * len(bank_lines)
+    box_h = 4 + 3.4 * len(bank_lines)
     approval_underline_y = PAGE_H - BOTTOM_MARGIN
     ya = approval_underline_y - 7
     yb2 = ya - 6 - (box_h + 1)
@@ -998,15 +1009,15 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     # Bank box (left)
     pdf.set_xy(LEFT + 2, yb2)
     pdf.set_font("helvetica", "BU", BODY)
-    pdf.cell(76, 4.5, "Bank Account Details:", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 8.5)
+    pdf.cell(76, 4, "Bank Account Details:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 8)
     for label, val in bank_lines:
         pdf.set_x(LEFT + 2)
-        pdf.set_font("helvetica", "B", 8.5)
+        pdf.set_font("helvetica", "B", 8)
         lw = pdf.get_string_width(label)
-        pdf.cell(lw, 3.8, label, new_x="RIGHT", new_y="TOP")
-        pdf.set_font("helvetica", "", 8.5)
-        pdf.cell(76 - lw, 3.8, val, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(lw, 3.4, label, new_x="RIGHT", new_y="TOP")
+        pdf.set_font("helvetica", "", 8)
+        pdf.cell(76 - lw, 3.4, val, new_x="LMARGIN", new_y="NEXT")
     # box border around the bank block
     pdf.rect(LEFT, yb2, 80, box_h + 1, style="D")
     # Totals stack (right)
@@ -1040,7 +1051,6 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.line(cx, approval_underline_y, cx + tw, approval_underline_y)
 
     return bytes(pdf.output())
-
 
 @bp.get("/<company>/invoice/pdf")
 def invoice_pdf(company):
