@@ -461,7 +461,7 @@ def company_payroll(company):
     # saving hours there creates the entry (add_day_hours).
     # Only the entry id + hours + clock times are needed; the edit
     # posts to update_entry_hours which changes payroll_hours only.
-    from datetime import timedelta as _td
+    from datetime import timedelta as _td, date as _date
     all_dates = []
     _d = start
     while _d <= end:
@@ -480,16 +480,21 @@ def company_payroll(company):
         emp = r["employee"]
         day_list = []
         for d in all_dates:
+            # Weekday label, e.g. Mon — shown between the date and hours.
+            try:
+                _wd = _date.fromisoformat(d).strftime("%a")
+            except ValueError:
+                _wd = ""
             es = _by_emp_date.get((emp, d), [])
             if not es:
-                day_list.append({"id": None, "date": d,
+                day_list.append({"id": None, "date": d, "weekday": _wd,
                                  "payroll_hours": 0,
                                  "clock_in": "", "clock_out": ""})
             else:
                 for e in es:
                     day_list.append({
                         "id": e.get("id"),
-                        "date": d,
+                        "date": d, "weekday": _wd,
                         "payroll_hours": e.get("payroll_hours"),
                         "clock_in": e.get("clock_in") or "",
                         "clock_out": e.get("clock_out") or "",
