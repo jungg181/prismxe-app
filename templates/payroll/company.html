@@ -55,12 +55,13 @@
         <tr id="days-{{ loop.index }}" style="display:none">
           <td colspan="9" style="background:var(--card);padding:10px 14px">
             <div class="small muted" style="margin-bottom:6px">Day-by-day hours for {{ r.employee }} — fix a wrong day here; totals and overtime recalculate automatically.</div>
-            <table style="margin:0">
-              <thead><tr><th>Date</th><th class="num">Hours</th><th>Clock-in – Clock-out</th><th></th></tr></thead>
+            <table style="width:auto;margin:0">
+              <thead><tr><th>Date</th><th>Day</th><th class="num">Hours</th><th></th></tr></thead>
               <tbody>
                 {% for d in days_by_employee[r.employee] %}
                 <tr>
-                  <td>{{ d.date }}</td>
+                  <td style="white-space:nowrap">{{ d.date }}</td>
+                  <td>{{ d.weekday }}</td>
                   <td class="num">
                     {% if d.id %}
                     <form id="hrs-{{ d.id }}" method="post" action="{{ url_for('.update_entry_hours', company=company.slug, entry_id=d.id, **{'from': start, 'to': end}) }}" style="display:inline">
@@ -74,7 +75,6 @@
                     </form>
                     {% endif %}
                   </td>
-                  <td>{{ d.clock_in }}{% if d.clock_in or d.clock_out %} – {% endif %}{{ d.clock_out }}</td>
                   <td>{% if d.id %}<button class="btn secondary small" type="submit" form="hrs-{{ d.id }}">Save</button>{% else %}<button class="btn secondary small" type="submit" form="hrs-new-{{ loop.index }}">Save</button>{% endif %}</td>
                 </tr>
                 {% endfor %}
