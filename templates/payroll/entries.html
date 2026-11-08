@@ -118,7 +118,7 @@
       <tbody>
         {% for e in rows %}
         <tr>
-          <td>{{ e.date }}</td><td>{{ e.employee }}{% if alias_map.get(e.employee) %}<br><span class="badge ok">→ {{ alias_map[e.employee] }}</span>{% endif %}</td><td class="num">{{ e.payroll_hours }}</td>
+          <td>{{ e.date }}</td><td><a href="{{ url_for('.employee_page', company=company.slug, name=e.employee) }}">{{ e.employee }}</a>{% if alias_map.get(e.employee) %}<br><span class="badge ok">→ {{ alias_map[e.employee] }}</span>{% endif %}</td><td class="num">{{ e.payroll_hours }}</td>
           <td>{{ e.clock_in or '—' }}</td><td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
           <td>{{ e.site or '—' }}</td><td>{{ jobsite_by_id[e.jobsite_id].code if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) else '—' }}</td><td>{{ e.notes or '—' }}</td>
           <td>
