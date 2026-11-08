@@ -454,10 +454,58 @@ def company_payroll(company):
     start, end = _period_args()
     result = _payroll_for(co, start, end)
     variances = _variances_for(co, result)
+    # Day-by-day entries per employee in this period, so the payroll
+    # page can show (and fix) the hours behind each worker's total.
+    # Only the entry id + hours + clock times are needed; the edit
+    # posts to update_entry_hours which changes payroll_hours only.
+    days_by_employee = {}
+    for e in DB.get("entries", []):
+        if e.get("company") != co["name"]:
+            continue
+        d = e.get("date") or ""
+        if not (start.isoformat() <= d <= end.isoformat()):
+            continue
+        days_by_employee.setdefault(e.get("employee") or "", []).append({
+            "id": e.get("id"),
+            "date": d,
+            "payroll_hours": e.get("payroll_hours"),
+            "clock_in": e.get("clock_in") or "",
+            "clock_out": e.get("clock_out") or "",
+        })
+    for v in days_by_employee.values():
+        v.sort(key=lambda x: (x["date"], x["id"] or ""))
     return render_template(
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
+        days_by_employee=days_by_employee,
         money=_money, fmt_hours=_fmt_hours)
+
+
+@bp.post("/<company>/entries/<entry_id>/hours")
+def update_entry_hours(company, entry_id):
+    """Fix ONE day's hours from the payroll page. Only payroll_hours
+    is changed — clock-in/out, site and notes are left exactly as
+    they were. Totals (incl. weekly OT) are recomputed from the
+    entries on the next payroll view, so the fix flows through."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    try:
+        hours = float(request.form.get("payroll_hours") or 0)
+    except (TypeError, ValueError):
+        hours = 0
+    hours = max(0.0, round(hours, 2))
+    for e in DB["entries"]:
+        if e.get("id") == entry_id and e.get("company") == co["name"]:
+            e["payroll_hours"] = hours
+            save_db()
+            flash(f"Hours updated for {e.get('employee')} "
+                  f"on {e.get('date')}: {hours}h.")
+            break
+    return redirect(url_for(".company_payroll", company=co["slug"],
+                            **{"from": start.isoformat(),
+                               "to": end.isoformat()}))
 
 
 @bp.get("/<company>/export.csv")
