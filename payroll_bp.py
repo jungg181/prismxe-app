@@ -591,31 +591,32 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_text_color(0, 0, 0)
 
     # --- Contact block (left) / NUMBER + CATEGORY + duration (right) ---
+    # 4 mm line height: the 5th line (email) must end above the VENDOR bar.
     y0 = 19.5
     pdf.set_xy(LEFT, y0)
     pdf.set_font("helvetica", "B", 10)
-    pdf.cell(95, 5, INVOICE_COMPANY_NAME + ".", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(95, 4, INVOICE_COMPANY_NAME + ".", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("helvetica", "", 10)
-    pdf.cell(95, 5, INVOICE_SITE_ADDRESS, new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(95, 5, INVOICE_CONTACT_NAME, new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(95, 5, f"Mobile: {INVOICE_CONTACT_PHONE}",
+    pdf.cell(95, 4, INVOICE_SITE_ADDRESS, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(95, 4, INVOICE_CONTACT_NAME, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(95, 4, f"Mobile: {INVOICE_CONTACT_PHONE}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(*BLUE)
     pdf.set_font("helvetica", "U", 10)
-    pdf.cell(95, 5, INVOICE_CONTACT_EMAIL, link=f"mailto:{INVOICE_CONTACT_EMAIL}",
+    pdf.cell(95, 4, INVOICE_CONTACT_EMAIL, link=f"mailto:{INVOICE_CONTACT_EMAIL}",
             new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("helvetica", "", 10)
     pdf.set_text_color(0, 0, 0)
 
     pdf.set_xy(115, y0)
     pdf.set_font("helvetica", "B", 10)
-    pdf.cell(83, 5, f"NUMBER : {number}", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(115, y0 + 5)
+    pdf.cell(83, 4, f"NUMBER : {number}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_xy(115, y0 + 4)
     pdf.set_font("helvetica", "", 10)
     cat = (co.get("category") or "").strip().replace(" / ", " ")
-    pdf.cell(83, 5, f"CATEGORY : {cat}", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(115, y0 + 14)
-    pdf.cell(83, 5, f"Payroll duration. ({md(start)}~{md(end)})",
+    pdf.cell(83, 4, f"CATEGORY : {cat}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_xy(115, y0 + 13)
+    pdf.cell(83, 4, f"Payroll duration. ({md(start)}~{md(end)})",
             new_x="LMARGIN", new_y="NEXT")
 
     # --- VENDOR / SHIP TO dark bars ---
