@@ -54,14 +54,28 @@
         {% if days_by_employee.get(r.employee) %}
         <tr id="days-{{ loop.index }}" style="display:none">
           <td colspan="9" style="background:var(--card);padding:10px 14px">
-            <div class="small muted" style="margin-bottom:6px">Day-by-day hours for {{ r.employee }} — fix a wrong day here; totals and overtime recalculate automatically.</div>
+            <div class="small muted" style="margin-bottom:6px">Day-by-day hours for {{ r.employee }} — fix a wrong day here; hours and clock times save together, totals and overtime recalculate automatically.</div>
             <table style="width:auto;margin:0">
-              <thead><tr><th>Date</th><th>Day</th><th class="num">Hours</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Day</th><th>Clock-In</th><th>Clock-Out</th><th class="num">Hours</th><th></th></tr></thead>
               <tbody>
                 {% for d in days_by_employee[r.employee] %}
                 <tr>
                   <td style="white-space:nowrap">{{ d.date }}</td>
                   <td>{{ d.weekday }}</td>
+                  <td>
+                    {% if d.id %}
+                    <input name="clock_in" form="hrs-{{ d.id }}" type="text" value="{{ d.clock_in }}" placeholder="e.g. 7:00 AM" aria-label="Clock-in for {{ r.employee }} on {{ d.date }}" style="width:90px">
+                    {% else %}
+                    <input name="clock_in" form="hrs-new-{{ loop.index }}" type="text" value="" placeholder="e.g. 7:00 AM" aria-label="Clock-in for {{ r.employee }} on {{ d.date }} (no entry yet)" style="width:90px">
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if d.id %}
+                    <input name="clock_out" form="hrs-{{ d.id }}" type="text" value="{{ d.clock_out }}" placeholder="e.g. 3:30 PM" aria-label="Clock-out for {{ r.employee }} on {{ d.date }}" style="width:90px">
+                    {% else %}
+                    <input name="clock_out" form="hrs-new-{{ loop.index }}" type="text" value="" placeholder="e.g. 3:30 PM" aria-label="Clock-out for {{ r.employee }} on {{ d.date }} (no entry yet)" style="width:90px">
+                    {% endif %}
+                  </td>
                   <td class="num">
                     {% if d.id %}
                     <form id="hrs-{{ d.id }}" method="post" action="{{ url_for('.update_entry_hours', company=company.slug, entry_id=d.id, **{'from': start, 'to': end}) }}" style="display:inline">
