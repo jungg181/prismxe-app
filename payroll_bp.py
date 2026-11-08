@@ -10,6 +10,7 @@
 - GET  /payroll/<company>/export.csv   CSV export of the payroll table
 - GET  /payroll/<company>/export.xlsx  XLSX export (Payroll + Invoice)
 - GET  /payroll/<company>/invoice      invoice view (number = prefix + today)
+- GET  /payroll/<company>/invoice/pdf  invoice PDF (Hanseong sheet format)
 - POST /payroll/<company>/invoice/expense            add an expense line
 - POST /payroll/<company>/invoice/expense/<id>/delete
 - GET  /payroll/rates                   list / edit rates (name + company)
@@ -37,8 +38,8 @@ import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from flask import (Blueprint, flash, redirect, render_template, request,
-                   send_file, url_for)
+from flask import (Blueprint, Response, flash, redirect, render_template,
+                   request, send_file, url_for)
 
 from payroll_calc import (DEFAULT_OT_MULTIPLIER, DEFAULT_OT_THRESHOLD,
                           compute_payroll, find_unmatched, invoice_lines,
@@ -64,6 +65,28 @@ BANK = {
     "account_name": "Prism Multiple Entertainment LLC",
 }
 APPROVED_BY = "Irin Yoon"
+
+# Fixed invoice header details (from the Hanseong invoice sheet template).
+INVOICE_COMPANY_NAME = "Prism Multiple Entertainment LLC"
+INVOICE_SITE_ADDRESS = "255 N. 56th Place. Mesa AZ 85205"
+INVOICE_CONTACT_NAME = "Jungseok Kang"
+INVOICE_CONTACT_PHONE = "+1 213 905 1359"
+INVOICE_CONTACT_EMAIL = "jskang78@gmail.com"
+INVOICE_TEL_NUM = "213-905-1359"
+
+
+def _company_bank(co):
+    """Bank details for a company: the company's own bank fields when
+    set, otherwise the default BANK. The deposit account can differ
+    per company, so each company can override it on its Edit page."""
+    return {
+        "bank": (co.get("bank_name") or "").strip() or BANK["bank"],
+        "branch": (co.get("bank_branch") or "").strip() or BANK["branch"],
+        "routing": (co.get("bank_routing") or "").strip() or BANK["routing"],
+        "account": (co.get("bank_account") or "").strip() or BANK["account"],
+        "account_name": (co.get("bank_account_name") or "").strip()
+                        or BANK["account_name"],
+    }
 
 PHOENIX = ZoneInfo("America/Phoenix")
 
@@ -241,6 +264,11 @@ def add_company():
     vendor = (request.form.get("vendor") or "").strip() or name
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
+    bank_name = (request.form.get("bank_name") or "").strip()
+    bank_branch = (request.form.get("bank_branch") or "").strip()
+    bank_routing = (request.form.get("bank_routing") or "").strip()
+    bank_account = (request.form.get("bank_account") or "").strip()
+    bank_account_name = (request.form.get("bank_account_name") or "").strip()
     if not name:
         flash("Company name is required.")
         return redirect(url_for(".index"))
@@ -267,6 +295,9 @@ def add_company():
         "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
         "ship_to": ship_to, "category": category,
         "prefix_end": prefix_end,
+        "bank_name": bank_name, "bank_branch": bank_branch,
+        "bank_routing": bank_routing, "bank_account": bank_account,
+        "bank_account_name": bank_account_name,
     })
     save_db()
     flash(f"Company {name} added. Add its rates under Rates, then import "
@@ -321,6 +352,11 @@ def edit_company(slug):
     vendor = (request.form.get("vendor") or "").strip() or name
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
+    bank_name = (request.form.get("bank_name") or "").strip()
+    bank_branch = (request.form.get("bank_branch") or "").strip()
+    bank_routing = (request.form.get("bank_routing") or "").strip()
+    bank_account = (request.form.get("bank_account") or "").strip()
+    bank_account_name = (request.form.get("bank_account_name") or "").strip()
     if not name:
         flash("Company name is required.")
         return render_template("payroll/edit_company.html", company=co)
@@ -351,6 +387,11 @@ def edit_company(slug):
     co["vendor"] = vendor
     co["ship_to"] = ship_to
     co["category"] = category
+    co["bank_name"] = bank_name
+    co["bank_branch"] = bank_branch
+    co["bank_routing"] = bank_routing
+    co["bank_account"] = bank_account
+    co["bank_account_name"] = bank_account_name
     if renamed:
         for coll in ("entries", "rates", "aliases", "variances",
                      "expenses"):
@@ -491,8 +532,189 @@ def invoice(company):
                             co.get("prefix_end") or "")
     return render_template(
         "payroll/invoice.html", company=co, start=start.isoformat(),
-        end=end.isoformat(), number=number, inv=inv, bank=BANK,
+        end=end.isoformat(), number=number, inv=inv, bank=_company_bank(co),
         approved_by=APPROVED_BY, money=_money)
+
+
+def _invoice_pdf_bytes(co, start, end, number, inv, bank):
+    """Build the invoice PDF in the Hanseong sheet format (one page,
+    Letter portrait). Header: company + number + category + contact.
+    VENDOR/SHIP TO block (COMPANY filled with the vendor), P.O. header,
+    NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL table (Regular (RH) then
+    Overtime (OT) per employee), SUB TOTAL / TOTAL, the company's bank
+    details, Approved by. The DPO reference line is left out."""
+    from fpdf import FPDF
+
+    def money(v):
+        return f"${v:,.2f}"
+
+    def qty(v):
+        return f"{v:.2f}"
+
+    def md(d):
+        return f"{d.month}/{d.day}"
+
+    def mdy(d):
+        return f"{d.month}/{d.day}/{d.year}"
+
+    pdf = FPDF(orientation="P", unit="mm", format="Letter")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_margins(13, 12, 13)
+    pdf.add_page()
+    w = 190.0  # usable width (Letter 215.9mm - 2 x 13mm margins)
+
+    # Title
+    pdf.set_font("helvetica", "B", 18)
+    pdf.cell(w, 9, "Invoice", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # Company + invoice number
+    pdf.set_font("helvetica", "B", 11)
+    pdf.cell(95, 6, INVOICE_COMPANY_NAME, new_x="RIGHT", new_y="TOP")
+    pdf.cell(95, 6, f"NUMBER : {number}", align="R",
+            new_x="LMARGIN", new_y="NEXT")
+
+    # Category + site address
+    pdf.set_font("helvetica", "", 10)
+    cat = (co.get("category") or "").strip()
+    pdf.cell(w, 6, f"CATEGORY : {cat} {INVOICE_SITE_ADDRESS}".strip(),
+            new_x="LMARGIN", new_y="NEXT")
+
+    # Contact + payroll duration
+    pdf.cell(w, 6,
+            f"{INVOICE_CONTACT_NAME}   Payroll duration. "
+            f"({md(start)}~{md(end)})   Mobile: {INVOICE_CONTACT_PHONE}   "
+            f"{INVOICE_CONTACT_EMAIL}",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    # VENDOR / SHIP TO block
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(95, 6, "VENDOR", new_x="RIGHT", new_y="TOP")
+    pdf.cell(95, 6, "SHIP TO", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(95, 6, f"COMPANY : {(co.get('vendor') or '').strip()}",
+            new_x="RIGHT", new_y="TOP")
+    pdf.cell(95, 6, f"TO : {(co.get('ship_to') or '').strip()}",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(95, 6, "ADDRESS :", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # TEL NUM + RH/OT legend
+    pdf.cell(w, 6,
+            f"TEL NUM : {INVOICE_TEL_NUM}    (RH) REGULAR HR.   "
+            "(OT) OVER TIME HR",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # P.O. header + period / requisitioner
+    pdf.set_font("helvetica", "B", 9)
+    pdf.cell(w, 5, "P.O.    DATE    REQUISITIONER    SHIPPED VIA    "
+            "F.O.B. POINT    PROJECT NAME", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(w, 6, f"{mdy(start)}~{mdy(end)}    {INVOICE_CONTACT_NAME}-",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    # Table header
+    cols = [("NO", 12, "L"), ("DESCRIPTION", 78, "L"),
+            ("UNIT PRICE", 28, "R"), ("UOM", 14, "C"),
+            ("QTY", 28, "R"), ("TOTAL", 30, "R")]
+    pdf.set_font("helvetica", "B", 10)
+    for i, (label, cw, al) in enumerate(cols):
+        last = i == len(cols) - 1
+        pdf.cell(cw, 6, label, border=1, align=al,
+                new_x="LMARGIN" if last else "RIGHT",
+                new_y="NEXT" if last else "TOP")
+    # Table rows: Regular (RH) then Overtime (OT) per employee
+    pdf.set_font("helvetica", "", 10)
+    emp_no = 0
+    for line in inv["lines"]:
+        if line["type"] == "Regular":
+            emp_no += 1
+            no = f"A{emp_no}"
+            desc = f"{line['employee']} (RH)"
+        else:
+            no = ""
+            desc = f"{line['employee']} (OT)"
+        vals = [(no, 12, "L"), (desc, 78, "L"),
+                (money(line["unit"]), 28, "R"), ("1", 14, "C"),
+                (qty(line["qty"]), 28, "R"), (money(line["total"]), 30, "R")]
+        for i, (txt, cw, al) in enumerate(vals):
+            last = i == len(vals) - 1
+            pdf.cell(cw, 6, txt, border=1, align=al,
+                    new_x="LMARGIN" if last else "RIGHT",
+                    new_y="NEXT" if last else "TOP")
+    for ex in inv["expenses"]:
+        vals = [("", 12, "L"), (ex["description"], 78, "L"),
+                (money(ex["amount"]), 28, "R"), ("1", 14, "C"),
+                ("1.00", 28, "R"), (money(ex["amount"]), 30, "R")]
+        for i, (txt, cw, al) in enumerate(vals):
+            last = i == len(vals) - 1
+            pdf.cell(cw, 6, txt, border=1, align=al,
+                    new_x="LMARGIN" if last else "RIGHT",
+                    new_y="NEXT" if last else "TOP")
+    if inv["excluded"]:
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w, 6, "Not billed: " + ", ".join(inv["excluded"]) +
+                " - no rate.", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("helvetica", "", 10)
+    # SUB TOTAL / FREIGHT / TOTAL
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(160, 6, "SUB TOTAL", border=1, align="R",
+            new_x="RIGHT", new_y="TOP")
+    pdf.cell(30, 6, money(inv["sub_total"]), border=1, align="R",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(160, 6, "FREIGHT SHIPPING HANDLING", border=1, align="R",
+            new_x="RIGHT", new_y="TOP")
+    pdf.cell(30, 6, "", border=1, align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(160, 6, "TOTAL", border=1, align="R",
+            new_x="RIGHT", new_y="TOP")
+    pdf.cell(30, 6, money(inv["total"]), border=1, align="R",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # Bank details (the company's deposit account)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(w, 6, "BANK DETAILS", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(w, 6, f"Bank: {bank['bank']}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(w, 6, f"Branch: {bank['branch']}    Routing: {bank['routing']}",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(w, 6, f"Account: {bank['account']} ({bank['account_name']})",
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # Approved by (no DPO reference line)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(w, 6,
+            f"Approved by Prism ME LLC. Chief Executive Officer {APPROVED_BY}",
+            new_x="LMARGIN", new_y="NEXT")
+
+    return bytes(pdf.output())
+
+
+@bp.get("/<company>/invoice/pdf")
+def invoice_pdf(company):
+    """Download the invoice as a PDF in the Hanseong sheet format."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    result = _payroll_for(co, start, end)
+    inv = invoice_lines(result["rows"],
+                        _period_expenses(co, start, end),
+                        ot_multiplier=_settings()["ot_multiplier"])
+    number = invoice_number(co["prefix"], datetime.now(PHOENIX).date(),
+                            co.get("prefix_end") or "")
+    data = _invoice_pdf_bytes(co, start, end, number, inv,
+                              _company_bank(co))
+    filename = f"{co['name']}_{number}.pdf"
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{filename}"'})
 
 
 @bp.post("/<company>/invoice/expense")
