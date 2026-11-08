@@ -491,7 +491,8 @@ def company_payroll(company):
     # worker did not work — those show 0h. A 0h day has no entry id;
     # saving hours there creates the entry (add_day_hours).
     # Only the entry id + hours + clock times are needed; the edit
-    # posts to update_entry_hours which changes payroll_hours only.
+    # posts to update_entry_hours which changes payroll_hours,
+    # clock_in and clock_out together.
     from datetime import timedelta as _td, date as _date
     all_dates = []
     _d = start
@@ -540,10 +541,13 @@ def company_payroll(company):
 
 @bp.post("/<company>/entries/<entry_id>/hours")
 def update_entry_hours(company, entry_id):
-    """Fix ONE day's hours from the payroll page. Only payroll_hours
-    is changed — clock-in/out, site and notes are left exactly as
-    they were. Totals (incl. weekly OT) are recomputed from the
-    entries on the next payroll view, so the fix flows through."""
+    """Fix ONE day's hours AND clock times from the payroll page.
+    payroll_hours, clock_in and clock_out are all changed together;
+    site and notes are left exactly as they were. Totals (incl.
+    weekly OT) are recomputed from the entries on the next payroll
+    view, so the fix flows through. Clock times are stored exactly
+    as typed (e.g. 7:00 AM) — they are display/record values, the
+    payroll math uses payroll_hours only."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
@@ -553,12 +557,19 @@ def update_entry_hours(company, entry_id):
     except (TypeError, ValueError):
         hours = 0
     hours = max(0.0, round(hours, 2))
+    clock_in = (request.form.get("clock_in") or "").strip()
+    clock_out = (request.form.get("clock_out") or "").strip()
     for e in DB["entries"]:
         if e.get("id") == entry_id and e.get("company") == co["name"]:
             e["payroll_hours"] = hours
+            e["clock_in"] = clock_in
+            e["clock_out"] = clock_out
             save_db()
-            flash(f"Hours updated for {e.get('employee')} "
-                  f"on {e.get('date')}: {hours}h.")
+            flash(f"Updated for {e.get('employee')} "
+                  f"on {e.get('date')}: {hours}h"
+                  + (f" ({clock_in} - {clock_out})"
+                     if clock_in or clock_out else "")
+                  + ".")
             break
     return redirect(url_for(".company_payroll", company=co["slug"],
                             **{"from": start.isoformat(),
@@ -568,9 +579,10 @@ def update_entry_hours(company, entry_id):
 @bp.post("/<company>/entries/add-day-hours")
 def add_day_hours(company):
     """Create a day's hours from the payroll page, for a date the
-    worker has no entry on (a 0h day in the Days list). Only used
-    when the hours are over 0 — a 0h day needs no entry at all.
-    Clock-in/out, site and notes are left blank."""
+    worker has no entry on (a 0h day in the Days list). Created when
+    the hours are over 0, or when clock-in/out times are given
+    (a 0h day needs no entry at all unless times are recorded).
+    Site and notes are left blank."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
@@ -582,7 +594,9 @@ def add_day_hours(company):
     except (TypeError, ValueError):
         hours = 0
     hours = max(0.0, round(hours, 2))
-    if employee and day and hours > 0:
+    clock_in = (request.form.get("clock_in") or "").strip()
+    clock_out = (request.form.get("clock_out") or "").strip()
+    if employee and day and (hours > 0 or clock_in or clock_out):
         # Do not create a duplicate if an entry appeared meanwhile.
         exists = any(e.get("company") == co["name"]
                      and e.get("employee") == employee
@@ -593,11 +607,15 @@ def add_day_hours(company):
                 "id": uuid.uuid4().hex[:12], "company": co["name"],
                 "employee": employee, "date": day,
                 "payroll_hours": hours,
-                "clock_in": "", "clock_out": "", "clock_out_date": None,
+                "clock_in": clock_in, "clock_out": clock_out,
+                "clock_out_date": None,
                 "gross_hours": None, "site": "", "notes": "",
             })
             save_db()
-            flash(f"Hours added for {employee} on {day}: {hours}h.")
+            flash(f"Hours added for {employee} on {day}: {hours}h"
+                  + (f" ({clock_in} - {clock_out})"
+                     if clock_in or clock_out else "")
+                  + ".")
     return redirect(url_for(".company_payroll", company=co["slug"],
                             **{"from": start.isoformat(),
                                "to": end.isoformat()}))
