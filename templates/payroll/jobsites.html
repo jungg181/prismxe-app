@@ -1,0 +1,52 @@
+{% extends "payroll/base.html" %}
+{% block title %}Jobsites{% endblock %}
+{% block content %}
+<h1>Jobsites</h1>
+<p class="sub">One jobsite per job won. Each jobsite pulls its labor revenue + labor cost from the time entries tagged with it, and its other purchase costs from the list below. Profit = Revenue − Labor − Other costs.</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Add a Jobsite</h2>
+  <form method="post" action="{{ url_for('.jobsites') }}">
+    <div class="form-grid">
+      <div><label for="code">Jobsite ID</label><input id="code" name="code" placeholder="e.g. LGES-1026" required></div>
+      <div><label for="name">Name</label><input id="name" name="name" placeholder="e.g. Hanseong LGES staffing"></div>
+      <div><label for="company">Company</label><select id="company" name="company" required><option value="">— pick —</option>{% for c in companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="site">Site (optional)</label><input id="site" name="site" placeholder="e.g. LGES"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Jobsite</button></div>
+  </form>
+</div>
+
+{% if summaries %}
+<div class="card">
+  <h2 style="margin-top:0">All Jobsites ({{ summaries | length }})</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Jobsite ID</th><th>Name</th><th>Company</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor Cost</th><th class="num">Other Costs</th><th class="num">Profit</th><th class="num">Margin</th><th></th></tr></thead>
+      <tbody>
+        {% for s in summaries %}
+        <tr>
+          <td><a href="{{ url_for('.jobsite_detail', job_id=s.job.id) }}"><strong>{{ s.job.code }}</strong></a></td>
+          <td>{{ s.job.name }}</td>
+          <td>{{ s.job.company }}{% if s.job.site %} · {{ s.job.site }}{% endif %}</td>
+          <td class="num">{{ s.summary.pnl.total_hours }}</td>
+          <td class="num">${{ '%.2f' % s.summary.pnl.revenue }}</td>
+          <td class="num">${{ '%.2f' % s.summary.pnl.labor_cost }}</td>
+          <td class="num">${{ '%.2f' % s.summary.other_total }}</td>
+          <td class="num"><strong>${{ '%.2f' % s.summary.profit }}</strong></td>
+          <td class="num">{% if s.summary.margin is not none %}{{ s.summary.margin }}%{% else %}—{% endif %}</td>
+          <td>
+            <form class="inline-form" method="post" action="{{ url_for('.delete_jobsite', job_id=s.job.id) }}" onsubmit="return confirm('Remove jobsite {{ s.job.code }}? Only jobsites with no entries or costs can be removed.')">
+              <button class="btn danger small" type="submit">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<p class="muted">No jobsites yet. Add one above, then tag time entries to it from the Time Entries page.</p>
+{% endif %}
+{% endblock %}
