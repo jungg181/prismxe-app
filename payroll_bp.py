@@ -617,6 +617,8 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_auto_page_break(auto=True, margin=BOTTOM_MARGIN)
     pdf.set_margins(LEFT, TOP, 17.8)
     pdf.add_page()
+    # Thin grid lines (0.1mm instead of the 0.2mm default).
+    pdf.set_line_width(0.1)
 
     # --- Top row: logo (left) + Invoice title (blue, right) ---
     logo_path = os.path.join(BASE_DIR, "static", "prism-logo.png")
@@ -746,29 +748,35 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
             no = f"A{emp_no}"
             desc = line["employee"]
             tag = "(RH)"
+            # RH row: top border only (no bottom) -- it groups with the
+            # OT row below, so the two rows of one worker have no line
+            # between them.
+            bdr = "LTR"
         else:
             no = ""
             desc = line["employee"]
             tag = "(OT)"
+            # OT row: bottom border only (no top).
+            bdr = "LBR"
         # NO
         pdf.set_x(LEFT)
-        pdf.cell(13.8, DATA_ROW, no, border=1, align="C",
+        pdf.cell(13.8, DATA_ROW, no, border=bdr, align="C",
                 new_x="RIGHT", new_y="TOP")
         # DESCRIPTION: name left, (RH)/(OT) right
         x_desc = pdf.get_x()
         y_row = pdf.get_y()
-        pdf.cell(60.4, DATA_ROW, f" {desc}", border=1, align="L",
+        pdf.cell(60.4, DATA_ROW, f" {desc}", border=bdr, align="L",
                 new_x="RIGHT", new_y="TOP")
         # overlay the tag right-aligned inside the description column
         pdf.set_xy(x_desc + 60.4 - 14, y_row)
         pdf.cell(14, DATA_ROW, tag, align="R", new_x="RIGHT", new_y="TOP")
-        pdf.cell(31.9, DATA_ROW, money(line["unit"]), border=1, align="R",
+        pdf.cell(31.9, DATA_ROW, money(line["unit"]), border=bdr, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(14.8, DATA_ROW, "1", border=1, align="C",
+        pdf.cell(14.8, DATA_ROW, "1", border=bdr, align="C",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(16.2, DATA_ROW, qty(line["qty"]), border=1, align="R",
+        pdf.cell(16.2, DATA_ROW, qty(line["qty"]), border=bdr, align="R",
                 new_x="RIGHT", new_y="TOP")
-        pdf.cell(42.9, DATA_ROW, money(line["total"]), border=1, align="R",
+        pdf.cell(42.9, DATA_ROW, money(line["total"]), border=bdr, align="R",
                 new_x="LMARGIN", new_y="NEXT")
     for ex in inv["expenses"]:
         pdf.set_x(LEFT)
@@ -815,15 +823,9 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         # Table runs past where the bottom must start: fresh page.
         pdf.add_page()
         y_after = pdf.get_y()
-    if y_after < yb2:
-        # Fill the table body down to the bottom section as ONE empty
-        # area (outer border + column dividers, no horizontal grid
-        # lines), so the bottom sits at the very bottom of the page.
-        pdf.rect(LEFT, y_after, W, yb2 - y_after, style="D")
-        x = LEFT
-        for label, cw, al in cols[:-1]:
-            x += cw
-            pdf.line(x, y_after, x, yb2)
+    # (No border is drawn in the empty space between the table and
+    # the bottom section: it stays blank white, so the bottom sits at
+    # the very bottom of the page with no stray grid lines.)
     # Bank box (left)
     pdf.set_xy(LEFT + 2, yb2)
     pdf.set_font("helvetica", "BU", BODY)
@@ -873,7 +875,10 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
 
 @bp.get("/<company>/invoice/pdf")
 def invoice_pdf(company):
-    """Download the invoice as a PDF in the Hanseong sheet format."""
+    """Download the invoice as a PDF in the Hanseong sheet format.
+    The invoice page can pass per-download overrides as query params
+    (phone / top / bottom); they apply to this download only and do
+    not change the company's saved values."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
@@ -884,6 +889,16 @@ def invoice_pdf(company):
                         ot_multiplier=_settings()["ot_multiplier"])
     number = invoice_number(co["prefix"], datetime.now(PHOENIX).date(),
                             co.get("prefix_end") or "")
+    co = dict(co)
+    phone = (request.args.get("phone") or "").strip()
+    if phone:
+        co["phone"] = phone
+    top = (request.args.get("top") or "").strip()
+    if top:
+        co["pdf_top_margin"] = top
+    bottom = (request.args.get("bottom") or "").strip()
+    if bottom:
+        co["pdf_bottom_margin"] = bottom
     data = _invoice_pdf_bytes(co, start, end, number, inv,
                               _company_bank(co))
     filename = f"{co['name']}_{number}.pdf"
