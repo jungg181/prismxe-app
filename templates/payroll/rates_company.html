@@ -5,6 +5,13 @@
 <p class="sub">Staffing Rate = worker pay per hour. Billing Rate = client charge per hour. Lookup is by name + company, exact match. Seeded from PrismXe Info (read 2026-11-05).</p>
 
 <div class="card">
+  <form id="save-all" method="post" action="{{ url_for('.company_rates', company=company.slug) }}">
+    <input type="hidden" name="action" value="update_all">
+  </form>
+  <div class="btn-row" style="margin-bottom:12px">
+    <button class="btn" type="submit" form="save-all">Save all</button>
+    <span class="muted">Edits to every row below are saved together — no need to press Save on each row.</span>
+  </div>
   <div class="table-scroll">
     <table style="table-layout:fixed">
       <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:150px"></colgroup>
@@ -13,14 +20,9 @@
         {% for r in rates %}
         <tr>
           <td>{{ r.name }}</td>
-          <td><input name="staffing" form="upd-{{ r.id }}" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
-          <td><input name="billing" form="upd-{{ r.id }}" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
+          <td><input name="staffing_{{ r.id }}" form="save-all" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
+          <td><input name="billing_{{ r.id }}" form="save-all" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
           <td style="white-space:nowrap">
-            <form id="upd-{{ r.id }}" class="inline-form" method="post" action="{{ url_for('.company_rates', company=company.slug) }}">
-              <input type="hidden" name="action" value="update">
-              <input type="hidden" name="id" value="{{ r.id }}">
-              <button class="btn secondary small" type="submit">Save</button>
-            </form>
             <form class="inline-form" method="post" action="{{ url_for('.company_rates', company=company.slug) }}" onsubmit="return confirm('Remove the rate for {{ r.name }} ({{ company.name }})?')">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="{{ r.id }}">
@@ -33,6 +35,9 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="btn-row" style="margin-top:12px">
+    <button class="btn" type="submit" form="save-all">Save all</button>
   </div>
 </div>
 
