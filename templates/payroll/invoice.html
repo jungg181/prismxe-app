@@ -37,7 +37,7 @@
     <div class="form-grid">
       <div><label for="pdf-phone">Vendor phone (TEL NUM)</label><input type="text" id="pdf-phone" name="phone" value="{{ company.phone or '' }}" placeholder="213-905-1359"></div>
       <div><label for="pdf-top">Top margin (mm)</label><input type="text" id="pdf-top" name="top" value="{{ company.pdf_top_margin or '' }}" placeholder="5"></div>
-      <div><label for="pdf-bottom">Bottom margin (mm)</label><input type="text" id="pdf-bottom" name="bottom" value="{{ company.pdf_bottom_margin or '' }}" placeholder="10"></div>
+      <div><label for="pdf-bottom">Bottom margin (mm)</label><input type="text" id="pdf-bottom" name="bottom" value="{{ company.pdf_bottom_margin or '' }}" placeholder="5"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug, **{'from': start, 'to': end}) }}">Back to Payroll</a>
