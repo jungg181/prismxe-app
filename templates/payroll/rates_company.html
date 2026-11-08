@@ -19,7 +19,7 @@
       <tbody>
         {% for r in rates %}
         <tr>
-          <td>{{ r.name }}</td>
+          <td><a href="{{ url_for('.employee_page', company=company.slug, name=r.name) }}">{{ r.name }}</a></td>
           <td><input name="staffing_{{ r.id }}" form="save-all" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
           <td><input name="billing_{{ r.id }}" form="save-all" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
           <td style="white-space:nowrap">
