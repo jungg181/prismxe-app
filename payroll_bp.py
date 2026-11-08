@@ -1120,6 +1120,28 @@ def rates():
                     save_db()
                     flash(f"Rate updated for {r['name']} ({r['company']}).")
                     break
+        elif action == "update_all":
+            # Bulk save: one Save all button posts every row's
+            # staffing_<id> / billing_<id> at once, so the user does
+            # not have to press Save on each row one by one.
+            updated = 0
+            for r in DB["rates"]:
+                sid = request.form.get("staffing_" + str(r.get("id")))
+                bid = request.form.get("billing_" + str(r.get("id")))
+                if sid is None and bid is None:
+                    continue
+                try:
+                    r["staffing"] = float(sid) if sid not in (None, "") else None
+                except (TypeError, ValueError):
+                    r["staffing"] = None
+                try:
+                    r["billing"] = float(bid) if bid not in (None, "") else None
+                except (TypeError, ValueError):
+                    r["billing"] = None
+                updated += 1
+            if updated:
+                save_db()
+                flash(f"{updated} rate(s) updated.")
         elif action == "add":
             name = (request.form.get("name") or "").strip()
             comp = (request.form.get("company") or "").strip()
@@ -1185,6 +1207,30 @@ def company_rates(company):
                     save_db()
                     flash(f"Rate updated for {r['name']} ({co['name']}).")
                     break
+        elif action == "update_all":
+            # Bulk save: one Save all button posts every row's
+            # staffing_<id> / billing_<id> at once, so the user does
+            # not have to press Save on each row one by one.
+            updated = 0
+            for r in DB["rates"]:
+                if r.get("company") != co["name"]:
+                    continue
+                sid = request.form.get("staffing_" + str(r.get("id")))
+                bid = request.form.get("billing_" + str(r.get("id")))
+                if sid is None and bid is None:
+                    continue
+                try:
+                    r["staffing"] = float(sid) if sid not in (None, "") else None
+                except (TypeError, ValueError):
+                    r["staffing"] = None
+                try:
+                    r["billing"] = float(bid) if bid not in (None, "") else None
+                except (TypeError, ValueError):
+                    r["billing"] = None
+                updated += 1
+            if updated:
+                save_db()
+                flash(f"{updated} rate(s) updated for {co['name']}.")
         elif action == "add":
             name = (request.form.get("name") or "").strip()
             if name:
