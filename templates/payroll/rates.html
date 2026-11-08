@@ -14,16 +14,14 @@
         {% for r in rows %}
         <tr>
           <td>{{ r.name }}</td>
-          <td colspan="2" style="padding:0">
-            <form method="post" action="{{ url_for('.rates') }}" style="display:flex;gap:8px;padding:6px 0">
+          <td><input name="staffing" form="upd-{{ r.id }}" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
+          <td><input name="billing" form="upd-{{ r.id }}" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
+          <td style="white-space:nowrap">
+            <form id="upd-{{ r.id }}" class="inline-form" method="post" action="{{ url_for('.rates') }}">
               <input type="hidden" name="action" value="update">
               <input type="hidden" name="id" value="{{ r.id }}">
-              <input name="staffing" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:110px">
-              <input name="billing" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:110px">
               <button class="btn secondary small" type="submit">Save</button>
             </form>
-          </td>
-          <td>
             <form class="inline-form" method="post" action="{{ url_for('.rates') }}" onsubmit="return confirm('Remove the rate for {{ r.name }} ({{ r.company }})?')">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="{{ r.id }}">
