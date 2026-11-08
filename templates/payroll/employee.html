@@ -66,6 +66,7 @@
 </div>
 
 <div class="btn-row">
+  <a class="btn secondary" href="{{ url_for('.employee_detail', person=rate.employee_id or name) }}">Manage in Employees</a>
   <a class="btn secondary" href="{{ url_for('.company_rates', company=company.slug) }}">Rates</a>
   <a class="btn secondary" href="{{ url_for('.entries', company=company.slug) }}">Time entries</a>
   <a class="btn secondary" href="{{ url_for('.index') }}">All companies</a>
