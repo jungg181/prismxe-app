@@ -237,6 +237,7 @@ def add_company():
     """
     name = (request.form.get("name") or "").strip()
     prefix = (request.form.get("prefix") or "").strip().upper()
+    prefix_end = (request.form.get("prefix_end") or "").strip().upper()
     vendor = (request.form.get("vendor") or "").strip() or name
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
@@ -258,9 +259,14 @@ def add_company():
            for c in DB.get("companies", [])):
         flash(f"Invoice prefix {prefix} is already used by another company.")
         return redirect(url_for(".index"))
+    if prefix_end and (not prefix_end.isalnum() or len(prefix_end) > 6):
+        flash("Prefix End is optional: letters and numbers only, "
+              "up to 6 characters.")
+        return redirect(url_for(".index"))
     DB.setdefault("companies", []).append({
         "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
         "ship_to": ship_to, "category": category,
+        "prefix_end": prefix_end,
     })
     save_db()
     flash(f"Company {name} added. Add its rates under Rates, then import "
@@ -311,6 +317,7 @@ def edit_company(slug):
     old_name = co["name"]
     name = (request.form.get("name") or "").strip()
     prefix = (request.form.get("prefix") or "").strip().upper()
+    prefix_end = (request.form.get("prefix_end") or "").strip().upper()
     vendor = (request.form.get("vendor") or "").strip() or name
     ship_to = (request.form.get("ship_to") or "").strip()
     category = (request.form.get("category") or "").strip()
@@ -332,10 +339,15 @@ def edit_company(slug):
     if any((c.get("prefix") or "").upper() == prefix for c in other):
         flash(f"Invoice prefix {prefix} is already used by another company.")
         return render_template("payroll/edit_company.html", company=co)
+    if prefix_end and (not prefix_end.isalnum() or len(prefix_end) > 6):
+        flash("Prefix End is optional: letters and numbers only, "
+              "up to 6 characters.")
+        return render_template("payroll/edit_company.html", company=co)
     renamed = name != old_name
     co["name"] = name
     co["slug"] = new_slug
     co["prefix"] = prefix
+    co["prefix_end"] = prefix_end
     co["vendor"] = vendor
     co["ship_to"] = ship_to
     co["category"] = category
@@ -475,7 +487,8 @@ def invoice(company):
     inv = invoice_lines(result["rows"],
                         _period_expenses(co, start, end),
                         ot_multiplier=_settings()["ot_multiplier"])
-    number = invoice_number(co["prefix"], datetime.now(PHOENIX).date())
+    number = invoice_number(co["prefix"], datetime.now(PHOENIX).date(),
+                            co.get("prefix_end") or "")
     return render_template(
         "payroll/invoice.html", company=co, start=start.isoformat(),
         end=end.isoformat(), number=number, inv=inv, bank=BANK,
