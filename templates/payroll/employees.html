@@ -1,0 +1,49 @@
+{% extends "payroll/base.html" %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+<h1>Employees</h1>
+<p class="sub">{{ total }} employees · grouped by company — one worker can belong to several companies. Click a name to manage everything about them: name, employee ID, rates per company, and time entries.</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Add employee</h2>
+  <form method="post" action="{{ url_for('.employees_add') }}">
+    <div class="form-grid">
+      <div><label for="aname">Name</label><input type="text" id="aname" name="name" required placeholder="Employee name"></div>
+      <div><label for="acompany">Company</label><select id="acompany" name="to_company">{% for c in companies %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="aid">Employee ID</label><input type="text" id="aid" name="employee_id" placeholder="Unique number (optional)"></div>
+      <div><label for="astaffing">Staffing rate ($/h)</label><input type="number" id="astaffing" name="staffing" step="0.01" min="0" placeholder="What the worker is paid"></div>
+      <div><label for="abilling">Billing rate ($/h)</label><input type="number" id="abilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add employee</button>
+    </div>
+  </form>
+</div>
+
+{% for c in companies %}
+<div class="card">
+  <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a></h2>
+  {% if by_company[c.name] %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th><th>Employee ID</th><th class="num">Staffing</th><th class="num">Billing</th><th class="num">Entries</th><th class="num">Hours</th></tr></thead>
+      <tbody>
+        {% for row in by_company[c.name] %}
+        <tr>
+          <td><a href="{{ url_for('.employee_detail', person=row.person.employee_id or row.person.name) }}">{{ row.person.name }}</a>{% if row.rate is none %} <span class="badge">No rate</span>{% endif %}</td>
+          <td>{{ row.person.employee_id or '—' }}</td>
+          <td class="num">{{ row.rate.staffing if row.rate and row.rate.staffing is not none else '—' }}</td>
+          <td class="num">{{ row.rate.billing if row.rate and row.rate.billing is not none else '—' }}</td>
+          <td class="num">{{ row.entries }}</td>
+          <td class="num">{{ fmt_hours(row.hours) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No employees in {{ c.name }} yet.</p>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
