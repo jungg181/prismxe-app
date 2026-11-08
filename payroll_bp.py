@@ -14,6 +14,7 @@
 - POST /payroll/<company>/invoice/expense            add an expense line
 - POST /payroll/<company>/invoice/expense/<id>/delete
 - GET  /payroll/rates                   list / edit rates (name + company)
+- GET  /payroll/<company>/rates        list / edit rates for one company
 - POST /payroll/rates                   add / update / delete a rate
 - GET  /payroll/<company>/entries      list + add / edit / delete entries
 - POST /payroll/<company>/entries      add / update / delete an entry
@@ -1014,6 +1015,69 @@ def rates():
                            companies=DB.get("companies", []),
                            prefill_name=request.args.get("name") or "",
                            prefill_company=request.args.get("company") or "")
+
+
+@bp.route("/<company>/rates", methods=["GET", "POST"])
+def company_rates(company):
+    """Rates for ONE company only. Each company has its own rates
+    page (linked from its row on the payroll index), so rates are
+    edited per company instead of all mixed together."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    if request.method == "POST":
+        action = request.form.get("action") or ""
+        if action == "update":
+            rid = request.form.get("id") or ""
+            for r in DB["rates"]:
+                if r.get("id") == rid and r.get("company") == co["name"]:
+                    try:
+                        r["staffing"] = float(request.form.get("staffing"))
+                    except (TypeError, ValueError):
+                        r["staffing"] = None
+                    try:
+                        r["billing"] = float(request.form.get("billing"))
+                    except (TypeError, ValueError):
+                        r["billing"] = None
+                    save_db()
+                    flash(f"Rate updated for {r['name']} ({co['name']}).")
+                    break
+        elif action == "add":
+            name = (request.form.get("name") or "").strip()
+            if name:
+                try:
+                    staffing = float(request.form.get("staffing"))
+                except (TypeError, ValueError):
+                    staffing = None
+                try:
+                    billing = float(request.form.get("billing"))
+                except (TypeError, ValueError):
+                    billing = None
+                DB["rates"].append({
+                    "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
+                    "company": co["name"], "staffing": staffing,
+                    "billing": billing,
+                })
+                save_db()
+                flash(f"Rate added for {name} ({co['name']}).")
+            else:
+                flash("Employee name is required.")
+        elif action == "delete":
+            rid = request.form.get("id") or ""
+            before = len(DB["rates"])
+            DB["rates"] = [r for r in DB["rates"]
+                           if not (r.get("id") == rid
+                                   and r.get("company") == co["name"])]
+            if len(DB["rates"]) < before:
+                save_db()
+                flash("Rate removed.")
+        return redirect(url_for(".company_rates", company=co["slug"]))
+    rows = sorted((r for r in DB["rates"]
+                   if r.get("company") == co["name"]),
+                  key=lambda x: (x.get("name") or "").lower())
+    return render_template("payroll/rates_company.html", company=co,
+                           rates=rows,
+                           prefill_name=request.args.get("name") or "")
 
 
 # ----------------------------------------------------------------- entries
