@@ -30,6 +30,7 @@
       <div><label for="clock_out">Clock-Out (optional)</label><input id="clock_out" name="clock_out" value="{{ edit_entry.clock_out if edit_entry else '' }}" placeholder="e.g. 3:30 PM"></div>
       <div><label for="site">Site (optional)</label><input id="site" name="site" value="{{ edit_entry.site if edit_entry else '' }}" placeholder="e.g. LGES"></div>
       <div><label for="notes">Notes (optional)</label><input id="notes" name="notes" value="{{ edit_entry.notes if edit_entry else '' }}" placeholder="e.g. KB"></div>
+      <div><label for="jobsite_id">Jobsite (optional)</label><select id="jobsite_id" name="jobsite_id"><option value="">— Unassigned —</option>{% for j in jobsites %}<option value="{{ j.id }}"{{ ' selected' if edit_entry and (edit_entry.jobsite_id or '') == j.id else '' }}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">{{ 'Save Changes' if edit_entry else 'Add Entry' }}</button>
@@ -49,6 +50,20 @@
     <div class="btn-row" style="margin-top:12px"><button class="btn secondary" type="submit">Import CSV</button></div>
   </form>
 </div>
+
+{% if jobsites %}
+<div class="card">
+  <h2 style="margin-top:0">Tag entries to a Jobsite</h2>
+  <p class="small muted">Tags every entry in this period ({{ start }} → {{ end }}) that has no jobsite yet with the jobsite below. Entries already tagged to another jobsite are left alone — reassign those one by one with Edit.</p>
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="action" value="assign_jobsite">
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px"><label style="margin-top:0" for="assign_jobsite_id">Jobsite</label><select id="assign_jobsite_id" name="jobsite_id" required><option value="">— pick —</option>{% for j in jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
+      <button class="btn" type="submit">Tag untagged entries</button>
+    </div>
+  </form>
+</div>
+{% endif %}
 
 {% if unmatched %}
 <div class="card">
@@ -90,13 +105,13 @@
   {% if rows %}
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Date</th><th>Employee</th><th class="num">Payroll Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Employee</th><th class="num">Payroll Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Jobsite</th><th>Notes</th><th></th></tr></thead>
       <tbody>
         {% for e in rows %}
         <tr>
           <td>{{ e.date }}</td><td>{{ e.employee }}{% if alias_map.get(e.employee) %}<br><span class="badge ok">→ {{ alias_map[e.employee] }}</span>{% endif %}</td><td class="num">{{ e.payroll_hours }}</td>
           <td>{{ e.clock_in or '—' }}</td><td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
-          <td>{{ e.site or '—' }}</td><td>{{ e.notes or '—' }}</td>
+          <td>{{ e.site or '—' }}</td><td>{{ jobsite_by_id[e.jobsite_id].code if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) else '—' }}</td><td>{{ e.notes or '—' }}</td>
           <td>
             <a class="btn secondary small" href="{{ url_for('.entries', company=company.slug, edit=e.id, **{'from': start, 'to': end}) }}">Edit</a>
             <form class="inline-form" method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" onsubmit="return confirm('Delete this entry?')">
