@@ -190,6 +190,9 @@ def _alias_map(company):
 
 
 def _money(value):
+    # Negative amounts (discounts / deductions) read as -$2,500.00.
+    if value < 0:
+        return f"-${abs(value):,.2f}"
     return f"${value:,.2f}"
 
 
@@ -602,6 +605,9 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 10, 5, 30)
 
     def money(v):
+        # Negative amounts (discounts / deductions) read as -$2,500.00.
+        if v < 0:
+            return f"-${abs(v):,.2f}"
         return f"${v:,.2f}"
 
     def qty(v):
