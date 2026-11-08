@@ -92,6 +92,20 @@ def _company_bank(co):
         "zelle": (co.get("bank_zelle") or "").strip(),
     }
 
+
+def _pdf_margin(value, default, lo, hi):
+    """A per-company PDF margin (mm) from the company record: a number
+    within [lo, hi], otherwise the default. The user sets it on the
+    Edit Company page; it controls how much whitespace the invoice
+    PDF has at the top / bottom."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    if v < lo or v > hi:
+        return default
+    return v
+
 PHOENIX = ZoneInfo("America/Phoenix")
 
 
@@ -276,6 +290,8 @@ def add_company():
     bank_account_name = (request.form.get("bank_account_name") or "").strip()
     bank_telephone = (request.form.get("bank_telephone") or "").strip()
     bank_zelle = (request.form.get("bank_zelle") or "").strip()
+    pdf_top_margin = (request.form.get("pdf_top_margin") or "").strip()
+    pdf_bottom_margin = (request.form.get("pdf_bottom_margin") or "").strip()
     if not name:
         flash("Company name is required.")
         return redirect(url_for(".index"))
@@ -306,6 +322,8 @@ def add_company():
         "bank_routing": bank_routing, "bank_account": bank_account,
         "bank_account_name": bank_account_name,
         "bank_telephone": bank_telephone, "bank_zelle": bank_zelle,
+        "pdf_top_margin": pdf_top_margin,
+        "pdf_bottom_margin": pdf_bottom_margin,
     })
     save_db()
     flash(f"Company {name} added. Add its rates under Rates, then import "
@@ -368,6 +386,8 @@ def edit_company(slug):
     bank_account_name = (request.form.get("bank_account_name") or "").strip()
     bank_telephone = (request.form.get("bank_telephone") or "").strip()
     bank_zelle = (request.form.get("bank_zelle") or "").strip()
+    pdf_top_margin = (request.form.get("pdf_top_margin") or "").strip()
+    pdf_bottom_margin = (request.form.get("pdf_bottom_margin") or "").strip()
     if not name:
         flash("Company name is required.")
         return render_template("payroll/edit_company.html", company=co)
@@ -406,6 +426,8 @@ def edit_company(slug):
     co["bank_account_name"] = bank_account_name
     co["bank_telephone"] = bank_telephone
     co["bank_zelle"] = bank_zelle
+    co["pdf_top_margin"] = pdf_top_margin
+    co["pdf_bottom_margin"] = pdf_bottom_margin
     if renamed:
         for coll in ("entries", "rates", "aliases", "variances",
                      "expenses"):
@@ -551,15 +573,19 @@ def invoice(company):
 
 
 def _invoice_pdf_bytes(co, start, end, number, inv, bank):
-    """Build the invoice PDF matching the Hanseong sheet format (one page,
-    Letter portrait, compact so long invoices fit): PRISM logo + blue
-    Invoice title, contact block, dark-navy VENDOR / SHIP TO bars, P.O.
-    table, items table (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL, Regular
-    (RH) then Overtime (OT) per employee), Bank Account Details box +
-    SUB TOTAL / FREIGHT / SHIPPING / HANDLING / TOTAL stack, Approved by
+    """Build the invoice PDF matching the Hanseong sheet format (Letter
+    portrait, compact so long invoices fit): PRISM logo + blue Invoice
+    title, contact block, dark-navy VENDOR / SHIP TO bars, P.O. table,
+    items table (NO/DESCRIPTION/UNIT PRICE/UOM/QTY/TOTAL, Regular (RH)
+    then Overtime (OT) per employee), Bank Account Details box + SUB
+    TOTAL / FREIGHT / SHIPPING / HANDLING / TOTAL stack, Approved by
     with signature line. The DPO reference footer is intentionally left
-    out. The bottom section sits right after the table (dynamic y), so a
-    long invoice never overlaps it; very long invoices flow to page 2."""
+    out. The bottom section is ALWAYS pinned to the bottom of the page
+    (its position is computed from the bottom margin upward), so a short
+    invoice has the bank box + totals + approval at the very bottom and
+    a long invoice never overlaps them; very long invoices flow to
+    page 2. Top/bottom margins come from the company record
+    (pdf_top_margin / pdf_bottom_margin, mm; defaults 5 / 10)."""
     from fpdf import FPDF
 
     NAVY = (10, 48, 65)
@@ -572,7 +598,8 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     ROW = 5
     DATA_ROW = 4.5
     PAGE_H = 279.4
-    BOTTOM_MARGIN = 12
+    TOP = _pdf_margin(co.get("pdf_top_margin"), 5, 0, 20)
+    BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 10, 5, 30)
 
     def money(v):
         return f"${v:,.2f}"
@@ -588,14 +615,14 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
 
     pdf = FPDF(orientation="P", unit="mm", format="Letter")
     pdf.set_auto_page_break(auto=True, margin=BOTTOM_MARGIN)
-    pdf.set_margins(LEFT, 5, 17.8)
+    pdf.set_margins(LEFT, TOP, 17.8)
     pdf.add_page()
 
     # --- Top row: logo (left) + Invoice title (blue, right) ---
     logo_path = os.path.join(BASE_DIR, "static", "prism-logo.png")
     if os.path.exists(logo_path):
-        pdf.image(logo_path, x=LEFT, y=5, w=46)
-    pdf.set_xy(124, 5.5)
+        pdf.image(logo_path, x=LEFT, y=TOP, w=46)
+    pdf.set_xy(124, TOP + 0.5)
     pdf.set_font("helvetica", "B", 22)
     pdf.set_text_color(*BLUE)
     pdf.cell(60, 9, "Invoice", new_x="LMARGIN", new_y="NEXT")
@@ -603,7 +630,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
 
     # --- Contact block (left) / NUMBER + CATEGORY + duration (right) ---
     # 4 mm line height: the 5th line (email) must end above the VENDOR bar.
-    y0 = 18
+    y0 = TOP + 13
     pdf.set_xy(LEFT, y0)
     pdf.set_font("helvetica", "B", BODY)
     pdf.cell(95, 4, INVOICE_COMPANY_NAME + ".", new_x="LMARGIN", new_y="NEXT")
@@ -631,7 +658,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
             new_x="LMARGIN", new_y="NEXT")
 
     # --- VENDOR / SHIP TO dark bars ---
-    yb = 40
+    yb = TOP + 35
     pdf.set_fill_color(*NAVY)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("helvetica", "B", BODY)
@@ -659,7 +686,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     # TEL NUM is the vendor's phone: the company's own phone when set,
     # otherwise the default number.
     tel_num = (co.get("phone") or "").strip() or INVOICE_TEL_NUM
-    yt = 59
+    yt = TOP + 54
     pdf.set_xy(LEFT, yt)
     pdf.set_font("helvetica", "B", BODY)
     pdf.cell(60, 4, f"TEL NUM : {tel_num}",
@@ -671,7 +698,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.cell(60, 4, "(OT) OVER TIME HR", new_x="LMARGIN", new_y="NEXT")
 
     # --- P.O. table ---
-    yp = 68
+    yp = TOP + 63
     po_cols = [("P.O. DATE", 45), ("REQUISITIONER", 45),
                ("SHIPPED VIA", 30), ("F.O.B. POINT", 30),
                ("PROJECT NAME", 30)]
@@ -697,7 +724,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
                 new_y="NEXT" if last else "TOP")
 
     # --- Items table (dark header; rows flow across pages if long) ---
-    yi = 79
+    yi = TOP + 74
     cols = [("NO", 13.8, "C"), ("DESCRIPTION", 60.4, "C"),
             ("UNIT PRICE", 31.9, "C"), ("UOM", 14.8, "C"),
             ("QTY", 16.2, "C"), ("TOTAL", 42.9, "C")]
@@ -763,30 +790,13 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
                 " - no rate.", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("helvetica", "", BODY)
 
-    # --- Bottom section: short invoice -> tall empty table + fixed
-    # bottom (matches the sheet); long invoice -> bottom right after
-    # the table (dynamic y), new page if it would not fit.
-    y_after = pdf.get_y()
-    if pdf.page_no() == 1 and y_after <= 195:
-        # Short invoice: fill the tall table body down to y=200 as ONE
-        # empty area (outer border + column dividers, no horizontal
-        # grid lines), then the bottom at the sheet's fixed position.
-        y_top = y_after
-        y_bot = 200
-        pdf.rect(LEFT, y_top, W, y_bot - y_top, style="D")
-        x = LEFT
-        for label, cw, al in cols[:-1]:
-            x += cw
-            pdf.line(x, y_top, x, y_bot)
-        yb2 = 202.8
-    else:
-        yb2 = y_after + 3
-    # Bank box + totals need ~34mm; move to a fresh page if they
-    # would run past the bottom margin.
-    if yb2 + 34 > PAGE_H - 4:
-        pdf.add_page()
-        yb2 = 10
-    # Bank box (left)
+    # --- Bottom section: ALWAYS pinned to the page bottom. ---
+    # Its top (yb2) is computed from the bottom margin upward:
+    # approval underline at PAGE_H - BOTTOM_MARGIN, approval text 7mm
+    # above it, a 6mm gap, then the bank box. The table is filled down
+    # to yb2, so a short invoice has the bottom at the very bottom and
+    # a long invoice never overlaps it. If the table runs past yb2 on
+    # this page, the bottom moves to a fresh page (also pinned).
     bank_lines = [
         ("Bank Name: ", bank["bank"]),
         ("Branch Name: ", bank["branch"]),
@@ -797,6 +807,24 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         ("Zelle: ", bank.get("zelle") or ""),
     ]
     box_h = 4.5 + 3.8 * len(bank_lines)
+    approval_underline_y = PAGE_H - BOTTOM_MARGIN
+    ya = approval_underline_y - 7
+    yb2 = ya - 6 - (box_h + 1)
+    y_after = pdf.get_y()
+    if y_after > yb2:
+        # Table runs past where the bottom must start: fresh page.
+        pdf.add_page()
+        y_after = pdf.get_y()
+    if y_after < yb2:
+        # Fill the table body down to the bottom section as ONE empty
+        # area (outer border + column dividers, no horizontal grid
+        # lines), so the bottom sits at the very bottom of the page.
+        pdf.rect(LEFT, y_after, W, yb2 - y_after, style="D")
+        x = LEFT
+        for label, cw, al in cols[:-1]:
+            x += cw
+            pdf.line(x, y_after, x, yb2)
+    # Bank box (left)
     pdf.set_xy(LEFT + 2, yb2)
     pdf.set_font("helvetica", "BU", BODY)
     pdf.cell(76, 4.5, "Bank Account Details:", new_x="LMARGIN", new_y="NEXT")
@@ -828,11 +856,8 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
         pdf.cell(43, ROW, amt, border=1, align="R",
                 new_x="LMARGIN", new_y="NEXT")
 
-    # --- Approved by + signature line ---
-    ya = yb2 + box_h + 6
-    if ya + 8 > PAGE_H - 4:
-        pdf.add_page()
-        ya = 10
+    # --- Approved by + signature line (pinned: underline at the
+    # bottom margin) ---
     pdf.set_xy(LEFT, ya)
     pdf.set_font("helvetica", "B", BODY)
     appr = (f"Approved by Prism ME LLC. Chief Executive Officer "
@@ -841,7 +866,7 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     cx = (LEFT + RIGHT - tw) / 2
     pdf.set_x(cx)
     pdf.cell(tw, 5, appr, new_x="LMARGIN", new_y="NEXT")
-    pdf.line(cx, ya + 7, cx + tw, ya + 7)
+    pdf.line(cx, approval_underline_y, cx + tw, approval_underline_y)
 
     return bytes(pdf.output())
 
