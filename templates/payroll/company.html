@@ -49,7 +49,7 @@
           <td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td>
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
           <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
-          <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');el.style.display=(el.style.display==='none'?'':'none');this.textContent=(el.style.display==='none'?'▸ Days':'▾ Days')">▸ Days</button>{% endif %}</td>
+          <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
         </tr>
         {% if days_by_employee.get(r.employee) %}
         <tr id="days-{{ loop.index }}" style="display:none">
