@@ -1649,12 +1649,13 @@ def import_csv(company):
 @bp.route("/<company>/employee", methods=["GET", "POST"])
 def employee_page(company):
     """One page to edit everything about an employee in this company:
-    their name, their company (department), and their rate. Their time
-    entries are listed below with an Edit link each. Renaming updates
-    the rate row, the entries and the name mappings together; moving
-    updates the rate row and the entries together. A rename is refused
-    when the new name already has a rate row or entries in the target
-    company, so two workers can never collide under one name."""
+    their name, their company (department), their employee ID and their
+    rate. Their time entries are listed below with an Edit link each.
+    Renaming updates the rate row, the entries and the name mappings
+    together; moving updates the rate row and the entries together. A
+    rename is refused when the new name already has a rate row or
+    entries in the target company, and an employee ID is refused when
+    another worker in the target company already uses it."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
@@ -1675,6 +1676,7 @@ def employee_page(company):
             billing = float(request.form.get("billing"))
         except (TypeError, ValueError):
             billing = None
+        employee_id = (request.form.get("employee_id") or "").strip()
         # Refuse a rename that would collide with an existing worker
         # in the target company.
         if new_name != name:
@@ -1690,6 +1692,18 @@ def employee_page(company):
             if collision:
                 flash(f"Cannot rename to {new_name}: that name already "
                       f"exists in {target['name']}.")
+                return redirect(url_for(".employee_page",
+                                        company=co["slug"], name=name))
+        # Refuse an employee ID already used by another worker in the
+        # target company.
+        if employee_id:
+            dup = next((r for r in DB.get("rates", [])
+                        if r.get("company") == target["name"]
+                        and (r.get("employee_id") or "").strip() == employee_id
+                        and (r.get("name") or "") != new_name), None)
+            if dup is not None:
+                flash(f"Employee ID {employee_id} is already used by "
+                      f"{dup.get('name')} in {target['name']}.")
                 return redirect(url_for(".employee_page",
                                         company=co["slug"], name=name))
         # 1. Rename (within the current company).
@@ -1730,11 +1744,12 @@ def employee_page(company):
         if rate is not None:
             rate["staffing"] = staffing
             rate["billing"] = billing
-        elif staffing is not None or billing is not None:
+            rate["employee_id"] = employee_id or None
+        elif staffing is not None or billing is not None or employee_id:
             DB["rates"].append({
                 "id": "rate-" + uuid.uuid4().hex[:8], "name": new_name,
                 "company": target["name"], "staffing": staffing,
-                "billing": billing,
+                "billing": billing, "employee_id": employee_id or None,
             })
         save_db()
         flash(f"Updated {new_name} ({target['name']}).")
