@@ -685,10 +685,10 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.cell(84, 4, "ADDRESS :", new_x="LMARGIN", new_y="NEXT")
 
     # --- TEL NUM + RH/OT legend ---
-    # TEL NUM is the vendor's phone: the company's own phone when set,
-    # otherwise the default number. A lone "-" counts as unset.
-    _ph = (co.get("phone") or "").strip()
-    tel_num = _ph if _ph and _ph != "-" else INVOICE_TEL_NUM
+    # TEL NUM is the vendor's phone: the company's own phone when set
+    # (a lone "-" is a deliberate "no number yet" and shows as "-"),
+    # otherwise the default number.
+    tel_num = (co.get("phone") or "").strip() or INVOICE_TEL_NUM
     yt = TOP + 54
     pdf.set_xy(LEFT, yt)
     pdf.set_font("helvetica", "B", BODY)
