@@ -1075,8 +1075,18 @@ def company_rates(company):
     rows = sorted((r for r in DB["rates"]
                    if r.get("company") == co["name"]),
                   key=lambda x: (x.get("name") or "").lower())
+    # Employees who have payroll entries for this company but no rate
+    # row at all — they never show up in the rates list, so the user
+    # cannot tell who is missing a rate. List them here with an
+    # inline Add so each one can be given a rate on the spot.
+    entry_names = sorted({(e.get("employee") or "").strip()
+                          for e in DB.get("entries", [])
+                          if e.get("company") == co["name"]
+                          and (e.get("employee") or "").strip()})
+    rated = {(r.get("name") or "").strip() for r in rows}
+    missing = [n for n in entry_names if n not in rated]
     return render_template("payroll/rates_company.html", company=co,
-                           rates=rows,
+                           rates=rows, missing=missing,
                            prefill_name=request.args.get("name") or "")
 
 
