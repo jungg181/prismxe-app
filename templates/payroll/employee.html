@@ -2,15 +2,16 @@
 {% block title %}{{ name }} — {{ company.name }}{% endblock %}
 {% block content %}
 <h1>{{ name }}</h1>
-<p class="sub">{{ company.name }} · {{ entries | length }} time entries · {{ fmt_hours(total_hours) }}h total{% if rate %} · Staffing {{ rate.staffing if rate.staffing is not none else '—' }} / Billing {{ rate.billing if rate.billing is not none else '—' }}{% else %} · <span class="badge">No rate</span>{% endif %}</p>
+<p class="sub">{{ company.name }}{% if rate and rate.employee_id %} · ID {{ rate.employee_id }}{% endif %} · {{ entries | length }} time entries · {{ fmt_hours(total_hours) }}h total{% if rate %} · Staffing {{ rate.staffing if rate.staffing is not none else '—' }} / Billing {{ rate.billing if rate.billing is not none else '—' }}{% else %} · <span class="badge">No rate</span>{% endif %}</p>
 
 <div class="card">
   <h2 style="margin-top:0">Edit employee</h2>
-  <p class="small muted">Change the name, the company (department) and the rate together. Renaming updates the rate row, the time entries and the name mappings; moving updates the rate row and the time entries. A rename is refused when the new name already exists in the destination company.</p>
+  <p class="small muted">Change the name, the company (department), the employee ID and the rate together. Renaming updates the rate row, the time entries and the name mappings; moving updates the rate row and the time entries. A rename is refused when the new name already exists in the destination company; an employee ID is refused when another worker in that company already uses it.</p>
   <form method="post" action="{{ url_for('.employee_page', company=company.slug, name=name) }}">
     <div class="form-grid">
       <div><label for="ename">Name</label><input type="text" id="ename" name="new_name" value="{{ name }}" required></div>
       <div><label for="ecompany">Company (department)</label><select id="ecompany" name="to_company">{% for c in companies %}<option value="{{ c.slug }}"{{ ' selected' if c.name == company.name else '' }}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="eid">Employee ID</label><input type="text" id="eid" name="employee_id" value="{{ rate.employee_id if rate and rate.employee_id else '' }}" placeholder="Unique number for this employee"></div>
       <div><label for="estaffing">Staffing rate ($/h)</label><input type="number" id="estaffing" name="staffing" step="0.01" min="0" value="{{ rate.staffing if rate and rate.staffing is not none else '' }}" placeholder="What the worker is paid"></div>
       <div><label for="ebilling">Billing rate ($/h)</label><input type="number" id="ebilling" name="billing" step="0.01" min="0" value="{{ rate.billing if rate and rate.billing is not none else '' }}" placeholder="What the client is charged"></div>
     </div>
