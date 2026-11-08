@@ -1,0 +1,83 @@
+{% extends "payroll/base.html" %}
+{% block title %}{{ job.code }} · Jobsite{% endblock %}
+{% block content %}
+<h1>{{ job.code }}</h1>
+<p class="sub">{{ job.name }} · {{ job.company }}{% if job.site %} · {{ job.site }}{% endif %}</p>
+
+<div class="stat-row">
+  <div class="stat"><div class="k">Revenue (billed)</div><div class="v">${{ '%.2f' % summary.pnl.revenue }}</div></div>
+  <div class="stat"><div class="k">Labor cost</div><div class="v">${{ '%.2f' % summary.pnl.labor_cost }}</div></div>
+  <div class="stat"><div class="k">Other costs</div><div class="v">${{ '%.2f' % summary.other_total }}</div></div>
+  <div class="stat"><div class="k">Profit</div><div class="v">${{ '%.2f' % summary.profit }}</div></div>
+  <div class="stat"><div class="k">Margin</div><div class="v">{% if summary.margin is not none %}{{ summary.margin }}%{% else %}—{% endif %}</div></div>
+  <div class="stat"><div class="k">Hours</div><div class="v">{{ summary.pnl.total_hours }}h</div><div class="small muted">{{ summary.pnl.reg_hours }} reg · {{ summary.pnl.ot_hours }} OT</div></div>
+</div>
+
+<p class="small muted">Overtime is weekly per worker (over 40h in a Mon–Sun week at 1.5×). When a worker splits a week across jobsites, the OT hours are the ones that push the week over 40 — the later days in the week — so the per-jobsite numbers add up exactly to the company payroll.</p>
+
+{% if summary.pnl.no_rate %}
+<div class="card">
+  <h2 style="margin-top:0">⚠️ No rate — not counted in revenue or labor cost</h2>
+  <p class="small muted">These workers have hours on this jobsite but no rate row, so their pay and billing stay blank. Add a rate for them and the numbers update.</p>
+  <p>{{ summary.pnl.no_rate | join(', ') }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0">Time entries on this jobsite ({{ summary.pnl.lines | length }})</h2>
+  {% if summary.pnl.lines %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Employee</th><th class="num">Hours</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Revenue</th><th class="num">Labor Cost</th></tr></thead>
+      <tbody>
+        {% for line in summary.pnl.lines %}
+        <tr>
+          <td>{{ line.date }}</td><td>{{ line.employee }}</td><td class="num">{{ line.hours }}</td>
+          <td class="num">{{ line.reg_hours }}</td><td class="num">{{ line.ot_hours }}</td>
+          <td class="num">{% if line.revenue is not none %}${{ '%.2f' % line.revenue }}{% else %}—{% endif %}</td>
+          <td class="num">{% if line.labor_cost is not none %}${{ '%.2f' % line.labor_cost }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No time entries tagged to this jobsite yet. Tag them from the Time Entries page — open the company's entries, pick this jobsite, and use "Tag untagged entries", or set it on a single entry with Edit.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Other purchase costs ({{ summary.costs | length }})</h2>
+  {% if summary.costs %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
+      <tbody>
+        {% for c in summary.costs %}
+        <tr>
+          <td>{{ c.date or '—' }}</td><td>{{ c.description }}</td><td class="num">${{ '%.2f' % c.amount }}</td>
+          <td>
+            <form class="inline-form" method="post" action="{{ url_for('.delete_jobsite_cost', job_id=job.id, cost_id=c.id) }}" onsubmit="return confirm('Remove this cost?')">
+              <button class="btn danger small" type="submit">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No other costs yet — materials, tools, fuel, and anything else you bought for this job.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('.add_jobsite_cost', job_id=job.id) }}">
+    <div class="form-grid">
+      <div><label for="description">Description</label><input id="description" name="description" placeholder="e.g. Lumber" required></div>
+      <div><label for="amount">Amount ($)</label><input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" required></div>
+      <div><label for="date">Date</label><input id="date" name="date" type="date"></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Cost</button></div>
+  </form>
+</div>
+
+<p><a class="btn secondary" href="{{ url_for('.jobsites') }}">← All Jobsites</a></p>
+{% endblock %}
