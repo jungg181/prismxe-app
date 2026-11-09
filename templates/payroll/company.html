@@ -31,8 +31,19 @@
 </div>
 
 <div class="card">
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px">
+    <label class="muted small" for="emp-sort">Sort</label>
+    <select id="emp-sort" onchange="sortEmployees(this.value)">
+      <option value="name">Name (A–Z)</option>
+      <option value="total-desc">Total hours (High → Low)</option>
+      <option value="total-asc">Total hours (Low → High)</option>
+      <option value="ot-desc">Overtime (High → Low)</option>
+      <option value="gross-desc">Gross Pay (High → Low)</option>
+      <option value="gross-asc">Gross Pay (Low → High)</option>
+    </select>
+  </div>
   <div class="table-scroll">
-    <table>
+    <table id="emp-table">
       <thead><tr>
         <th>Employee</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Total</th>
         <th class="num">Staffing Rate</th><th class="num">Gross Pay</th>
@@ -189,5 +200,54 @@
     form.addEventListener('submit', function(ev){ ev.preventDefault(); saveForm(form); });
   });
 })();
+
+// Sort the employee table. Each employee's Days detail row moves with its
+// main row; the PAYROLL TOTAL row always stays last.
+function sortEmployees(mode){
+  var table = document.getElementById('emp-table');
+  if(!table) return;
+  var tbody = table.tBodies[0];
+  if(!tbody) return;
+  var rows = Array.prototype.slice.call(tbody.rows);
+  var totalRow = null;
+  var groups = [];
+  for(var i = 0; i < rows.length; i++){
+    var row = rows[i];
+    if(row.classList.contains('total')){ totalRow = row; continue; }
+    if(row.id && row.id.indexOf('days-') === 0) continue; // attached to previous group
+    var group = [row];
+    var next = row.nextElementSibling;
+    if(next && next.id && next.id.indexOf('days-') === 0) group.push(next);
+    groups.push(group);
+  }
+  function numVal(cell){
+    if(!cell) return null;
+    var n = parseFloat(cell.textContent.replace(/[$,]/g, '').trim());
+    return isNaN(n) ? null : n;
+  }
+  function cmpNum(a, b, dir){
+    if(a === null && b === null) return 0;
+    if(a === null) return 1;
+    if(b === null) return -1;
+    return (a - b) * dir;
+  }
+  groups.sort(function(ga, gb){
+    var ra = ga[0], rb = gb[0];
+    var ca = ra.cells, cb = rb.cells;
+    if(mode === 'name'){
+      var na = (ca[0] ? ca[0].textContent.trim().toLowerCase() : '');
+      var nb = (cb[0] ? cb[0].textContent.trim().toLowerCase() : '');
+      return na < nb ? -1 : (na > nb ? 1 : 0);
+    }
+    if(mode === 'total-desc') return cmpNum(numVal(ca[3]), numVal(cb[3]), -1);
+    if(mode === 'total-asc') return cmpNum(numVal(ca[3]), numVal(cb[3]), 1);
+    if(mode === 'ot-desc') return cmpNum(numVal(ca[2]), numVal(cb[2]), -1);
+    if(mode === 'gross-desc') return cmpNum(numVal(ca[5]), numVal(cb[5]), -1);
+    if(mode === 'gross-asc') return cmpNum(numVal(ca[5]), numVal(cb[5]), 1);
+    return 0;
+  });
+  groups.forEach(function(g){ g.forEach(function(r){ tbody.appendChild(r); }); });
+  if(totalRow) tbody.appendChild(totalRow);
+}
 </script>
 {% endblock %}
