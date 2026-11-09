@@ -81,7 +81,7 @@ const FLOOR = {{ floor | tojson }};
 const PLAN_URL = {{ ((plan.image_url or plan.image_path) if plan else None) | tojson }};
 const PLAN_ID = {{ (plan.id if plan else None) | tojson }};
 const PLAN_BOUNDS = {{ (plan.bounds if plan and plan.bounds else None) | tojson }};
-const API_PREFIX = '/cm';
+const API_PREFIX = '/staffing';
 const center = (SITE.lat != null && SITE.lng != null) ? [SITE.lat, SITE.lng] : [33.28844, -111.55389];
 const map = L.map('map').setView(center, 16);
 const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 19, attribution: 'Esri'});
@@ -175,7 +175,7 @@ async function loadPins(){
     const people = await (await fetch(`/api/personnel?site_id=${SITE.id}`)).json();
     const liveIds = new Set();
     try {
-      const live = await (await fetch('/cm/api/live-locations')).json();
+      const live = await (await fetch('/staffing/api/live-locations')).json();
       live.filter(l => !SITE.id || l.site_id === SITE.id).forEach(l => {
         liveIds.add(l.worker_id);
         const ago = l.age_min < 1 ? 'just now' : `${Math.round(l.age_min)} min ago`;
@@ -192,7 +192,7 @@ async function loadPins(){
 }
 window.delPin = async id => {
   if (!confirm('Delete this pin?')) return;
-  await fetch('/cm/api/pins/'+id, {method:'DELETE'});
+  await fetch('/staffing/api/pins/'+id, {method:'DELETE'});
   loadPins();
 };
 document.querySelectorAll('#layers .chip').forEach(ch => {
@@ -210,7 +210,7 @@ map.on('click', async e => {
   if (label === null) return;
   const x = ((e.latlng.lng - currentBounds[0][1]) / (currentBounds[1][1]-currentBounds[0][1]) * 100);
   const y = ((currentBounds[1][0] - e.latlng.lat) / (currentBounds[1][0]-currentBounds[0][0]) * 100);
-  await fetch('/cm/api/pins', {method:'POST', headers:{'Content-Type':'application/json'},
+  await fetch('/staffing/api/pins', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({site_id: SITE.id, floor: FLOOR, kind, label, lat: e.latlng.lat, lng: e.latlng.lng, x: Math.round(x), y: Math.round(y)})});
   loadPins();
 });
