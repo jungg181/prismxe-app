@@ -152,6 +152,9 @@
 <div class="card">
   <h2 style="margin-top:0">Hours per Day</h2>
   <p class="small muted" style="margin-top:-4px">Regular on top, overtime in yellow below. Overtime is hours over 40 in a Mon–Sun week, counted on the later days of the week.</p>
+  <div class="btn-row" style="margin-bottom:12px">
+    <a class="btn secondary" href="{{ url_for('.hours_pdf', company=company.slug, **{'from': start, 'to': end}) }}">Download PDF</a>
+  </div>
   <div class="table-scroll">
     <table>
       <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num"><span class="day-wd">{{ result.weekdays[d] }}</span><span class="day-dt">{{ d[5:] }}</span></th>{% endfor %}<th class="num">Total</th></tr></thead>
