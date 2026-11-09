@@ -11,6 +11,7 @@
 - GET  /payroll/<company>/export.xlsx  XLSX export (Payroll + Invoice)
 - GET  /payroll/<company>/invoice      invoice view (number = prefix + today)
 - GET  /payroll/<company>/invoice/pdf  invoice PDF (Hanseong sheet format)
+- GET  /payroll/<company>/hours/pdf    Hours per Day PDF (Letter landscape)
 - POST /payroll/<company>/invoice/expense            add an expense line
 - POST /payroll/<company>/invoice/expense/<id>/delete
 - GET  /payroll/rates                   list / edit rates (name + company)
@@ -1070,6 +1071,199 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
 
     return bytes(pdf.output())
 
+def _hours_pdf_bytes(co, start, end, result):
+    """Build the Hours per Day PDF for one company + period from a
+    compute_payroll result (rows carry days / days_ot / total_hours /
+    reg_hours / ot_hours; result carries days + weekdays + totals)."""
+    from fpdf import FPDF
+
+    LEFT = 10.0
+    RIGHT = 269.4
+    PAGE_H = 215.9
+    TOP = 10.0
+    BOTTOM = 10.0
+    EMP_W = 46.0
+    TOT_W = 16.0
+    DAY_W = 12.0
+    DAYS_PER_PAGE = 16
+    ROW_H = 8.0
+    HALF = ROW_H / 2.0
+    ORANGE = (180, 83, 9)      # dark amber — readable on white
+    MUTED = (100, 116, 139)
+    NAVY = (10, 48, 65)
+    HDR_FILL = (230, 235, 240)
+
+    def hrs(v):
+        if v is None or v == 0:
+            return ""
+        return f"{v:.2f}".rstrip("0").rstrip(".")
+
+    def mdy(d):
+        return f"{d.strftime('%b')} {d.day}, {d.year}"
+
+    days = result["days"]
+    weekdays = result["weekdays"]
+    rows = result["rows"]
+    totals = result["totals"]
+
+    class _PDF(FPDF):
+        def footer(self):
+            self.set_y(-10)
+            self.set_font("helvetica", "", 7.5)
+            self.set_text_color(*MUTED)
+            self.cell(0, 5, f"Page {self.page_no()} of {{nb}}",
+                     align="C")
+
+    pdf = _PDF(orientation="L", unit="mm", format="Letter")
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(LEFT, TOP, 10.0)
+    pdf.set_line_width(0.1)
+
+    title_txt = (f"{co['name']} - Hours per Day - "
+                 f"{mdy(start)} - {mdy(end)}")
+    legend_txt = ("Regular on top, overtime below in orange. Overtime is "
+                  "hours over 40 in a Mon-Sun week, counted on the later "
+                  "days of the week.")
+
+    def col_x(i, n):
+        """(x, width) for column i of a chunk with n day-columns:
+        0 = employee, 1..n = days, n+1 = total."""
+        if i == 0:
+            return LEFT, EMP_W
+        if i == n + 1:
+            return LEFT + EMP_W + n * DAY_W, TOT_W
+        return LEFT + EMP_W + (i - 1) * DAY_W, DAY_W
+
+    def cell_two_lines(x, y, w, line1, line2, align="R",
+                       font1=("helvetica", "", 8),
+                       font2=("helvetica", "", 8),
+                       color1=(0, 0, 0), color2=ORANGE, bold1=False,
+                       fill=False):
+        """A bordered ROW_H cell with line1 on top, line2 below."""
+        if fill:
+            pdf.set_fill_color(*HDR_FILL)
+            pdf.rect(x, y, w, ROW_H, style="F")
+        pdf.rect(x, y, w, ROW_H)
+        pdf.set_xy(x, y)
+        pdf.set_font(font1[0], ("B" if bold1 else font1[1]), font1[2])
+        pdf.set_text_color(*color1)
+        pdf.cell(w, HALF, line1, align=align)
+        pdf.set_xy(x, y + HALF)
+        pdf.set_font(font2[0], font2[1], font2[2])
+        pdf.set_text_color(*color2)
+        pdf.cell(w, HALF, line2, align=align)
+
+    def cell_dot(x, y, w):
+        """A bordered ROW_H cell with a centered middle dot (no hours)."""
+        pdf.rect(x, y, w, ROW_H)
+        pdf.set_xy(x, y)
+        pdf.set_font("helvetica", "", 8)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(w, ROW_H, "·", align="C")
+
+    def draw_top(chunk):
+        """Title block + column header for one day-chunk. Returns the y
+        just below the header row."""
+        y = TOP
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "B", 14)
+        pdf.set_text_color(*NAVY)
+        pdf.cell(0, 7, title_txt, new_x="LMARGIN", new_y="NEXT")
+        y += 8
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "", 7.5)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(0, 4, legend_txt, new_x="LMARGIN", new_y="NEXT")
+        y += 6
+        n = len(chunk)
+        # Header row: Employee | weekday/date per day | Total.
+        pdf.set_fill_color(*HDR_FILL)
+        x, w = col_x(0, n)
+        pdf.set_xy(x, y)
+        pdf.set_font("helvetica", "B", 8)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(w, ROW_H, "Employee", border=1, fill=True,
+                new_x="RIGHT", new_y="TOP")
+        for j, d in enumerate(chunk):
+            x, w = col_x(j + 1, n)
+            cell_two_lines(x, y, w, weekdays.get(d, ""), d[5:],
+                           align="C",
+                           font1=("helvetica", "", 7),
+                           font2=("helvetica", "B", 8),
+                           color1=MUTED, color2=(0, 0, 0), fill=True)
+        x, w = col_x(n + 1, n)
+        pdf.set_xy(x, y)
+        pdf.set_font("helvetica", "B", 8)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(w, ROW_H, "Total", border=1, fill=True, align="C",
+                new_x="LMARGIN", new_y="NEXT")
+        return y + ROW_H
+
+    def draw_row(y, chunk, name, day_totals, day_ots, tot, ot,
+                 bold=False):
+        """One employee (or total) row. day_totals/day_ots are dicts
+        keyed by date; tot/ot are the period totals."""
+        n = len(chunk)
+        x, w = col_x(0, n)
+        pdf.set_xy(x, y)
+        pdf.set_font("helvetica", "B" if bold else "", 8)
+        pdf.set_text_color(0, 0, 0)
+        label = name if len(name) <= 26 else name[:25] + "..."
+        pdf.cell(w, ROW_H, label, border=1, new_x="RIGHT", new_y="TOP")
+        for j, d in enumerate(chunk):
+            x, w = col_x(j + 1, n)
+            t = day_totals.get(d, 0.0) or 0.0
+            o = day_ots.get(d, 0.0) or 0.0
+            if t:
+                reg = round(t - o, 2)
+                if o:
+                    cell_two_lines(x, y, w, hrs(reg), hrs(o), bold1=bold)
+                else:
+                    cell_two_lines(x, y, w, hrs(t), "", bold1=bold)
+            else:
+                cell_dot(x, y, w)
+        x, w = col_x(n + 1, n)
+        if tot:
+            if ot:
+                cell_two_lines(x, y, w, hrs(tot), hrs(ot), bold1=True)
+            else:
+                cell_two_lines(x, y, w, hrs(tot), "", bold1=True)
+        else:
+            cell_dot(x, y, w)
+        return y + ROW_H
+
+    chunks = [days[i:i + DAYS_PER_PAGE]
+              for i in range(0, len(days), DAYS_PER_PAGE)] or [[]]
+    for chunk in chunks:
+        pdf.add_page()
+        y = draw_top(chunk)
+        # Per-day totals across all employees, for the TOTAL row.
+        day_tot = {}
+        day_ot = {}
+        for r in rows:
+            for d in chunk:
+                day_tot[d] = day_tot.get(d, 0.0) + (r["days"].get(d) or 0.0)
+                day_ot[d] = day_ot.get(d, 0.0) + (r["days_ot"].get(d) or 0.0)
+        for r in rows:
+            if y + ROW_H > PAGE_H - BOTTOM:
+                pdf.add_page()
+                y = draw_top(chunk)
+            y = draw_row(y, chunk, r["employee"], r["days"], r["days_ot"],
+                         r["total_hours"], r["ot_hours"])
+        if y + ROW_H > PAGE_H - BOTTOM:
+            pdf.add_page()
+            y = draw_top(chunk)
+        # PAYROLL TOTAL row (bold, with a rule above it).
+        pdf.set_draw_color(0, 0, 0)
+        pdf.line(LEFT, y, RIGHT, y)
+        y = draw_row(y, chunk, "PAYROLL TOTAL", day_tot, day_ot,
+                     totals["total_hours"], totals["total_ot_hours"],
+                     bold=True)
+
+    return bytes(pdf.output())
+
+
 @bp.get("/<company>/invoice/pdf")
 def invoice_pdf(company):
     """Download the invoice as a PDF in the Hanseong sheet format.
@@ -1099,6 +1293,26 @@ def invoice_pdf(company):
     data = _invoice_pdf_bytes(co, start, end, number, inv,
                               _company_bank(co))
     filename = f"{co['name']}_{number}.pdf"
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{filename}"'})
+
+
+@bp.get("/<company>/hours/pdf")
+def hours_pdf(company):
+    """Download the Hours per Day table as a printable PDF (Letter
+    landscape): one row per employee, one column per day, Regular on
+    top and OT below in orange — the same split as the Hours per Day
+    table on the payroll page. Up to 16 day-columns per page; longer
+    periods split into consecutive pages."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    result = _payroll_for(co, start, end)
+    data = _hours_pdf_bytes(co, start, end, result)
+    filename = (f"{co['name']}_Hours_per_Day_"
+                f"{start.isoformat()}_{end.isoformat()}.pdf")
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition":
                              f'attachment; filename="{filename}"'})
