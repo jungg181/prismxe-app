@@ -39,8 +39,8 @@ import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from flask import (Blueprint, Response, flash, redirect, render_template,
-                   request, send_file, url_for)
+from flask import (Blueprint, Response, flash, jsonify, redirect,
+                   render_template, request, send_file, url_for)
 
 from payroll_calc import (DEFAULT_OT_MULTIPLIER, DEFAULT_OT_THRESHOLD,
                           compute_jobsite_pnl, compute_payroll,
@@ -565,6 +565,8 @@ def update_entry_hours(company, entry_id):
             e["clock_in"] = clock_in
             e["clock_out"] = clock_out
             save_db()
+            if request.headers.get("X-Requested-With") == "fetch":
+                return jsonify({"ok": True})
             flash(f"Updated for {e.get('employee')} "
                   f"on {e.get('date')}: {hours}h"
                   + (f" ({clock_in} - {clock_out})"
@@ -582,7 +584,9 @@ def add_day_hours(company):
     worker has no entry on (a 0h day in the Days list). Created when
     the hours are over 0, or when clock-in/out times are given
     (a 0h day needs no entry at all unless times are recorded).
-    Site and notes are left blank."""
+    Site and notes are left blank. If an entry for that day appeared
+    meanwhile (e.g. a second auto-save after the first one created
+    it), update it instead of skipping — the endpoint is idempotent."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
@@ -597,12 +601,20 @@ def add_day_hours(company):
     clock_in = (request.form.get("clock_in") or "").strip()
     clock_out = (request.form.get("clock_out") or "").strip()
     if employee and day and (hours > 0 or clock_in or clock_out):
-        # Do not create a duplicate if an entry appeared meanwhile.
-        exists = any(e.get("company") == co["name"]
-                     and e.get("employee") == employee
-                     and e.get("date") == day
-                     for e in DB["entries"])
-        if not exists:
+        existing = next((e for e in DB["entries"]
+                         if e.get("company") == co["name"]
+                         and e.get("employee") == employee
+                         and e.get("date") == day), None)
+        if existing is not None:
+            existing["payroll_hours"] = hours
+            existing["clock_in"] = clock_in
+            existing["clock_out"] = clock_out
+            save_db()
+            msg = (f"Updated for {employee} on {day}: {hours}h"
+                   + (f" ({clock_in} - {clock_out})"
+                      if clock_in or clock_out else "")
+                   + ".")
+        else:
             DB["entries"].append({
                 "id": uuid.uuid4().hex[:12], "company": co["name"],
                 "employee": employee, "date": day,
@@ -612,10 +624,15 @@ def add_day_hours(company):
                 "gross_hours": None, "site": "", "notes": "",
             })
             save_db()
-            flash(f"Hours added for {employee} on {day}: {hours}h"
-                  + (f" ({clock_in} - {clock_out})"
-                     if clock_in or clock_out else "")
-                  + ".")
+            msg = (f"Hours added for {employee} on {day}: {hours}h"
+                   + (f" ({clock_in} - {clock_out})"
+                      if clock_in or clock_out else "")
+                   + ".")
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify({"ok": True})
+        flash(msg)
+    elif request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"ok": True})
     return redirect(url_for(".company_payroll", company=co["slug"],
                             **{"from": start.isoformat(),
                                "to": end.isoformat()}))
