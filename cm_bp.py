@@ -20,7 +20,7 @@ DB_PATH = os.path.join(BASE_DIR, 'data_cm.json')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'static', 'cm', 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-bp = Blueprint("cm", __name__, url_prefix="/cm",
+bp = Blueprint("cm", __name__, url_prefix="/staffing",
                template_folder="templates/cm")
 BASE_URL = os.environ.get("BASE_URL", "https://app.prismxe.com")
 
@@ -384,17 +384,17 @@ def register_jinja(app):
     )
 
 NAV = [
-    ('dashboard', 'Dashboard', '/cm/'),
-    ('sites', 'Sites', '/cm/sites'),
-    ('blueprints', 'Map & Plans', '/cm/blueprints'),
-    ('workers', 'Workers', '/cm/workers'),
-    ('timecards', 'Timecards', '/cm/timecards'),
-    ('incidents', 'Incidents', '/cm/incidents'),
-    ('daily_logs', 'Daily Logs', '/cm/daily-logs'),
-    ('labour', 'Labour', '/cm/labour'),
-    ('materials', 'Materials', '/cm/materials'),
-    ('qa', 'QA/QC', '/cm/qa'),
-    ('data', 'Data', '/cm/data'),
+    ('dashboard', 'Dashboard', '/staffing/'),
+    ('sites', 'Sites', '/staffing/sites'),
+    ('blueprints', 'Map & Plans', '/staffing/blueprints'),
+    ('workers', 'Workers', '/staffing/workers'),
+    ('timecards', 'Timecards', '/staffing/timecards'),
+    ('incidents', 'Incidents', '/staffing/incidents'),
+    ('daily_logs', 'Daily Logs', '/staffing/daily-logs'),
+    ('labour', 'Labour', '/staffing/labour'),
+    ('materials', 'Materials', '/staffing/materials'),
+    ('qa', 'QA/QC', '/staffing/qa'),
+    ('data', 'Data', '/staffing/data'),
 ]
 
 
@@ -754,7 +754,7 @@ def api_qr_create():
            'action': 'toggle',
            'created_at': now_iso(),
            'expires_at': (datetime.now() + timedelta(minutes=10)).isoformat(timespec='seconds'),
-           'clock_url': BASE_URL.rstrip('/') + '/cm/clock/' + token}
+           'clock_url': BASE_URL.rstrip('/') + '/staffing/clock/' + token}
     DB['qr_tokens'] = [t for t in DB['qr_tokens'] if t['token'] != token]
     DB['qr_tokens'].append(rec)
     save_db()
@@ -1595,7 +1595,7 @@ def payroll_email():
                        'created_at': now_iso()}
                 tokens.append(tok)
                 save_db()
-            review_url = (BASE_URL.rstrip('/') + '/cm/payroll/review/'
+            review_url = (BASE_URL.rstrip('/') + '/staffing/payroll/review/'
                           + tok['token'])
             send_body += f"\n\nReview or correct this payroll: {review_url}"
             html_body += (f'<br><br><a href="{review_url}" '
@@ -1700,7 +1700,7 @@ def payroll_review(token):
                     f"Note: {note or '(no note)'}", ""] + diff_lines + [
                     "",
                     "Review: " + BASE_URL.rstrip('/')
-                    + '/cm/timecards/payroll/corrections']))
+                    + '/staffing/timecards/payroll/corrections']))
                 sheets_post({'action': 'sendEmail', 'to': 'info@prismxe.com',
                              'subject': f"Payroll correction: {worker_name(wid)} "
                                         f"{start} – {end}",
