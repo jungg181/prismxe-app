@@ -88,7 +88,7 @@
 {% endif %}
 
 <div class="card">
-  <h2 style="margin-top:0">Time entries ({{ entries | length }})</h2>
+  <h2 style="margin-top:0">Time entries ({{ entries | length }}) · {{ fmt_hours(total_hours) }}h total</h2>
   {% if entries %}
   <div class="table-scroll">
     <table>
