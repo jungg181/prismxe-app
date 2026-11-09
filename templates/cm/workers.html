@@ -41,40 +41,29 @@
   </div>
 </form>
 
-<div class="cards">
+<div class="table-wrap"><table class="tbl">
+<tr><th>Name</th><th>Trade</th><th>Company</th><th>Phone</th><th>Site</th><th>Status</th><th>Action</th></tr>
 {% for w in rows %}
-<div class="card worker-row">
-  <div class="avatar">{{ w.name[:1] }}</div>
-  <div class="grow">
-    <div><b>{{ w.name }}</b>
-      {% if w.self_registered %}<span class="pill pill-self">Self</span>{% endif %}
-      <span class="pill {% if w.clocked_in %}pill-active{% elif w.status=='active' %}pill-idle{% else %}pill-{{ w.status }}{% endif %}">
-        {% if w.clocked_in %}Clocked In{% else %}{{ w.status.replace('_',' ').title() }}{% endif %}
-      </span>
-      {% if w.clocked_in %}<span class="live-slot" data-wid="{{ w.id }}"></span>{% endif %}
-      <span class="pill trade">{{ w.trade }}</span>
-      {% if w.company %}<span class="pill">{{ w.company }}</span>{% endif %}
-    </div>
-    <div class="muted small">
-      {% if w.phone %}<a href="tel:{{ w.phone }}">{{ w.phone }}</a>{% endif %}
-      {% if w.email %} · <a href="mailto:{{ w.email }}">{{ w.email }}</a>{% endif %}
-      · {{ site_name(w.site_id) }}
-      {% if w.phone %} · <a target="_blank" href="https://wa.me/{{ w.phone|replace('+','')|replace(' ','')|replace('-','') }}">WhatsApp</a>{% endif %}
-    </div>
-    <div class="row-actions">
-      <button class="btn small" onclick='openDispatch({{ w.id|tojson }})'>Dispatch</button>
-      <button class="btn small" onclick='openDetails({{ w.id|tojson }})'>Details</button>
-      <a class="btn small" href="{{ url_for('.worker_edit', wid=w.id) }}">Edit</a>
-      <form method="post" action="{{ url_for('.worker_delete', wid=w.id) }}" onsubmit="return confirm('Delete worker?')">
-        <button class="btn small danger">Delete</button>
-      </form>
-    </div>
-  </div>
-</div>
+<tr>
+  <td><b>{{ w.name }}</b>{% if w.self_registered %} <span class="pill pill-self">Self</span>{% endif %}</td>
+  <td><span class="pill trade">{{ w.trade }}</span></td>
+  <td>{{ w.company or '' }}</td>
+  <td>{% if w.phone %}<a href="tel:{{ w.phone }}">{{ w.phone }}</a>{% endif %}</td>
+  <td>{{ site_name(w.site_id) }}</td>
+  <td><span class="pill {% if w.clocked_in %}pill-active{% elif w.status=='active' %}pill-idle{% else %}pill-{{ w.status }}{% endif %}">{% if w.clocked_in %}Clocked In{% else %}{{ w.status.replace('_',' ').title() }}{% endif %}</span>{% if w.clocked_in %} <span class="live-slot" data-wid="{{ w.id }}"></span>{% endif %}</td>
+  <td class="nowrap">
+    <button class="btn small" onclick='openDispatch({{ w.id|tojson }})'>Dispatch</button>
+    <button class="btn small" onclick='openDetails({{ w.id|tojson }})'>Details</button>
+    <a class="btn small" href="{{ url_for('.worker_edit', wid=w.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('.worker_delete', wid=w.id) }}" style="display:inline" onsubmit="return confirm('Delete worker?')">
+      <button class="btn small danger">Delete</button>
+    </form>
+  </td>
+</tr>
 {% else %}
-<p class="muted">No workers found.</p>
+<tr><td colspan="7" class="muted">No workers found.</td></tr>
 {% endfor %}
-</div>
+</table></div>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -89,10 +78,10 @@ async function openQr(){
     <button class="btn primary" onclick="makeQr()">Create temporary QR</button>`);
 }
 async function makeQr(){
-  const r = await fetch('/cm/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},
+  const r = await fetch('/staffing/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({site_id: document.getElementById('qr-site').value})});
   const d = await r.json();
-  document.getElementById('qr-out').innerHTML = `<img src="/cm/qr/${d.token}.png" style="width:220px;height:220px"><p class="muted small">Expires ${d.expires_at}</p>`;
+  document.getElementById('qr-out').innerHTML = `<img src="/staffing/qr/${d.token}.png" style="width:220px;height:220px"><p class="muted small">Expires ${d.expires_at}</p>`;
 }
 async function openDispatch(presetWorker){
   const workers = {{ rows|map(attribute='name')|list|tojson }};
@@ -104,19 +93,19 @@ async function openDispatch(presetWorker){
     <button class="btn primary" onclick="sendDispatch()">Send dispatch</button>
     <h4 style="margin-top:12px">Recent dispatches</h4><div id="d-log" class="muted small">Loading...</div>`);
   try {
-    const log = await (await fetch('/cm/api/dispatches')).json();
+    const log = await (await fetch('/staffing/api/dispatches')).json();
     document.getElementById('d-log').innerHTML = log.length
       ? log.map(l=>`<div style="margin:6px 0"><b>${l.worker}</b> · ${l.at}<br>${l.message}</div>`).join('')
       : 'No dispatches yet.';
   } catch(e){ document.getElementById('d-log').innerHTML = 'Could not load.'; }
 }
 async function sendDispatch(){
-  await fetch('/cm/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch('/staffing/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({worker_id: document.getElementById('d-worker').value, message: document.getElementById('d-msg').value})});
   closeModal(); alert('Dispatch logged.');
 }
 async function openDetails(wid){
-  const d = await (await fetch('/cm/api/workers/'+wid)).json();
+  const d = await (await fetch('/staffing/api/workers/'+wid)).json();
   const rows = d.timecards.map(t=>`<tr><td>${t.date}</td><td>${t.in}–${t.out}</td><td>${t.status}</td><td>${t.hours}h</td></tr>`).join('');
   openModal(`<h3>${d.worker.name}</h3>
     <p class="muted small">${d.worker.trade} · ${d.worker.company||''} · ${d.worker.employment_type} · ${siteName(d.worker.site_id)}<br>
@@ -128,7 +117,7 @@ async function openDetails(wid){
 function siteName(id){ const m = {{ sites|map(attribute='id')|list|tojson }}; const n = {{ sites|map(attribute='name')|list|tojson }}; const i = m.indexOf(id); return i>=0?n[i]:'—'; }
 (async function(){
   try {
-    const live = await (await fetch('/cm/api/live-locations')).json();
+    const live = await (await fetch('/staffing/api/live-locations')).json();
     const ids = new Set(live.map(l => l.worker_id));
     document.querySelectorAll('.live-slot').forEach(s => {
       if (ids.has(s.dataset.wid)) {
