@@ -63,7 +63,7 @@ function fmtT(iso){ if(!iso) return '—'; const d = new Date(iso); return d.toL
 
 async function refreshStatus(){
   const id = ident(); if(!id) return;
-  const r = await fetch('/cm/api/patrol-status?email=' + encodeURIComponent(id.email));
+  const r = await fetch('/staffing/api/patrol-status?email=' + encodeURIComponent(id.email));
   const s = await r.json();
   const card = document.getElementById('status-card');
   if (s.clocked_in) {
@@ -79,7 +79,7 @@ async function refreshStatus(){
     document.getElementById('btn-in').disabled = false;
     document.getElementById('btn-in').style.opacity = 1;
   }
-  const pr = await fetch('/cm/api/patrol-mine?email=' + encodeURIComponent(id.email));
+  const pr = await fetch('/staffing/api/patrol-mine?email=' + encodeURIComponent(id.email));
   const mine = await pr.json();
   const tdy = new Date().toISOString().slice(0, 10);
   const rows = (mine.punches || []).filter(p => (p.ts || '').slice(0, 10) === tdy).slice(-6).reverse();
@@ -93,7 +93,7 @@ async function punch(action){
   const btn = action === 'in' ? document.getElementById('btn-in') : document.getElementById('btn-out');
   btn.disabled = true;
   try {
-    const r = await fetch('/cm/api/patrol-punch', {method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch('/staffing/api/patrol-punch', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({email:id.email, name:id.name, action:action})});
     const j = await r.json();
     if (j.ok) { flash(action === 'in' ? '✅ Clocked in at ' + fmtT(j.since) : '✅ Clocked out.', 'ok'); }
