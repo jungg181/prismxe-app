@@ -1163,6 +1163,43 @@ def api_worker_status(worker_id):
                     'today_hours': round(today_hours, 2)})
 
 
+@bp.route('/api/workers/<wid>')
+def api_worker_detail(wid):
+    # Worker detail for the Details button on /workers (was missing entirely:
+    # the button fetched this endpoint and got 404, so nothing opened).
+    w = find('workers', wid)
+    if not w:
+        abort(404)
+    rows = []
+    total_hours = 0.0
+    for t in DB['timecards']:
+        if t.get('worker_id') != wid:
+            continue
+        h = t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out'))
+        total_hours += h or 0
+        rows.append({'date': (t.get('clock_in') or '')[:10],
+                     'in': fmt_dt(t.get('clock_in')),
+                     'out': fmt_dt(t.get('clock_out')) if t.get('clock_out') else '—',
+                     'status': t.get('status'),
+                     'hours': round(h, 2) if h is not None else 0})
+    rows.sort(key=lambda r: r['date'], reverse=True)
+    # Normalize: worker records may lack some fields the modal reads
+    # (e.g. no worker has a 'company' key); never send undefined.
+    worker = {'id': w.get('id'), 'name': w.get('name'),
+              'trade': w.get('trade') or '',
+              'company': w.get('company') or '',
+              'employment_type': w.get('employment_type') or '',
+              'site_id': w.get('site_id'),
+              'email': w.get('email') or '',
+              'phone': w.get('phone') or '',
+              'emergency_contact': w.get('emergency_contact') or '',
+              'status': w.get('status')}
+    return jsonify({'worker': worker,
+                    'timecards': rows,
+                    'counts': {'timecards': len(rows),
+                               'hours': round(total_hours, 1)}})
+
+
 @bp.route('/api/my-timecards/<worker_id>')
 def api_my_timecards(worker_id):
     try:
