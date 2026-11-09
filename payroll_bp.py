@@ -531,7 +531,8 @@ def company_payroll(company):
                         "clock_in": e.get("clock_in") or "",
                         "clock_out": e.get("clock_out") or "",
                     })
-        days_by_employee[emp] = day_list
+        # Newest date first — the latest days are what the user checks.
+        days_by_employee[emp] = day_list[::-1]
     return render_template(
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
