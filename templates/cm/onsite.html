@@ -164,7 +164,7 @@ const QUEUE_KEY = 'pendingClockActions';
 const LOCQ_KEY = 'pendingLocations';
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/cm/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/staffing/sw.js').catch(() => {});
 }
 function isOnline(){ return navigator.onLine; }
 function loadQueue(key){
@@ -192,7 +192,7 @@ async function flushQueue(){
   const errors = [];
   for (const item of q) {
     try {
-      const r = await fetch('/cm/api/sync-clock', {method:'POST',
+      const r = await fetch('/staffing/api/sync-clock', {method:'POST',
         headers:{'Content-Type':'application/json'}, body: JSON.stringify(item)});
       const d = await r.json();
       if (d.ok) { synced++; }
@@ -214,7 +214,7 @@ async function flushLocations(){
   const q = loadQueue(LOCQ_KEY);
   if (!q.length) return;
   try {
-    const r = await fetch('/cm/api/location-batch', {method:'POST',
+    const r = await fetch('/staffing/api/location-batch', {method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({worker_id: curWorker, points: q})});
     const d = await r.json();
@@ -254,7 +254,7 @@ async function initWorker(){
   const saved = localStorage.getItem(LS_KEY);
   if (saved) {
     try {
-      const r = await fetch('/cm/api/worker-status/' + saved);
+      const r = await fetch('/staffing/api/worker-status/' + saved);
       if (r.ok) {
         const d = await r.json();
         enterMain(saved, d.worker_name);
@@ -286,7 +286,7 @@ async function registerWorker(){
   if (!isOnline()) { regMsg('You are offline — registration needs the internet once.', 'err'); return; }
   regMsg('Registering...', 'info');
   try {
-    const r = await fetch('/cm/api/register-worker', {method:'POST',
+    const r = await fetch('/staffing/api/register-worker', {method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({name: name, phone: phone,
         email: $('reg-email').value.trim(),
@@ -318,7 +318,7 @@ async function refreshAll(){
 async function refreshStatus(){
   let d;
   try {
-    const r = await fetch('/cm/api/worker-status/' + curWorker);
+    const r = await fetch('/staffing/api/worker-status/' + curWorker);
     if (!r.ok) {
       // worker may have been deleted by the admin — back to registration
       curWorker = null;
@@ -347,7 +347,7 @@ async function refreshStatus(){
 async function refreshTimecards(){
   let rows;
   try {
-    const r = await fetch('/cm/api/my-timecards/' + curWorker + '?days=7');
+    const r = await fetch('/staffing/api/my-timecards/' + curWorker + '?days=7');
     if (!r.ok) return;
     rows = await r.json();
   } catch(e) { return; } // offline — keep the last rendered list
@@ -425,7 +425,7 @@ async function prepareConfirm(token){
     window.scrollTo(0, 0);
     return;
   }
-  const r = await fetch('/cm/api/qr-info/' + encodeURIComponent(token));
+  const r = await fetch('/staffing/api/qr-info/' + encodeURIComponent(token));
   const d = await r.json();
   if (!r.ok || !d.ok) { msg(d.error || 'Invalid or expired QR code.', 'err'); cancelConfirm(); return; }
   $('cf-title').textContent = d.action === 'clock_in' ? '⏱️ Clock In' : '⏱️ Clock Out';
@@ -489,7 +489,7 @@ async function directClockIn(){
     return;
   }
   try {
-    const r = await fetch('/cm/api/direct-clock', {method:'POST',
+    const r = await fetch('/staffing/api/direct-clock', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
     if (d.ok) msg(`✓ Clocked in at ${d.site_name}`, 'ok');
@@ -529,7 +529,7 @@ async function confirmDirectClockOut(){
     return;
   }
   try {
-    const r = await fetch('/cm/api/direct-clock', {method:'POST',
+    const r = await fetch('/staffing/api/direct-clock', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
     if (d.ok) {
@@ -563,7 +563,7 @@ async function confirmClock(){
   const body = {token: pendingToken, worker_id: curWorker,
                 lat: pendingGeo ? pendingGeo.lat : null,
                 lng: pendingGeo ? pendingGeo.lng : null};
-  const r = await fetch('/cm/api/scan-clock', {method:'POST',
+  const r = await fetch('/staffing/api/scan-clock', {method:'POST',
     headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
   const d = await r.json();
   $('cf-confirm').disabled = false;
@@ -603,7 +603,7 @@ async function sendLocation(){
     $('loc-hint').textContent = `Offline — ${n} location${n > 1 ? 's' : ''} stored, will sync later.`;
     return;
   }
-  const r = await fetch('/cm/api/location', {method:'POST',
+  const r = await fetch('/staffing/api/location', {method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({worker_id: curWorker, lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy})});
   const d = await r.json();
