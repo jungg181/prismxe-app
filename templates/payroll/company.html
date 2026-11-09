@@ -151,12 +151,13 @@
 
 <div class="card">
   <h2 style="margin-top:0">Hours per Day</h2>
+  <p class="small muted" style="margin-top:-4px">Regular on top, overtime in yellow below. Overtime is hours over 40 in a Mon–Sun week, counted on the later days of the week.</p>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num">{{ d[5:] }}</th>{% endfor %}<th class="num">Total</th></tr></thead>
+      <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num"><span class="day-wd">{{ result.weekdays[d] }}</span><span class="day-dt">{{ d[5:] }}</span></th>{% endfor %}<th class="num">Total</th></tr></thead>
       <tbody>
         {% for r in result.rows %}
-        <tr><td>{{ r.employee }}</td>{% for d in result.days %}<td class="num">{{ fmt_hours(r.days[d]) if r.days[d] else '·' }}</td>{% endfor %}<td class="num">{{ fmt_hours(r.total_hours) }}</td></tr>
+        <tr><td>{{ r.employee }}</td>{% for d in result.days %}{% set tot = r.days[d] %}{% set ot = r.days_ot[d] %}{% set reg = tot - ot %}<td class="num">{% if tot %}{% if ot %}<span class="day-split"><span class="day-reg">{{ fmt_hours(reg) }}</span><span class="day-ot">{{ fmt_hours(ot) }}</span></span>{% else %}{{ fmt_hours(tot) }}{% endif %}{% else %}·{% endif %}</td>{% endfor %}<td class="num">{{ fmt_hours(r.total_hours) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
