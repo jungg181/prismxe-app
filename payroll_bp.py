@@ -1082,16 +1082,21 @@ def _hours_pdf_bytes(co, start, end, result):
     PAGE_H = 215.9
     TOP = 10.0
     BOTTOM = 10.0
-    EMP_W = 46.0
-    TOT_W = 16.0
-    DAY_W = 12.0
-    DAYS_PER_PAGE = 16
+    EMP_W = 44.0
+    DAY_W = 10.0
+    TOT_W = 15.0
+    RT_W = 14.0
+    OT_W = 14.0
     ROW_H = 8.0
     HALF = ROW_H / 2.0
     ORANGE = (180, 83, 9)      # dark amber — readable on white
     MUTED = (100, 116, 139)
     NAVY = (10, 48, 65)
     HDR_FILL = (230, 235, 240)
+    # Right-side columns (Total, R/T, O/T) eat this much width; the rest
+    # goes to day columns.
+    TAIL_W = TOT_W + RT_W + OT_W
+    DAYS_PER_PAGE = max(1, int((RIGHT - LEFT - EMP_W - TAIL_W) // DAY_W))
 
     def hrs(v):
         if v is None or v == 0:
@@ -1124,43 +1129,69 @@ def _hours_pdf_bytes(co, start, end, result):
                  f"{mdy(start)} - {mdy(end)}")
     legend_txt = ("Regular on top, overtime below in orange. Overtime is "
                   "hours over 40 in a Mon-Sun week, counted on the later "
-                  "days of the week.")
+                  "days of the week. Total / R/T = Regular Time / "
+                  "O/T = Overtime.")
+
+    def tail_x(n):
+        """x of the Total column for a chunk with n day-columns."""
+        return LEFT + EMP_W + n * DAY_W
 
     def col_x(i, n):
         """(x, width) for column i of a chunk with n day-columns:
-        0 = employee, 1..n = days, n+1 = total."""
+        0 = employee, 1..n = days, n+1 = Total, n+2 = R/T, n+3 = O/T."""
         if i == 0:
             return LEFT, EMP_W
         if i == n + 1:
-            return LEFT + EMP_W + n * DAY_W, TOT_W
+            return tail_x(n), TOT_W
+        if i == n + 2:
+            return tail_x(n) + TOT_W, RT_W
+        if i == n + 3:
+            return tail_x(n) + TOT_W + RT_W, OT_W
         return LEFT + EMP_W + (i - 1) * DAY_W, DAY_W
 
+    def put_text(x, y, w, txt, align="R", size=8, bold=False,
+                 color=(0, 0, 0)):
+        """Draw txt on one line, baseline at y, horizontally placed
+        inside [x, x+w] by align. Uses pdf.text() with an x computed
+        from the string width, so the text can never drift past the
+        cell edge the way cell() alignment did."""
+        if not txt:
+            return
+        pdf.set_font("helvetica", "B" if bold else "", size)
+        pdf.set_text_color(*color)
+        tw = pdf.get_string_width(txt)
+        if align == "R":
+            tx = x + w - 1.0 - tw
+        elif align == "C":
+            tx = x + (w - tw) / 2.0
+        else:
+            tx = x + 1.0
+        pdf.text(tx, y, txt)
+
     def cell_two_lines(x, y, w, line1, line2, align="R",
-                       font1=("helvetica", "", 8),
-                       font2=("helvetica", "", 8),
-                       color1=(0, 0, 0), color2=ORANGE, bold1=False,
-                       fill=False):
+                       size1=8, size2=8, color1=(0, 0, 0),
+                       color2=ORANGE, bold1=False):
         """A bordered ROW_H cell with line1 on top, line2 below."""
+        pdf.rect(x, y, w, ROW_H)
+        put_text(x, y + 3.3, w, line1, align=align, size=size1,
+                 bold=bold1, color=color1)
+        put_text(x, y + 7.3, w, line2, align=align, size=size2,
+                 color=color2)
+
+    def cell_one_line(x, y, w, txt, align="R", size=8, bold=False,
+                      color=(0, 0, 0), fill=False):
+        """A bordered ROW_H cell with a single vertically-centered line."""
         if fill:
             pdf.set_fill_color(*HDR_FILL)
             pdf.rect(x, y, w, ROW_H, style="F")
         pdf.rect(x, y, w, ROW_H)
-        pdf.set_xy(x, y)
-        pdf.set_font(font1[0], ("B" if bold1 else font1[1]), font1[2])
-        pdf.set_text_color(*color1)
-        pdf.cell(w, HALF, line1, align=align)
-        pdf.set_xy(x, y + HALF)
-        pdf.set_font(font2[0], font2[1], font2[2])
-        pdf.set_text_color(*color2)
-        pdf.cell(w, HALF, line2, align=align)
+        put_text(x, y + 5.3, w, txt, align=align, size=size, bold=bold,
+                 color=color)
 
     def cell_dot(x, y, w):
         """A bordered ROW_H cell with a centered middle dot (no hours)."""
         pdf.rect(x, y, w, ROW_H)
-        pdf.set_xy(x, y)
-        pdf.set_font("helvetica", "", 8)
-        pdf.set_text_color(*MUTED)
-        pdf.cell(w, ROW_H, "·", align="C")
+        put_text(x, y + 5.3, w, "·", align="C", size=8, color=MUTED)
 
     def draw_top(chunk):
         """Title block + column header for one day-chunk. Returns the y
@@ -1177,58 +1208,68 @@ def _hours_pdf_bytes(co, start, end, result):
         pdf.cell(0, 4, legend_txt, new_x="LMARGIN", new_y="NEXT")
         y += 6
         n = len(chunk)
-        # Header row: Employee | weekday/date per day | Total.
-        pdf.set_fill_color(*HDR_FILL)
+        # Header row: Employee | weekday/date per day | Total | R/T | O/T.
         x, w = col_x(0, n)
-        pdf.set_xy(x, y)
-        pdf.set_font("helvetica", "B", 8)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(w, ROW_H, "Employee", border=1, fill=True,
-                new_x="RIGHT", new_y="TOP")
+        cell_one_line(x, y, w, "Employee", align="L", size=8, bold=True,
+                      fill=True)
         for j, d in enumerate(chunk):
             x, w = col_x(j + 1, n)
-            cell_two_lines(x, y, w, weekdays.get(d, ""), d[5:],
-                           align="C",
-                           font1=("helvetica", "", 7),
-                           font2=("helvetica", "B", 8),
-                           color1=MUTED, color2=(0, 0, 0), fill=True)
+            pdf.set_fill_color(*HDR_FILL)
+            pdf.rect(x, y, w, ROW_H, style="F")
+            pdf.rect(x, y, w, ROW_H)
+            put_text(x, y + 3.3, w, weekdays.get(d, ""), align="C",
+                     size=7, color=MUTED)
+            put_text(x, y + 7.3, w, d[5:], align="C", size=8, bold=True)
         x, w = col_x(n + 1, n)
-        pdf.set_xy(x, y)
-        pdf.set_font("helvetica", "B", 8)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(w, ROW_H, "Total", border=1, fill=True, align="C",
-                new_x="LMARGIN", new_y="NEXT")
+        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
+                      fill=True)
+        x, w = col_x(n + 2, n)
+        cell_one_line(x, y, w, "R/T", align="C", size=8, bold=True,
+                      fill=True)
+        x, w = col_x(n + 3, n)
+        cell_one_line(x, y, w, "O/T", align="C", size=8, bold=True,
+                      fill=True)
         return y + ROW_H
 
-    def draw_row(y, chunk, name, day_totals, day_ots, tot, ot,
+    def draw_row(y, chunk, name, day_totals, day_ots, tot, reg, ot,
                  bold=False):
         """One employee (or total) row. day_totals/day_ots are dicts
-        keyed by date; tot/ot are the period totals."""
+        keyed by date; tot/reg/ot are the period totals."""
         n = len(chunk)
         x, w = col_x(0, n)
         pdf.set_xy(x, y)
         pdf.set_font("helvetica", "B" if bold else "", 8)
         pdf.set_text_color(0, 0, 0)
         label = name if len(name) <= 26 else name[:25] + "..."
-        pdf.cell(w, ROW_H, label, border=1, new_x="RIGHT", new_y="TOP")
+        pdf.rect(x, y, w, ROW_H)
+        put_text(x, y + 5.3, w, label, align="L", size=8, bold=bold)
         for j, d in enumerate(chunk):
             x, w = col_x(j + 1, n)
             t = day_totals.get(d, 0.0) or 0.0
             o = day_ots.get(d, 0.0) or 0.0
             if t:
-                reg = round(t - o, 2)
+                r = round(t - o, 2)
                 if o:
-                    cell_two_lines(x, y, w, hrs(reg), hrs(o), bold1=bold)
+                    cell_two_lines(x, y, w, hrs(r), hrs(o), size1=7.5,
+                                   size2=7.5, bold1=bold)
                 else:
-                    cell_two_lines(x, y, w, hrs(t), "", bold1=bold)
+                    cell_two_lines(x, y, w, hrs(t), "", size1=7.5,
+                                   size2=7.5, bold1=bold)
             else:
                 cell_dot(x, y, w)
         x, w = col_x(n + 1, n)
         if tot:
-            if ot:
-                cell_two_lines(x, y, w, hrs(tot), hrs(ot), bold1=True)
-            else:
-                cell_two_lines(x, y, w, hrs(tot), "", bold1=True)
+            cell_one_line(x, y, w, hrs(tot), bold=True)
+        else:
+            cell_dot(x, y, w)
+        x, w = col_x(n + 2, n)
+        if reg:
+            cell_one_line(x, y, w, hrs(reg), bold=bold)
+        else:
+            cell_dot(x, y, w)
+        x, w = col_x(n + 3, n)
+        if ot:
+            cell_one_line(x, y, w, hrs(ot), bold=bold, color=ORANGE)
         else:
             cell_dot(x, y, w)
         return y + ROW_H
@@ -1250,16 +1291,16 @@ def _hours_pdf_bytes(co, start, end, result):
                 pdf.add_page()
                 y = draw_top(chunk)
             y = draw_row(y, chunk, r["employee"], r["days"], r["days_ot"],
-                         r["total_hours"], r["ot_hours"])
+                         r["total_hours"], r["reg_hours"], r["ot_hours"])
         if y + ROW_H > PAGE_H - BOTTOM:
             pdf.add_page()
             y = draw_top(chunk)
         # PAYROLL TOTAL row (bold, with a rule above it).
         pdf.set_draw_color(0, 0, 0)
-        pdf.line(LEFT, y, RIGHT, y)
+        pdf.line(LEFT, y, tail_x(len(chunk)) + TAIL_W, y)
         y = draw_row(y, chunk, "PAYROLL TOTAL", day_tot, day_ot,
-                     totals["total_hours"], totals["total_ot_hours"],
-                     bold=True)
+                     totals["total_hours"], totals["total_reg_hours"],
+                     totals["total_ot_hours"], bold=True)
 
     return bytes(pdf.output())
 
