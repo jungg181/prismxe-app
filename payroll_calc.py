@@ -198,9 +198,16 @@ def compute_payroll(entries, rates, company, start, end,
         d += timedelta(days=1)
     day_set = set(days)
 
-    # Per-employee, per-week hours (only in-period dates count).
-    weekly = {}   # employee -> {monday_iso: hours}
-    per_day = {}  # employee -> {date_iso: hours}
+    # Per-employee, per-week hours. per_day_all covers ALL dates in the
+    # database — the OT cap is evaluated on the whole Mon-Sun week, so
+    # a week that starts before the period still counts its earlier
+    # days toward the 40h threshold (e.g. viewing 10/16–10/31, the
+    # Oct 12–15 hours still fill the cap for the Oct 12–18 week).
+    # per_day / weekly cover only in-period dates, which is what is
+    # actually paid.
+    weekly = {}   # employee -> {monday_iso: hours} (in-period only)
+    per_day = {}  # employee -> {date_iso: hours} (in-period only)
+    per_day_all = {}  # employee -> {date_iso: hours} (all dates)
     employees = []
     for e in entries or []:
         if (e.get("company") or "").strip() != company:
@@ -212,47 +219,49 @@ def compute_payroll(entries, rates, company, start, end,
             d = _to_date(e.get("date"))
         except (ValueError, TypeError):
             continue
-        if d.isoformat() not in day_set:
-            continue
         h = _hours(e.get("payroll_hours"))
+        diso = d.isoformat()
+        if name not in per_day_all:
+            per_day_all[name] = {}
+        per_day_all[name][diso] = per_day_all[name].get(diso, 0.0) + h
+        if diso not in day_set:
+            continue
         if name not in weekly:
             weekly[name] = {}
             per_day[name] = {}
             employees.append(name)
         monday = week_monday(d).isoformat()
         weekly[name][monday] = weekly[name].get(monday, 0.0) + h
-        per_day[name][d.isoformat()] = (
-            per_day[name].get(d.isoformat(), 0.0) + h)
+        per_day[name][diso] = per_day[name].get(diso, 0.0) + h
 
     rows = []
     for name in sorted(employees):
+        # Per-day OT split on the FULL week (including days outside the
+        # period) so the 40h cap reflects the whole Mon-Sun week. Only
+        # in-period days are paid; out-of-period days just fill the cap.
+        # OT lands on the later days of the week, so the per-day reg/OT
+        # adds up exactly to the totals.
+        days_ot = {}
         reg = 0.0
         ot = 0.0
-        for week_hours in weekly[name].values():
-            reg += min(week_hours, ot_threshold)
-            ot += max(0.0, week_hours - ot_threshold)
-        reg = round(reg, 2)
-        ot = round(ot, 2)
-        # Per-day OT split: weekly OT (over 40h Mon-Sun) is allocated
-        # to the LATER days of the week, so the per-day reg/OT adds up
-        # exactly to the weekly totals. A day's reg part is the portion
-        # of its hours that still fits under the 40h cap; the rest is OT.
-        days_ot = {}
         for monday_iso in weekly[name]:
             monday = date.fromisoformat(monday_iso)
             running = 0.0
             for i in range(7):
                 d = monday + timedelta(days=i)
                 diso = d.isoformat()
-                if diso not in day_set:
-                    continue
-                h = per_day[name].get(diso, 0.0)
+                h = per_day_all[name].get(diso, 0.0)
                 if h <= 0:
-                    days_ot[diso] = 0.0
                     continue
                 reg_part = max(0.0, min(h, ot_threshold - running))
-                days_ot[diso] = round(h - reg_part, 2)
+                ot_part = round(h - reg_part, 2)
                 running += h
+                if diso in day_set:
+                    days_ot[diso] = ot_part
+                    reg += reg_part
+                    ot += ot_part
+        reg = round(reg, 2)
+        ot = round(ot, 2)
         rate = rate_by_key.get((name, company))
         staffing = rate.get("staffing") if rate else None
         billing = rate.get("billing") if rate else None
