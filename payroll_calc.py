@@ -253,7 +253,9 @@ def compute_payroll(entries, rates, company, start, end,
                 h = per_day_all[name].get(diso, 0.0)
                 if h <= 0:
                     continue
-                reg_part = max(0.0, min(h, ot_threshold - running))
+                # Round the regular part first so reg + OT equals the
+                # day's hours exactly (no rounding drift across days).
+                reg_part = round(max(0.0, min(h, ot_threshold - running)), 2)
                 ot_part = round(h - reg_part, 2)
                 running += h
                 if diso in day_set:
