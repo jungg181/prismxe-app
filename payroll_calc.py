@@ -233,6 +233,26 @@ def compute_payroll(entries, rates, company, start, end,
             ot += max(0.0, week_hours - ot_threshold)
         reg = round(reg, 2)
         ot = round(ot, 2)
+        # Per-day OT split: weekly OT (over 40h Mon-Sun) is allocated
+        # to the LATER days of the week, so the per-day reg/OT adds up
+        # exactly to the weekly totals. A day's reg part is the portion
+        # of its hours that still fits under the 40h cap; the rest is OT.
+        days_ot = {}
+        for monday_iso in weekly[name]:
+            monday = date.fromisoformat(monday_iso)
+            running = 0.0
+            for i in range(7):
+                d = monday + timedelta(days=i)
+                diso = d.isoformat()
+                if diso not in day_set:
+                    continue
+                h = per_day[name].get(diso, 0.0)
+                if h <= 0:
+                    days_ot[diso] = 0.0
+                    continue
+                reg_part = max(0.0, min(h, ot_threshold - running))
+                days_ot[diso] = round(h - reg_part, 2)
+                running += h
         rate = rate_by_key.get((name, company))
         staffing = rate.get("staffing") if rate else None
         billing = rate.get("billing") if rate else None
@@ -248,6 +268,8 @@ def compute_payroll(entries, rates, company, start, end,
                 "no_rate": True,
                 "days": {day: round(per_day[name].get(day, 0.0), 2)
                          for day in days},
+                "days_ot": {day: round(days_ot.get(day, 0.0), 2)
+                            for day in days},
             })
             continue
         gross = _money(reg * staffing + ot * staffing * ot_multiplier)
@@ -260,6 +282,8 @@ def compute_payroll(entries, rates, company, start, end,
             "no_rate": False,
             "days": {day: round(per_day[name].get(day, 0.0), 2)
                      for day in days},
+            "days_ot": {day: round(days_ot.get(day, 0.0), 2)
+                        for day in days},
         })
 
     totals = {
@@ -273,7 +297,10 @@ def compute_payroll(entries, rates, company, start, end,
             if r["billing_gross"] is not None)),
         "no_rate_count": sum(1 for r in rows if r["no_rate"]),
     }
-    return {"rows": rows, "totals": totals, "days": days}
+    weekdays = {day: date.fromisoformat(day).strftime("%a")
+                for day in days}
+    return {"rows": rows, "totals": totals, "days": days,
+            "weekdays": weekdays}
 
 
 def compute_jobsite_pnl(entries, rates, jobsite_id,
