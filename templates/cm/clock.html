@@ -65,7 +65,7 @@ async function lookupWorker(){
   document.getElementById('lookup-btn').disabled = true;
   lookupResult.innerHTML = '<div class="muted small">Searching...</div>';
   try {
-    const r = await fetch('/cm/api/worker-lookup?q=' + encodeURIComponent(q));
+    const r = await fetch('/staffing/api/worker-lookup?q=' + encodeURIComponent(q));
     const d = await r.json();
     if (r.ok && d.ok) {
       const w = d.worker;
