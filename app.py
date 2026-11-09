@@ -3,7 +3,8 @@
 Single Flask app served by gunicorn (gunicorn app:app).
 - GET /            portal with links to the three apps
 - /gauge/*         boiler gauge inspection app
-- /cm/*            construction manager (+ /cm/onsite worker app)
+- /staffing/*      construction manager (+ /staffing/onsite worker app;
+                 /cm/* redirects here)
 - /patrol/*        equipment patrol timetable board
 - /burner/*        burner turn-on / shut-off guided procedure
 
@@ -73,7 +74,7 @@ BLUEPRINT_APPS = {
                "company": "Hanseong Arizona LLC", "company_icon": "🏢"},
     "cm": {"name": "Construction Manager", "icon": "🏗️",
            "desc": "Sites, workers, timecards, incidents, QA/QC",
-           "company": "Construction", "company_icon": "🏗️"},
+           "company": "PrismXE Staffing", "company_icon": "🏗️"},
     "payroll": {"name": "Payroll", "icon": "💵",
                 "desc": "Payroll calculation for KB Link and Hanseong",
                 "company": "PRISM", "company_icon": "🏢"},
@@ -195,6 +196,14 @@ def legacy_patrol_redirect(path):
 @app.route("/gauge/<path:path>", methods=_LEGACY_METHODS, strict_slashes=False)
 def legacy_gauge_redirect(path):
     return _legacy_redirect("/Hanseong/gauge", path)
+
+
+# CM moved to /staffing/ (2026-11-08) — old /cm/ links, bookmarks and
+# QR codes keep working via 308 redirect.
+@app.route("/cm", defaults={"path": ""}, methods=_LEGACY_METHODS, strict_slashes=False)
+@app.route("/cm/<path:path>", methods=_LEGACY_METHODS, strict_slashes=False)
+def legacy_cm_redirect(path):
+    return _legacy_redirect("/staffing", path)
 
 
 @app.route("/", methods=["GET", "POST"])
