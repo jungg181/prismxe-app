@@ -1353,7 +1353,7 @@ def _timesheets_pdf_bytes(co, start, end, result):
     while d <= last_sun:
         weeks.append(d)
         d += timedelta(days=7)
-    CELL_H = 30.0 if len(weeks) <= 5 else 25.0
+    CELL_H = 30.0 if len(weeks) <= 5 else 27.0
     WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
@@ -1417,20 +1417,29 @@ def _timesheets_pdf_bytes(co, start, end, result):
                     pdf.rect(x, y, CELL_W, CELL_H)
                     continue
                 pdf.rect(x, y, CELL_W, CELL_H)
-                # Date number, top-left.
-                put_text(x, y + 5.0, CELL_W, str(day.day), align="L",
-                         size=9, bold=True, color=MUTED)
+                # Date number, top-left, bigger (12pt) with a divider
+                # line under it so the date reads separately from the
+                # hours below.
+                put_text(x, y + 6.5, CELL_W, str(day.day), align="L",
+                         size=12, bold=True, color=(0, 0, 0))
+                pdf.set_draw_color(180, 180, 180)
+                pdf.set_line_width(0.1)
+                pdf.line(x + 1, y + 8.5, x + CELL_W - 1, y + 8.5)
+                pdf.set_draw_color(0, 0, 0)
                 t = r["days"].get(day.isoformat(), 0.0) or 0.0
                 o = r["days_ot"].get(day.isoformat(), 0.0) or 0.0
                 if t:
                     reg = round(t - o, 2)
-                    # Regular hours, large and centered.
-                    put_text(x, y + CELL_H / 2 + 2.0, CELL_W,
+                    # Regular hours, large and centered in the space
+                    # below the date divider.
+                    reg_y = y + 8.5 + (CELL_H - 8.5) / 2 + 2.0
+                    put_text(x, reg_y, CELL_W,
                              hrs(reg), align="C", size=13, bold=True)
-                    # Overtime, bottom-right in orange.
+                    # Overtime, same size as Regular (13pt), bottom-
+                    # right in orange.
                     if o:
                         put_text(x, y + CELL_H - 3.0, CELL_W, hrs(o),
-                                 align="R", size=10, bold=True,
+                                 align="R", size=13, bold=True,
                                  color=ORANGE)
             y += CELL_H
         # Summary: Regular / Overtime / Total.
