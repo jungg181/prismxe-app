@@ -1347,7 +1347,7 @@ def _timesheets_pdf_bytes(co, start, end, result):
     while d <= last_sun:
         weeks.append(d)
         d += timedelta(days=7)
-    CELL_H = 30.0 if len(weeks) <= 5 else 27.0
+    CELL_H = 30.0 if len(weeks) <= 5 else 26.0
     WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
@@ -1446,16 +1446,29 @@ def _timesheets_pdf_bytes(co, start, end, result):
                    f"Total: {hrs(r['total_hours'])}h")
         pdf.cell(0, 6, summary, new_x="LMARGIN", new_y="NEXT")
         y += 10
-        # Signature block.
+        # Signature block, pinned to the page bottom: the Date line is
+        # always at DATE_LINE_Y, so the block sits at the same place
+        # on every page no matter how many calendar weeks there are.
+        # Rule -> gap 7 -> statements (en 6mm/line, es 5mm/line) ->
+        # gap 2 -> signature line (at +6) -> date line (at +16).
+        DATE_LINE_Y = 262.0
+        stmt_en = ("I confirm that the hours shown above are correct and I "
+                   "agree to the contents of this document.")
+        stmt_es = ("Confirmo que las horas indicadas arriba son correctas "
+                   "y estoy de acuerdo con el contenido de este documento.")
+        pdf.set_font("helvetica", "", 11)
+        en_lines = max(1, -(-pdf.get_string_width(stmt_en)
+                            // (RIGHT - LEFT)))
+        pdf.set_font("helvetica", "", 9)
+        es_lines = max(1, -(-pdf.get_string_width(stmt_es)
+                            // (RIGHT - LEFT)))
+        block_h = 25 + en_lines * 6 + es_lines * 5
+        y = max(DATE_LINE_Y - block_h, y + 8)
         pdf.set_draw_color(0, 0, 0)
         pdf.line(LEFT, y, RIGHT, y)
         y += 7
         pdf.set_xy(LEFT, y)
         pdf.set_text_color(0, 0, 0)
-        stmt_en = ("I confirm that the hours shown above are correct and I "
-                   "agree to the contents of this document.")
-        stmt_es = ("Confirmo que las horas indicadas arriba son correctas "
-                   "y estoy de acuerdo con el contenido de este documento.")
         pdf.set_font("helvetica", "", 11)
         pdf.multi_cell(0, 6, stmt_en, new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("helvetica", "", 9)
