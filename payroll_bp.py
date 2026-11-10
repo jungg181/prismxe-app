@@ -1110,7 +1110,6 @@ def _hours_pdf_bytes(co, start, end, result):
     days = result["days"]
     weekdays = result["weekdays"]
     rows = result["rows"]
-    totals = result["totals"]
 
     class _PDF(FPDF):
         def footer(self):
@@ -1131,7 +1130,7 @@ def _hours_pdf_bytes(co, start, end, result):
     legend_txt = ("Regular on top, overtime below in orange. Overtime is "
                   "hours over 40 in a Mon-Sun week, counted on the later "
                   "days of the week. R/T = Regular Time, O/T = Overtime, "
-                  "Total last. Totals are shown per week, then a grand total.")
+                  "Total last. Totals are shown per week.")
 
     def tail_x(n):
         """x of the RT/OT column for a chunk with n day-columns."""
@@ -1352,15 +1351,6 @@ def _hours_pdf_bytes(co, start, end, result):
                        for d in chunk}
             y = draw_row(y, chunk, _week_label(w), full_tot, full_ot,
                          w_tot, w_reg, w_ot, bold=True)
-        if y + ROW_H > PAGE_H - BOTTOM:
-            pdf.add_page()
-            y = draw_top(chunk)
-        # PAYROLL TOTAL row (bold, with a rule above it).
-        pdf.set_draw_color(0, 0, 0)
-        pdf.line(LEFT, y, tail_x(len(chunk)) + TAIL_W, y)
-        y = draw_row(y, chunk, "PAYROLL TOTAL", day_tot, day_ot,
-                     totals["total_hours"], totals["total_reg_hours"],
-                     totals["total_ot_hours"], bold=True)
 
     return bytes(pdf.output())
 
