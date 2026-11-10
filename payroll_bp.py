@@ -1083,7 +1083,7 @@ def _hours_pdf_bytes(co, start, end, result):
     TOP = 10.0
     BOTTOM = 10.0
     EMP_W = 44.0
-    DAY_W = 10.0
+    DAY_W = 13.0
     RTOT_W = 15.0
     TOT_W = 15.0
     ROW_H = 8.0
@@ -1092,10 +1092,12 @@ def _hours_pdf_bytes(co, start, end, result):
     MUTED = (100, 116, 139)
     NAVY = (10, 48, 65)
     HDR_FILL = (230, 235, 240)
-    # Right-side columns (RT/OT, then Total last) eat this much width;
-    # the rest goes to day columns.
+    # Right-side columns (RT/OT, then Total last) eat this much width.
     TAIL_W = RTOT_W + TOT_W
-    DAYS_PER_PAGE = max(1, int((RIGHT - LEFT - EMP_W - TAIL_W) // DAY_W))
+    # Pages hold whole Mon-Sun weeks, at most 2 weeks (14 days) each,
+    # so a week is never split across pages. 14 days x 13mm = 182mm,
+    # which fits the 185.4mm available for day columns.
+    MAX_WEEKS_PER_PAGE = 2
 
     def hrs(v):
         if v is None or v == 0:
@@ -1129,7 +1131,7 @@ def _hours_pdf_bytes(co, start, end, result):
     legend_txt = ("Regular on top, overtime below in orange. Overtime is "
                   "hours over 40 in a Mon-Sun week, counted on the later "
                   "days of the week. R/T = Regular Time, O/T = Overtime, "
-                  "Total last.")
+                  "Total last. Totals are shown per week, then a grand total.")
 
     def tail_x(n):
         """x of the RT/OT column for a chunk with n day-columns."""
@@ -1269,12 +1271,57 @@ def _hours_pdf_bytes(co, start, end, result):
             cell_dot(x, y, w)
         return y + ROW_H
 
-    chunks = [days[i:i + DAYS_PER_PAGE]
-              for i in range(0, len(days), DAYS_PER_PAGE)] or [[]]
-    for chunk in chunks:
+    # Group the period's days into Mon-Sun weeks, then pack whole weeks
+    # into pages (at most MAX_WEEKS_PER_PAGE weeks each) so a week is
+    # never split across pages.
+    from datetime import date as _date, timedelta
+
+    def _parse_day(s):
+        return _date.fromisoformat(s)
+
+    def _week_label(week_days):
+        """'Week Oct 5-11' for the Mon-Sun days in this week-chunk."""
+        first = _parse_day(week_days[0])
+        last = _parse_day(week_days[-1])
+        if first.month == last.month:
+            return (f"Week {first.strftime('%b')} {first.day}-"
+                    f"{last.day}")
+        return (f"Week {first.strftime('%b')} {first.day}-"
+                f"{last.strftime('%b')} {last.day}")
+
+    weeks = []
+    cur = []
+    cur_monday = None
+    for d in days:
+        dd = _parse_day(d)
+        monday = dd - timedelta(days=dd.weekday())
+        if cur_monday is None or monday != cur_monday:
+            if cur:
+                weeks.append(cur)
+            cur = [d]
+            cur_monday = monday
+        else:
+            cur.append(d)
+    if cur:
+        weeks.append(cur)
+
+    chunks = []  # each chunk: (list of day-strings, list of week lists)
+    cur_days, cur_weeks = [], []
+    for w in weeks:
+        if len(cur_weeks) >= MAX_WEEKS_PER_PAGE:
+            chunks.append((cur_days, cur_weeks))
+            cur_days, cur_weeks = [], []
+        cur_days.extend(w)
+        cur_weeks.append(w)
+    if cur_days:
+        chunks.append((cur_days, cur_weeks))
+    if not chunks:
+        chunks = [([], [])]
+
+    for chunk, chunk_weeks in chunks:
         pdf.add_page()
         y = draw_top(chunk)
-        # Per-day totals across all employees, for the TOTAL row.
+        # Per-day totals across all employees, for the TOTAL rows.
         day_tot = {}
         day_ot = {}
         for r in rows:
@@ -1287,6 +1334,24 @@ def _hours_pdf_bytes(co, start, end, result):
                 y = draw_top(chunk)
             y = draw_row(y, chunk, r["employee"], r["days"], r["days_ot"],
                          r["total_hours"], r["reg_hours"], r["ot_hours"])
+        # One total row per week on this page, then the grand total.
+        for w in chunk_weeks:
+            if y + ROW_H > PAGE_H - BOTTOM:
+                pdf.add_page()
+                y = draw_top(chunk)
+            w_tot = sum(day_tot.get(d, 0.0) for d in w)
+            w_ot = sum(day_ot.get(d, 0.0) for d in w)
+            w_reg = round(w_tot - w_ot, 2)
+            w_day_tot = {d: day_tot.get(d, 0.0) for d in w}
+            w_day_ot = {d: day_ot.get(d, 0.0) for d in w}
+            # Only this week's days carry values; other day cells
+            # show a dot. Build full-chunk dicts with zeros elsewhere.
+            full_tot = {d: (w_day_tot.get(d, 0.0) if d in w else 0.0)
+                        for d in chunk}
+            full_ot = {d: (w_day_ot.get(d, 0.0) if d in w else 0.0)
+                       for d in chunk}
+            y = draw_row(y, chunk, _week_label(w), full_tot, full_ot,
+                         w_tot, w_reg, w_ot, bold=True)
         if y + ROW_H > PAGE_H - BOTTOM:
             pdf.add_page()
             y = draw_top(chunk)
