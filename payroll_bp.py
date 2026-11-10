@@ -1084,18 +1084,17 @@ def _hours_pdf_bytes(co, start, end, result):
     BOTTOM = 10.0
     EMP_W = 44.0
     DAY_W = 10.0
+    RTOT_W = 15.0
     TOT_W = 15.0
-    RT_W = 14.0
-    OT_W = 14.0
     ROW_H = 8.0
     HALF = ROW_H / 2.0
     ORANGE = (180, 83, 9)      # dark amber — readable on white
     MUTED = (100, 116, 139)
     NAVY = (10, 48, 65)
     HDR_FILL = (230, 235, 240)
-    # Right-side columns (Total, R/T, O/T) eat this much width; the rest
-    # goes to day columns.
-    TAIL_W = TOT_W + RT_W + OT_W
+    # Right-side columns (RT/OT, then Total last) eat this much width;
+    # the rest goes to day columns.
+    TAIL_W = RTOT_W + TOT_W
     DAYS_PER_PAGE = max(1, int((RIGHT - LEFT - EMP_W - TAIL_W) // DAY_W))
 
     def hrs(v):
@@ -1129,24 +1128,22 @@ def _hours_pdf_bytes(co, start, end, result):
                  f"{mdy(start)} - {mdy(end)}")
     legend_txt = ("Regular on top, overtime below in orange. Overtime is "
                   "hours over 40 in a Mon-Sun week, counted on the later "
-                  "days of the week. Total / R/T = Regular Time / "
-                  "O/T = Overtime.")
+                  "days of the week. R/T = Regular Time, O/T = Overtime, "
+                  "Total last.")
 
     def tail_x(n):
-        """x of the Total column for a chunk with n day-columns."""
+        """x of the RT/OT column for a chunk with n day-columns."""
         return LEFT + EMP_W + n * DAY_W
 
     def col_x(i, n):
         """(x, width) for column i of a chunk with n day-columns:
-        0 = employee, 1..n = days, n+1 = Total, n+2 = R/T, n+3 = O/T."""
+        0 = employee, 1..n = days, n+1 = RT/OT, n+2 = Total (last)."""
         if i == 0:
             return LEFT, EMP_W
         if i == n + 1:
-            return tail_x(n), TOT_W
+            return tail_x(n), RTOT_W
         if i == n + 2:
-            return tail_x(n) + TOT_W, RT_W
-        if i == n + 3:
-            return tail_x(n) + TOT_W + RT_W, OT_W
+            return tail_x(n) + RTOT_W, TOT_W
         return LEFT + EMP_W + (i - 1) * DAY_W, DAY_W
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
@@ -1208,7 +1205,8 @@ def _hours_pdf_bytes(co, start, end, result):
         pdf.cell(0, 4, legend_txt, new_x="LMARGIN", new_y="NEXT")
         y += 6
         n = len(chunk)
-        # Header row: Employee | weekday/date per day | Total | R/T | O/T.
+        # Header row: Employee | weekday/date per day | R/T over O/T |
+        # Total (last).
         x, w = col_x(0, n)
         cell_one_line(x, y, w, "Employee", align="L", size=8, bold=True,
                       fill=True)
@@ -1221,20 +1219,22 @@ def _hours_pdf_bytes(co, start, end, result):
                      size=7, color=MUTED)
             put_text(x, y + 7.3, w, d[5:], align="C", size=8, bold=True)
         x, w = col_x(n + 1, n)
-        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
-                      fill=True)
+        pdf.set_fill_color(*HDR_FILL)
+        pdf.rect(x, y, w, ROW_H, style="F")
+        pdf.rect(x, y, w, ROW_H)
+        put_text(x, y + 3.3, w, "R/T", align="C", size=8, bold=True)
+        put_text(x, y + 7.3, w, "O/T", align="C", size=8, bold=True,
+                 color=ORANGE)
         x, w = col_x(n + 2, n)
-        cell_one_line(x, y, w, "R/T", align="C", size=8, bold=True,
-                      fill=True)
-        x, w = col_x(n + 3, n)
-        cell_one_line(x, y, w, "O/T", align="C", size=8, bold=True,
+        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
                       fill=True)
         return y + ROW_H
 
     def draw_row(y, chunk, name, day_totals, day_ots, tot, reg, ot,
                  bold=False):
         """One employee (or total) row. day_totals/day_ots are dicts
-        keyed by date; tot/reg/ot are the period totals."""
+        keyed by date; tot/reg/ot are the period totals. The RT/OT
+        column shows reg on top and OT below; Total comes last."""
         n = len(chunk)
         x, w = col_x(0, n)
         pdf.set_xy(x, y)
@@ -1258,18 +1258,13 @@ def _hours_pdf_bytes(co, start, end, result):
             else:
                 cell_dot(x, y, w)
         x, w = col_x(n + 1, n)
-        if tot:
-            cell_one_line(x, y, w, hrs(tot), bold=True)
+        if reg or ot:
+            cell_two_lines(x, y, w, hrs(reg), hrs(ot), bold1=bold)
         else:
             cell_dot(x, y, w)
         x, w = col_x(n + 2, n)
-        if reg:
-            cell_one_line(x, y, w, hrs(reg), bold=bold)
-        else:
-            cell_dot(x, y, w)
-        x, w = col_x(n + 3, n)
-        if ot:
-            cell_one_line(x, y, w, hrs(ot), bold=bold, color=ORANGE)
+        if tot:
+            cell_one_line(x, y, w, hrs(tot), bold=True)
         else:
             cell_dot(x, y, w)
         return y + ROW_H
