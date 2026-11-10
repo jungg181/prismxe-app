@@ -154,6 +154,7 @@
   <p class="small muted" style="margin-top:-4px">Regular on top, overtime in yellow below. Overtime is hours over 40 in a Mon–Sun week, counted on the later days of the week.</p>
   <div class="btn-row" style="margin-bottom:12px">
     <a class="btn secondary" href="{{ url_for('.hours_pdf', company=company.slug, **{'from': start, 'to': end}) }}">Download PDF</a>
+    <a class="btn secondary" href="{{ url_for('.timesheets_pdf', company=company.slug, **{'from': start, 'to': end}) }}">Employee Timesheets</a>
   </div>
   <div class="table-scroll">
     <table>
