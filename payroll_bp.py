@@ -1332,15 +1332,9 @@ def _timesheets_pdf_bytes(co, start, end, result):
     rows = result["rows"]
 
     class _PDF(FPDF):
-        def footer(self):
-            self.set_y(-10)
-            self.set_font("helvetica", "", 7.5)
-            self.set_text_color(*MUTED)
-            self.cell(0, 5, f"Page {self.page_no()} of {{nb}}",
-                     align="C")
+        pass
 
     pdf = _PDF(orientation="P", unit="mm", format="Letter")
-    pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=False)
     pdf.set_margins(LEFT, TOP, 12.0)
     pdf.set_line_width(0.1)
@@ -1459,10 +1453,13 @@ def _timesheets_pdf_bytes(co, start, end, result):
         pdf.set_xy(LEFT, y)
         pdf.set_font("helvetica", "", 9)
         pdf.set_text_color(0, 0, 0)
-        stmt = ("I confirm that the hours shown above are correct and I "
-                "agree to the contents of this document.")
-        pdf.multi_cell(0, 5, stmt)
-        y += 12
+        stmt_en = ("I confirm that the hours shown above are correct and I "
+                   "agree to the contents of this document.")
+        stmt_es = ("Confirmo que las horas indicadas arriba son correctas "
+                   "y estoy de acuerdo con el contenido de este documento.")
+        pdf.multi_cell(0, 5, stmt_en, new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, 5, stmt_es, new_x="LMARGIN", new_y="NEXT")
+        y = pdf.get_y() + 2
         # Signature line.
         pdf.set_font("helvetica", "", 9)
         pdf.set_text_color(0, 0, 0)
