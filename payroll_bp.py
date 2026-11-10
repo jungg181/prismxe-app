@@ -1386,16 +1386,16 @@ def _timesheets_pdf_bytes(co, start, end, result):
                 new_x="LMARGIN", new_y="NEXT")
         y += 8
         pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "B", 12)
+        pdf.set_font("helvetica", "B", 16)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 6, r["employee"], new_x="LMARGIN", new_y="NEXT")
-        y += 7
+        pdf.cell(0, 8, r["employee"], new_x="LMARGIN", new_y="NEXT")
+        y += 9
         pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "", 9)
-        pdf.set_text_color(*MUTED)
-        pdf.cell(0, 5, f"{mdy(start)} - {mdy(end)}",
+        pdf.set_font("helvetica", "", 16)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 8, f"{mdy(start)} - {mdy(end)}",
                 new_x="LMARGIN", new_y="NEXT")
-        y += 8
+        y += 10
         # Weekday header row.
         for i, wd in enumerate(WD):
             x = LEFT + i * CELL_W
