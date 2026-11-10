@@ -1073,9 +1073,10 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
 
 def _hours_pdf_bytes(co, start, end, result):
     """Build the Hours per Day PDF for one company + period from a
-    compute_payroll result (rows carry days / days_ot / total_hours /
-    reg_hours / ot_hours; result carries days + weekdays + totals)."""
+    compute_payroll result (rows carry days / days_ot; result carries
+    days + weekdays). One block per Mon-Sun week, stacked."""
     from fpdf import FPDF
+    from datetime import date as _date, timedelta
 
     LEFT = 10.0
     RIGHT = 269.4
@@ -1083,21 +1084,17 @@ def _hours_pdf_bytes(co, start, end, result):
     TOP = 10.0
     BOTTOM = 10.0
     EMP_W = 44.0
-    DAY_W = 13.0
     RTOT_W = 15.0
     TOT_W = 15.0
     ROW_H = 8.0
-    HALF = ROW_H / 2.0
+    TITLE_H = 7.0
+    GAP_H = 4.0
     ORANGE = (180, 83, 9)      # dark amber — readable on white
     MUTED = (100, 116, 139)
     NAVY = (10, 48, 65)
     HDR_FILL = (230, 235, 240)
     # Right-side columns (RT/OT, then Total last) eat this much width.
     TAIL_W = RTOT_W + TOT_W
-    # Pages hold whole Mon-Sun weeks, at most 2 weeks (14 days) each,
-    # so a week is never split across pages. 14 days x 13mm = 182mm,
-    # which fits the 185.4mm available for day columns.
-    MAX_WEEKS_PER_PAGE = 2
 
     def hrs(v):
         if v is None or v == 0:
@@ -1127,25 +1124,31 @@ def _hours_pdf_bytes(co, start, end, result):
 
     title_txt = (f"{co['name']} - Hours per Day - "
                  f"{mdy(start)} - {mdy(end)}")
-    legend_txt = ("Regular on top, overtime below in orange. Overtime is "
-                  "hours over 40 in a Mon-Sun week, counted on the later "
-                  "days of the week. R/T = Regular Time, O/T = Overtime, "
-                  "Total last. Totals are shown per week.")
+    legend_txt = ("One block per Mon-Sun week. Regular on top, overtime "
+                  "below in orange. Overtime is hours over 40 in a Mon-Sun "
+                  "week, counted on the later days of the week. R/T = "
+                  "Regular Time, O/T = Overtime, Total last.")
 
-    def tail_x(n):
-        """x of the RT/OT column for a chunk with n day-columns."""
-        return LEFT + EMP_W + n * DAY_W
+    def day_w_for(n):
+        """Day-column width for a week with n days: fill the page
+        width, capped at 22mm so a short week does not stretch."""
+        avail = RIGHT - LEFT - EMP_W - TAIL_W
+        return min(22.0, avail / max(1, n))
 
-    def col_x(i, n):
-        """(x, width) for column i of a chunk with n day-columns:
+    def tail_x(n, dw):
+        """x of the RT/OT column for a week with n day-columns."""
+        return LEFT + EMP_W + n * dw
+
+    def col_x(i, n, dw):
+        """(x, width) for column i of a week with n day-columns:
         0 = employee, 1..n = days, n+1 = RT/OT, n+2 = Total (last)."""
         if i == 0:
             return LEFT, EMP_W
         if i == n + 1:
-            return tail_x(n), RTOT_W
+            return tail_x(n, dw), RTOT_W
         if i == n + 2:
-            return tail_x(n) + RTOT_W, TOT_W
-        return LEFT + EMP_W + (i - 1) * DAY_W, DAY_W
+            return tail_x(n, dw) + RTOT_W, TOT_W
+        return LEFT + EMP_W + (i - 1) * dw, dw
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
                  color=(0, 0, 0)):
@@ -1191,9 +1194,9 @@ def _hours_pdf_bytes(co, start, end, result):
         pdf.rect(x, y, w, ROW_H)
         put_text(x, y + 5.3, w, "·", align="C", size=8, color=MUTED)
 
-    def draw_top(chunk):
-        """Title block + column header for one day-chunk. Returns the y
-        just below the header row."""
+    def draw_page_top():
+        """Title block at the top of a page. Returns the y just below
+        the legend."""
         y = TOP
         pdf.set_xy(LEFT, y)
         pdf.set_font("helvetica", "B", 14)
@@ -1204,82 +1207,13 @@ def _hours_pdf_bytes(co, start, end, result):
         pdf.set_font("helvetica", "", 7.5)
         pdf.set_text_color(*MUTED)
         pdf.cell(0, 4, legend_txt, new_x="LMARGIN", new_y="NEXT")
-        y += 6
-        n = len(chunk)
-        # Header row: Employee | weekday/date per day | R/T over O/T |
-        # Total (last).
-        x, w = col_x(0, n)
-        cell_one_line(x, y, w, "Employee", align="L", size=8, bold=True,
-                      fill=True)
-        for j, d in enumerate(chunk):
-            x, w = col_x(j + 1, n)
-            pdf.set_fill_color(*HDR_FILL)
-            pdf.rect(x, y, w, ROW_H, style="F")
-            pdf.rect(x, y, w, ROW_H)
-            put_text(x, y + 3.3, w, weekdays.get(d, ""), align="C",
-                     size=7, color=MUTED)
-            put_text(x, y + 7.3, w, d[5:], align="C", size=8, bold=True)
-        x, w = col_x(n + 1, n)
-        pdf.set_fill_color(*HDR_FILL)
-        pdf.rect(x, y, w, ROW_H, style="F")
-        pdf.rect(x, y, w, ROW_H)
-        put_text(x, y + 3.3, w, "R/T", align="C", size=8, bold=True)
-        put_text(x, y + 7.3, w, "O/T", align="C", size=8, bold=True,
-                 color=ORANGE)
-        x, w = col_x(n + 2, n)
-        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
-                      fill=True)
-        return y + ROW_H
-
-    def draw_row(y, chunk, name, day_totals, day_ots, tot, reg, ot,
-                 bold=False):
-        """One employee (or total) row. day_totals/day_ots are dicts
-        keyed by date; tot/reg/ot are the period totals. The RT/OT
-        column shows reg on top and OT below; Total comes last."""
-        n = len(chunk)
-        x, w = col_x(0, n)
-        pdf.set_xy(x, y)
-        pdf.set_font("helvetica", "B" if bold else "", 8)
-        pdf.set_text_color(0, 0, 0)
-        label = name if len(name) <= 26 else name[:25] + "..."
-        pdf.rect(x, y, w, ROW_H)
-        put_text(x, y + 5.3, w, label, align="L", size=8, bold=bold)
-        for j, d in enumerate(chunk):
-            x, w = col_x(j + 1, n)
-            t = day_totals.get(d, 0.0) or 0.0
-            o = day_ots.get(d, 0.0) or 0.0
-            if t:
-                r = round(t - o, 2)
-                if o:
-                    cell_two_lines(x, y, w, hrs(r), hrs(o), size1=7.5,
-                                   size2=7.5, bold1=bold)
-                else:
-                    cell_two_lines(x, y, w, hrs(t), "", size1=7.5,
-                                   size2=7.5, bold1=bold)
-            else:
-                cell_dot(x, y, w)
-        x, w = col_x(n + 1, n)
-        if reg or ot:
-            cell_two_lines(x, y, w, hrs(reg), hrs(ot), bold1=bold)
-        else:
-            cell_dot(x, y, w)
-        x, w = col_x(n + 2, n)
-        if tot:
-            cell_one_line(x, y, w, hrs(tot), bold=True)
-        else:
-            cell_dot(x, y, w)
-        return y + ROW_H
-
-    # Group the period's days into Mon-Sun weeks, then pack whole weeks
-    # into pages (at most MAX_WEEKS_PER_PAGE weeks each) so a week is
-    # never split across pages.
-    from datetime import date as _date, timedelta
+        return y + 6
 
     def _parse_day(s):
         return _date.fromisoformat(s)
 
     def _week_label(week_days):
-        """'Week Oct 5-11' for the Mon-Sun days in this week-chunk."""
+        """'Week Oct 19-25' for the Mon-Sun days in this week."""
         first = _parse_day(week_days[0])
         last = _parse_day(week_days[-1])
         if first.month == last.month:
@@ -1288,6 +1222,87 @@ def _hours_pdf_bytes(co, start, end, result):
         return (f"Week {first.strftime('%b')} {first.day}-"
                 f"{last.strftime('%b')} {last.day}")
 
+    def draw_week_block(y, week_days):
+        """One week's block: title, column header, one row per
+        employee for that week's days only. Returns the y below the
+        block (including the gap after it)."""
+        n = len(week_days)
+        dw = day_w_for(n)
+        # Week title, like a name: bold, same left edge as the names.
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "B", 11)
+        pdf.set_text_color(*NAVY)
+        pdf.cell(0, TITLE_H, _week_label(week_days),
+                new_x="LMARGIN", new_y="NEXT")
+        y += TITLE_H
+        # Column header: Employee | weekday/date per day | R/T over O/T |
+        # Total (last).
+        x, w = col_x(0, n, dw)
+        cell_one_line(x, y, w, "Employee", align="L", size=8, bold=True,
+                      fill=True)
+        for j, d in enumerate(week_days):
+            x, w = col_x(j + 1, n, dw)
+            pdf.set_fill_color(*HDR_FILL)
+            pdf.rect(x, y, w, ROW_H, style="F")
+            pdf.rect(x, y, w, ROW_H)
+            put_text(x, y + 3.3, w, weekdays.get(d, ""), align="C",
+                     size=7, color=MUTED)
+            put_text(x, y + 7.3, w, d[5:], align="C", size=8, bold=True)
+        x, w = col_x(n + 1, n, dw)
+        pdf.set_fill_color(*HDR_FILL)
+        pdf.rect(x, y, w, ROW_H, style="F")
+        pdf.rect(x, y, w, ROW_H)
+        put_text(x, y + 3.3, w, "R/T", align="C", size=8, bold=True)
+        put_text(x, y + 7.3, w, "O/T", align="C", size=8, bold=True,
+                 color=ORANGE)
+        x, w = col_x(n + 2, n, dw)
+        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
+                      fill=True)
+        y += ROW_H
+        # One row per employee: hours for this week's days only, with
+        # R/T, O/T and Total for this week on the right.
+        for r in rows:
+            x, w = col_x(0, n, dw)
+            pdf.set_xy(x, y)
+            pdf.set_font("helvetica", "", 8)
+            pdf.set_text_color(0, 0, 0)
+            label = (r["employee"] if len(r["employee"]) <= 26
+                     else r["employee"][:25] + "...")
+            pdf.rect(x, y, w, ROW_H)
+            put_text(x, y + 5.3, w, label, align="L", size=8)
+            w_tot = 0.0
+            w_ot = 0.0
+            for j, d in enumerate(week_days):
+                x, w = col_x(j + 1, n, dw)
+                t = r["days"].get(d) or 0.0
+                o = r["days_ot"].get(d) or 0.0
+                w_tot += t
+                w_ot += o
+                if t:
+                    rr = round(t - o, 2)
+                    if o:
+                        cell_two_lines(x, y, w, hrs(rr), hrs(o),
+                                       size1=7.5, size2=7.5)
+                    else:
+                        cell_two_lines(x, y, w, hrs(t), "",
+                                       size1=7.5, size2=7.5)
+                else:
+                    cell_dot(x, y, w)
+            w_reg = round(w_tot - w_ot, 2)
+            x, w = col_x(n + 1, n, dw)
+            if w_reg or w_ot:
+                cell_two_lines(x, y, w, hrs(w_reg), hrs(w_ot))
+            else:
+                cell_dot(x, y, w)
+            x, w = col_x(n + 2, n, dw)
+            if w_tot:
+                cell_one_line(x, y, w, hrs(w_tot), bold=True)
+            else:
+                cell_dot(x, y, w)
+            y += ROW_H
+        return y + GAP_H
+
+    # Group the period's days into Mon-Sun weeks.
     weeks = []
     cur = []
     cur_monday = None
@@ -1303,54 +1318,18 @@ def _hours_pdf_bytes(co, start, end, result):
             cur.append(d)
     if cur:
         weeks.append(cur)
+    if not weeks:
+        weeks = [[]]
 
-    chunks = []  # each chunk: (list of day-strings, list of week lists)
-    cur_days, cur_weeks = [], []
+    pdf.add_page()
+    y = draw_page_top()
     for w in weeks:
-        if len(cur_weeks) >= MAX_WEEKS_PER_PAGE:
-            chunks.append((cur_days, cur_weeks))
-            cur_days, cur_weeks = [], []
-        cur_days.extend(w)
-        cur_weeks.append(w)
-    if cur_days:
-        chunks.append((cur_days, cur_weeks))
-    if not chunks:
-        chunks = [([], [])]
-
-    for chunk, chunk_weeks in chunks:
-        pdf.add_page()
-        y = draw_top(chunk)
-        # Per-day totals across all employees, for the TOTAL rows.
-        day_tot = {}
-        day_ot = {}
-        for r in rows:
-            for d in chunk:
-                day_tot[d] = day_tot.get(d, 0.0) + (r["days"].get(d) or 0.0)
-                day_ot[d] = day_ot.get(d, 0.0) + (r["days_ot"].get(d) or 0.0)
-        for r in rows:
-            if y + ROW_H > PAGE_H - BOTTOM:
-                pdf.add_page()
-                y = draw_top(chunk)
-            y = draw_row(y, chunk, r["employee"], r["days"], r["days_ot"],
-                         r["total_hours"], r["reg_hours"], r["ot_hours"])
-        # One total row per week on this page, then the grand total.
-        for w in chunk_weeks:
-            if y + ROW_H > PAGE_H - BOTTOM:
-                pdf.add_page()
-                y = draw_top(chunk)
-            w_tot = sum(day_tot.get(d, 0.0) for d in w)
-            w_ot = sum(day_ot.get(d, 0.0) for d in w)
-            w_reg = round(w_tot - w_ot, 2)
-            w_day_tot = {d: day_tot.get(d, 0.0) for d in w}
-            w_day_ot = {d: day_ot.get(d, 0.0) for d in w}
-            # Only this week's days carry values; other day cells
-            # show a dot. Build full-chunk dicts with zeros elsewhere.
-            full_tot = {d: (w_day_tot.get(d, 0.0) if d in w else 0.0)
-                        for d in chunk}
-            full_ot = {d: (w_day_ot.get(d, 0.0) if d in w else 0.0)
-                       for d in chunk}
-            y = draw_row(y, chunk, _week_label(w), full_tot, full_ot,
-                         w_tot, w_reg, w_ot, bold=True)
+        # A week block that does not fit starts a new page.
+        block_h = TITLE_H + ROW_H + len(rows) * ROW_H + GAP_H
+        if y + block_h > PAGE_H - BOTTOM:
+            pdf.add_page()
+            y = draw_page_top()
+        y = draw_week_block(y, w)
 
     return bytes(pdf.output())
 
