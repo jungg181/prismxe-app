@@ -1451,13 +1451,14 @@ def _timesheets_pdf_bytes(co, start, end, result):
         pdf.line(LEFT, y, RIGHT, y)
         y += 7
         pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "", 9)
         pdf.set_text_color(0, 0, 0)
         stmt_en = ("I confirm that the hours shown above are correct and I "
                    "agree to the contents of this document.")
         stmt_es = ("Confirmo que las horas indicadas arriba son correctas "
                    "y estoy de acuerdo con el contenido de este documento.")
-        pdf.multi_cell(0, 5, stmt_en, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("helvetica", "", 11)
+        pdf.multi_cell(0, 6, stmt_en, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("helvetica", "", 9)
         pdf.multi_cell(0, 5, stmt_es, new_x="LMARGIN", new_y="NEXT")
         y = pdf.get_y() + 2
         # Signature line.
