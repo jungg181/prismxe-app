@@ -1300,6 +1300,177 @@ def _hours_pdf_bytes(co, start, end, result):
     return bytes(pdf.output())
 
 
+def _timesheets_pdf_bytes(co, start, end, result):
+    """Build the per-employee timesheet PDF for one company + period
+    from a compute_payroll result (rows carry days / days_ot /
+    total_hours / reg_hours / ot_hours)."""
+    from datetime import timedelta
+
+    from fpdf import FPDF
+
+    LEFT = 12.0
+    RIGHT = 203.9
+    PAGE_H = 279.4
+    TOP = 12.0
+    BOTTOM = 12.0
+    ORANGE = (180, 83, 9)      # dark amber — readable on white
+    MUTED = (100, 116, 139)
+    NAVY = (10, 48, 65)
+    HDR_FILL = (230, 235, 240)
+    OUT_FILL = (243, 244, 246)
+    COLS = 7
+    CELL_W = (RIGHT - LEFT) / COLS
+
+    def hrs(v):
+        if v is None or v == 0:
+            return ""
+        return f"{v:.2f}".rstrip("0").rstrip(".")
+
+    def mdy(d):
+        return f"{d.strftime('%b')} {d.day}, {d.year}"
+
+    rows = result["rows"]
+
+    class _PDF(FPDF):
+        def footer(self):
+            self.set_y(-10)
+            self.set_font("helvetica", "", 7.5)
+            self.set_text_color(*MUTED)
+            self.cell(0, 5, f"Page {self.page_no()} of {{nb}}",
+                     align="C")
+
+    pdf = _PDF(orientation="P", unit="mm", format="Letter")
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(LEFT, TOP, 12.0)
+    pdf.set_line_width(0.1)
+
+    # Weeks (Mon-Sun) overlapping the period.
+    first_mon = start - timedelta(days=start.weekday())
+    last_sun = end + timedelta(days=(6 - end.weekday()))
+    weeks = []
+    d = first_mon
+    while d <= last_sun:
+        weeks.append(d)
+        d += timedelta(days=7)
+    CELL_H = 30.0 if len(weeks) <= 5 else 25.0
+    WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    def put_text(x, y, w, txt, align="R", size=8, bold=False,
+                 color=(0, 0, 0)):
+        """Draw txt on one line, baseline at y, horizontally placed
+        inside [x, x+w] by align, via pdf.text() with a computed x."""
+        if not txt:
+            return
+        pdf.set_font("helvetica", "B" if bold else "", size)
+        pdf.set_text_color(*color)
+        tw = pdf.get_string_width(txt)
+        if align == "R":
+            tx = x + w - 1.5 - tw
+        elif align == "C":
+            tx = x + (w - tw) / 2.0
+        else:
+            tx = x + 1.5
+        pdf.text(tx, y, txt)
+
+    def draw_employee_page(r):
+        """One page: calendar of this employee's hours + summary +
+        signature block."""
+        pdf.add_page()
+        y = TOP
+        # Title + employee name + period.
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "B", 14)
+        pdf.set_text_color(*NAVY)
+        pdf.cell(0, 7, f"{co['name']} - Employee Timesheet",
+                new_x="LMARGIN", new_y="NEXT")
+        y += 8
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "B", 12)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 6, r["employee"], new_x="LMARGIN", new_y="NEXT")
+        y += 7
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "", 9)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(0, 5, f"{mdy(start)} - {mdy(end)}",
+                new_x="LMARGIN", new_y="NEXT")
+        y += 8
+        # Weekday header row.
+        for i, wd in enumerate(WD):
+            x = LEFT + i * CELL_W
+            pdf.set_fill_color(*HDR_FILL)
+            pdf.rect(x, y, CELL_W, 7.0, style="F")
+            pdf.rect(x, y, CELL_W, 7.0)
+            put_text(x, y + 5.0, CELL_W, wd, align="C", size=8,
+                     bold=True)
+        y += 7.0
+        # Calendar cells.
+        for mon in weeks:
+            for i in range(COLS):
+                day = mon + timedelta(days=i)
+                x = LEFT + i * CELL_W
+                in_period = start <= day <= end
+                if not in_period:
+                    pdf.set_fill_color(*OUT_FILL)
+                    pdf.rect(x, y, CELL_W, CELL_H, style="F")
+                    pdf.rect(x, y, CELL_W, CELL_H)
+                    continue
+                pdf.rect(x, y, CELL_W, CELL_H)
+                # Date number, top-left.
+                put_text(x, y + 5.0, CELL_W, str(day.day), align="L",
+                         size=9, bold=True, color=MUTED)
+                t = r["days"].get(day.isoformat(), 0.0) or 0.0
+                o = r["days_ot"].get(day.isoformat(), 0.0) or 0.0
+                if t:
+                    reg = round(t - o, 2)
+                    # Regular hours, large and centered.
+                    put_text(x, y + CELL_H / 2 + 2.0, CELL_W,
+                             hrs(reg), align="C", size=13, bold=True)
+                    # Overtime, bottom-right in orange.
+                    if o:
+                        put_text(x, y + CELL_H - 3.0, CELL_W, hrs(o),
+                                 align="R", size=10, bold=True,
+                                 color=ORANGE)
+            y += CELL_H
+        # Summary: Regular / Overtime / Total.
+        y += 6
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "B", 10)
+        pdf.set_text_color(0, 0, 0)
+        summary = (f"Regular (R/T): {hrs(r['reg_hours'])}h    "
+                   f"Overtime (O/T): {hrs(r['ot_hours'])}h    "
+                   f"Total: {hrs(r['total_hours'])}h")
+        pdf.cell(0, 6, summary, new_x="LMARGIN", new_y="NEXT")
+        y += 10
+        # Signature block.
+        pdf.set_draw_color(0, 0, 0)
+        pdf.line(LEFT, y, RIGHT, y)
+        y += 7
+        pdf.set_xy(LEFT, y)
+        pdf.set_font("helvetica", "", 9)
+        pdf.set_text_color(0, 0, 0)
+        stmt = ("I confirm that the hours shown above are correct and I "
+                "agree to the contents of this document.")
+        pdf.multi_cell(0, 5, stmt)
+        y += 12
+        # Signature line.
+        pdf.set_font("helvetica", "", 9)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_xy(LEFT, y)
+        pdf.cell(38, 6, "Employee Signature:")
+        pdf.line(LEFT + 40, y + 6, LEFT + 130, y + 6)
+        # Date line.
+        pdf.set_xy(LEFT, y + 10)
+        pdf.cell(38, 6, "Date:")
+        pdf.line(LEFT + 40, y + 16, LEFT + 100, y + 16)
+
+    for r in rows:
+        draw_employee_page(r)
+
+    return bytes(pdf.output())
+
+
 @bp.get("/<company>/invoice/pdf")
 def invoice_pdf(company):
     """Download the invoice as a PDF in the Hanseong sheet format.
@@ -1348,6 +1519,27 @@ def hours_pdf(company):
     result = _payroll_for(co, start, end)
     data = _hours_pdf_bytes(co, start, end, result)
     filename = (f"{co['name']}_Hours_per_Day_"
+                f"{start.isoformat()}_{end.isoformat()}.pdf")
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{filename}"'})
+
+
+@bp.get("/<company>/timesheets/pdf")
+def timesheets_pdf(company):
+    """Download one printable timesheet page per employee (Letter
+    portrait): each page shows that employee's hours as a Monday-first
+    calendar grid (Regular as the main number, OT below-right in
+    orange), a Regular / Overtime / Total summary, and a signature
+    block where the employee confirms the hours and agrees to the
+    document contents."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    result = _payroll_for(co, start, end)
+    data = _timesheets_pdf_bytes(co, start, end, result)
+    filename = (f"{co['name']}_Employee_Timesheets_"
                 f"{start.isoformat()}_{end.isoformat()}.pdf")
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition":
