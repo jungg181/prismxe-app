@@ -9,74 +9,73 @@
   html, body { height: 100%; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-    margin: 0; background: #f1f5f9; color: #0f172a; height: 100dvh; overflow: hidden;
+    margin: 0; background: #141518; color: #f2f3f5; height: 100dvh; overflow: hidden;
     display: flex; flex-direction: column;
   }
-  header { background: #1976d2; color: #fff; padding: 8px 12px; flex-shrink: 0; }
+  header { background: #1e2026; border-bottom: 1px solid rgba(255,255,255,.08); color: #f2f3f5; padding: 12px; flex-shrink: 0; }
   header .row { display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 0 auto; }
-  header a.home { color: #fff; text-decoration: none; font-size: 22px; }
-  header h1 { margin: 0; font-size: 16px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  header h1 span { font-size: 12px; font-weight: 600; opacity: .9; }
-  header .cnt { font-size: 13px; font-weight: 600; opacity: .95; white-space: nowrap; }
-  .pbar { height: 5px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; max-width: 640px; margin-left: auto; margin-right: auto; }
-  .pbar > div { height: 100%; background: #fff; border-radius: 3px; transition: width .3s; }
-  main { padding: 10px 12px; max-width: 640px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; }
+  header a.home { color: #f2f3f5; text-decoration: none; font-size: 22px; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header h1 span { font-size: 12px; font-weight: 500; color: #a1a5ad; }
+  header .cnt { font-size: 13px; font-weight: 500; color: #a1a5ad; white-space: nowrap; }
+  .pbar { height: 4px; background: rgba(255,255,255,.12); border-radius: 2px; margin-top: 8px; max-width: 640px; margin-left: auto; margin-right: auto; }
+  .pbar > div { height: 100%; background: #e5a83b; border-radius: 2px; transition: width .3s; }
+  main { padding: 12px; max-width: 640px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; }
   .dots { display: flex; gap: 4px; flex-wrap: nowrap; justify-content: center; margin: 0 0 8px; }
   .dots button {
-    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #cbd5e1;
-    background: #fff; color: #94a3b8; font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; flex-shrink: 0;
+    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.2);
+    background: transparent; color: #6b7078; font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; flex-shrink: 0;
   }
-  .dots button.cur { border-color: #1976d2; color: #1976d2; }
-  .dots button.done { background: #1976d2; border-color: #1976d2; color: #fff; }
+  .dots button.cur { border-color: #e5a83b; color: #e5a83b; }
+  .dots button.done { background: #e5a83b; border-color: #e5a83b; color: #141518; }
   .dots button:disabled { cursor: default; opacity: .6; }
-  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px 14px; margin-bottom: 10px; }
+  .card { background: #1e2026; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
   .stepnum {
-    display: inline-block; background: #1976d2; color: #fff; font-weight: 800;
-    font-size: 12px; border-radius: 999px; padding: 3px 10px; margin-bottom: 7px;
+    display: inline-block; background: #e5a83b; color: #141518; font-weight: 600;
+    font-size: 12px; border-radius: 999px; padding: 4px 12px; margin-bottom: 8px;
   }
-  .card h2 { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: 1.25; }
-  .card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #334155; line-height: 1.3; }
+  .card h2 { margin: 0 0 2px; font-size: 20px; font-weight: 600; line-height: 1.25; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #a1a5ad; line-height: 1.3; }
   .card p.en { font-size: 15px; line-height: 1.45; margin: 0 0 6px; }
-  .card p.ko { font-size: 14px; line-height: 1.5; margin: 0; color: #475569; }
-  .stepimg { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; margin-bottom: 10px; }
+  .card p.ko { font-size: 14px; line-height: 1.5; margin: 0; color: #a1a5ad; }
+  .stepimg { background: #1e2026; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px; margin-bottom: 12px; }
   .stepimg img { width: 100%; max-height: 18vh; object-fit: cover; border-radius: 8px; display: block; }
-  .stepimg .cap { font-size: 12px; font-weight: 700; color: #1976d2; margin: 6px 4px 1px; line-height: 1.4; }
-  .stepimg .capko { font-size: 11px; color: #64748b; margin: 0 4px 2px; line-height: 1.4; }
+  .stepimg .cap { font-size: 12px; font-weight: 600; color: #e5a83b; margin: 8px 4px 2px; line-height: 1.4; }
+  .stepimg .capko { font-size: 11px; color: #6b7078; margin: 0 4px 2px; line-height: 1.4; }
   .timerbox {
-    background: #0f172a; color: #fff; border-radius: 12px; padding: 12px;
-    text-align: center; margin-bottom: 10px;
+    background: #0b0c0e; color: #f2f3f5; border-radius: 12px; padding: 12px;
+    text-align: center; margin-bottom: 12px;
   }
-  .timerbox .tdisp { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 2px; line-height: 1.1; }
+  .timerbox .tdisp { font-size: 44px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 2px; line-height: 1.1; }
   .timerbox .tbtns { display: flex; gap: 8px; margin-top: 10px; }
   .timerbox .tbtns button {
-    flex: 1; padding: 11px; font-size: 15px; font-weight: 700; border: none;
+    flex: 1; padding: 12px; font-size: 15px; font-weight: 600; border: none;
     border-radius: 10px; cursor: pointer;
   }
-  .tstart { background: #2e7d32; color: #fff; }
-  .tpause { background: #f59e0b; color: #fff; }
-  .treset { background: #475569; color: #fff; }
-  .timenote { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.4; }
-  .skiptimer { display: block; text-align: center; margin-top: 6px; color: #94a3b8; font-size: 13px; background: none; border: none; cursor: pointer; width: 100%; }
+  .tstart { background: #2f9e44; color: #fff; }
+  .tpause { background: #e5a83b; color: #141518; }
+  .treset { background: #3a3d44; color: #f2f3f5; }
+  .timenote { font-size: 12px; color: #6b7078; margin-top: 8px; line-height: 1.4; }
+  .skiptimer { display: block; text-align: center; margin-top: 8px; color: #6b7078; font-size: 13px; background: none; border: none; cursor: pointer; width: 100%; }
   .nav { display: flex; gap: 8px; }
   .nav button {
-    flex: 1; padding: 12px; font-size: 17px; font-weight: 800; border: none;
+    flex: 1; padding: 12px; font-size: 17px; font-weight: 600; border: none;
     border-radius: 12px; cursor: pointer;
   }
-  .back { background: #e2e8f0; color: #334155; }
-  .next { background: #1976d2; color: #fff; }
-  .finish { background: #2e7d32; color: #fff; }
+  .back { background: #26282e; color: #f2f3f5; }
+  .next { background: #e5a83b; color: #141518; }
+  .finish { background: #2f9e44; color: #fff; }
   .nav button:disabled { opacity: .35; cursor: default; }
   .donescreen { text-align: center; padding: 40px 20px; }
-  .donescreen .big { font-size: 64px; }
   .donescreen h2 { font-size: 26px; margin: 12px 0 6px; }
-  .donescreen p { color: #64748b; font-size: 16px; }
+  .donescreen p { color: #a1a5ad; font-size: 16px; }
   .donescreen a {
-    display: inline-block; margin-top: 18px; background: #1976d2; color: #fff;
-    text-decoration: none; font-weight: 700; font-size: 18px; padding: 16px 40px; border-radius: 12px;
+    display: inline-block; margin-top: 20px; background: #e5a83b; color: #141518;
+    text-decoration: none; font-weight: 600; font-size: 18px; padding: 16px 40px; border-radius: 12px;
   }
   /* Very short phones: tighten further so one step still fits without scrolling */
   @media (max-height: 700px) {
-    .card { padding: 10px 12px; }
+    .card { padding: 12px; }
     .card h2 { font-size: 18px; }
     .card p.en { font-size: 14px; }
     .card p.ko { font-size: 13px; }
@@ -85,18 +84,15 @@
     .nav button { padding: 10px; }
   }
   #alarm {
-    display: none; position: fixed; inset: 0; z-index: 50; background: #c62828;
+    display: none; position: fixed; inset: 0; z-index: 50; background: #b3261e;
     color: #fff; text-align: center; padding: 60px 24px;
-    animation: blink 1s infinite;
   }
-  @keyframes blink { 0%,100% { background: #c62828; } 50% { background: #e53935; } }
-  #alarm .bell { font-size: 72px; }
-  #alarm h2 { font-size: 34px; margin: 16px 0 8px; font-weight: 800; }
-  #alarm p.en { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+  #alarm h2 { font-size: 34px; margin: 16px 0 8px; font-weight: 600; }
+  #alarm p.en { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
   #alarm p.ko { font-size: 19px; margin: 0 0 30px; opacity: .95; }
   #alarm button {
-    background: #fff; color: #c62828; border: none; border-radius: 14px;
-    font-size: 22px; font-weight: 800; padding: 20px 60px; cursor: pointer;
+    background: #fff; color: #b3261e; border: none; border-radius: 12px;
+    font-size: 22px; font-weight: 600; padding: 20px 60px; cursor: pointer;
   }
   #alarm button.secondary {
     background: transparent; color: #fff; border: 2px solid #fff;
@@ -104,9 +100,9 @@
   }
   #timerBadge {
     display: none; position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    z-index: 40; background: #0f172a; color: #fff; border-radius: 999px;
-    padding: 13px 24px; font-size: 16px; font-weight: 700; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0,0,0,.35); white-space: nowrap; border: 2px solid #1976d2;
+    z-index: 40; background: #1e2026; color: #f2f3f5; border-radius: 999px;
+    padding: 12px 24px; font-size: 16px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.35); white-space: nowrap; border: 2px solid #e5a83b;
   }
 </style>
 </head>
@@ -122,7 +118,6 @@
 <main id="main"></main>
 
 <div id="alarm">
-  <div class="bell">⏰</div>
   <h2>TIME'S UP</h2>
   <p class="en" id="alarmEn"></p>
   <p class="ko" id="alarmKo"></p>
@@ -196,7 +191,7 @@ function render() {
 
   if (st.image) {
     html += '<div class="stepimg"><img src="' + esc(st.image) + '" alt="control panel" loading="lazy">' +
-      '<div class="cap">📍 ' + esc(st.image_en || '') + '</div>' +
+      '<div class="cap">' + esc(st.image_en || '') + '</div>' +
       '<div class="capko">' + esc(st.image_ko || '') + '</div></div>';
   }
 
@@ -221,15 +216,15 @@ function render() {
       tRemain = st.minutes * 60;
     }
     const startLabel = tMode === 'paused'
-      ? '▶ Resume ' + fmt(tRemain)
-      : '▶ Start ' + st.minutes + ':00 Timer';
+      ? 'Resume ' + fmt(tRemain)
+      : 'Start ' + st.minutes + ':00 Timer';
     html += '<div class="timerbox"><div class="tdisp" id="tdisp">' + fmt(tRemain) + '</div>' +
       '<div class="tbtns">' +
       '<button class="tstart" id="tStart" onclick="timerStart()">' + esc(startLabel) + '</button>' +
-      '<button class="tpause" id="tPause" onclick="timerPause()" style="display:none">⏸ Pause</button>' +
-      '<button class="treset" onclick="timerReset()">↺ Reset</button>' +
+      '<button class="tpause" id="tPause" onclick="timerPause()" style="display:none">Pause</button>' +
+      '<button class="treset" onclick="timerReset()">Reset</button>' +
       '</div>' +
-      '<div class="timenote">⏳ Keep this page open during the wait — the alarm needs the page open.<br>대기 중에는 이 페이지를 열어 두세요.</div></div>' +
+      '<div class="timenote">Keep this page open during the wait — the alarm needs the page open.<br>대기 중에는 이 페이지를 열어 두세요.</div></div>' +
       '<button class="skiptimer" onclick="skipTimer()">Skip timer →</button>';
     // stash the resume mode for after innerHTML is set
     pendingTMode = tMode;
@@ -241,7 +236,7 @@ function render() {
   if (st.kind === 'timer') {
     html += '<button class="next" onclick="next()">Next →<br><span style="font-size:12px">다음 미리 보기</span></button>';
   } else if (isLast) {
-    html += '<button class="finish" onclick="finish()">✓ Done<br><span style="font-size:12px">완료</span></button>';
+    html += '<button class="finish" onclick="finish()">Done<br><span style="font-size:12px">완료</span></button>';
   } else {
     html += '<button class="next" onclick="next()">Next →<br><span style="font-size:12px">다음</span></button>';
   }
@@ -271,8 +266,8 @@ function next() {
   if (idx < N - 1) { idx++; visited = Math.max(visited, idx); render(); }
 }
 function finish() {
-  main.innerHTML = '<div class="card donescreen"><div class="big">✅</div>' +
-    '<h2>Procedure Complete</h2><h3 style="color:#475569">절차 완료</h3>' +
+  main.innerHTML = '<div class="card donescreen">' +
+    '<h2>Procedure Complete</h2><h3 style="color:#a1a5ad">절차 완료</h3>' +
     '<p>{{ flow_name }} finished.</p>' +
     '<a href="/burner/">Back to Home / 처음으로</a></div>';
   counter.textContent = 'Done';
@@ -310,7 +305,7 @@ function timerPause() {
   saveTimerPaused(); // remember remaining time across navigation
   unlockScreen();
   document.getElementById('tStart').style.display = '';
-  document.getElementById('tStart').textContent = '▶ Resume ' + fmt(tRemain);
+  document.getElementById('tStart').textContent = 'Resume ' + fmt(tRemain);
   document.getElementById('tPause').style.display = 'none';
 }
 function timerReset() {
@@ -320,7 +315,7 @@ function timerReset() {
   const d = document.getElementById('tdisp');
   if (d) d.textContent = fmt(tRemain);
   const s = document.getElementById('tStart');
-  if (s) { s.style.display = ''; s.textContent = '▶ Start ' + STEPS[idx].minutes + ':00 Timer'; }
+  if (s) { s.style.display = ''; s.textContent = 'Start ' + STEPS[idx].minutes + ':00 Timer'; }
   const p = document.getElementById('tPause');
   if (p) p.style.display = 'none';
 }
@@ -437,7 +432,7 @@ function updateTimerBadge() {
     badgeStep = bestIdx;
     const remain = Math.ceil((best.end - Date.now()) / 1000);
     badge.style.display = 'block';
-    badge.textContent = '⏳ ' + STEPS[bestIdx].title_en + ': ' + fmt(remain);
+    badge.textContent = '' + STEPS[bestIdx].title_en + ': ' + fmt(remain);
   } else {
     badge.style.display = 'none';
     badgeStep = -1;
