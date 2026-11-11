@@ -13,12 +13,27 @@
       <div><label for="aid">Employee ID</label><input type="text" id="aid" name="employee_id" placeholder="Unique number (optional)"></div>
       <div><label for="astaffing">Staffing rate ($/h)</label><input type="number" id="astaffing" name="staffing" step="0.01" min="0" placeholder="What the worker is paid"></div>
       <div><label for="abilling">Billing rate ($/h)</label><input type="number" id="abilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
+      <div><label for="ashift">Shift</label><input type="text" id="ashift" name="shift" list="shift-list" placeholder="e.g. 4AM-12PM"></div>
+      <div><label for="aposition">Position</label><input type="text" id="aposition" name="position" list="position-list" placeholder="e.g. F"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Add employee</button>
     </div>
   </form>
 </div>
+
+<datalist id="shift-list">
+  <option value="4AM-12PM"></option>
+  <option value="12PM-8PM"></option>
+  <option value="8PM-4AM (Night)"></option>
+</datalist>
+<datalist id="position-list">
+  <option value="F"></option>
+  <option value="H"></option>
+  <option value="Foreman"></option>
+  <option value="Helper"></option>
+  <option value="Supervisor"></option>
+</datalist>
 
 {% for c in companies %}
 <div class="card">
