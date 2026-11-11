@@ -1086,9 +1086,9 @@ def _hours_pdf_bytes(co, start, end, result):
     ROW_H = 8.0
     TITLE_H = 8.0
     # Column widths (mm). Day columns fill the remaining width.
-    NAME_W = 34.0
-    SHIFT_W = 20.0
-    POS_W = 16.0
+    NAME_W = 33.0
+    SHIFT_W = 24.0
+    POS_W = 14.0
     WTOTAL_W = 17.0
     REG_W = 16.0
     OT_W = 16.0
@@ -1180,6 +1180,16 @@ def _hours_pdf_bytes(co, start, end, result):
         pdf.rect(x, y, w, ROW_H)
         put_text(x, y + 5.3, w, txt, align=align, size=size, bold=bold,
                  color=color)
+
+    def _is_night(shift):
+        """True for a night shift: the text says 'night', or the shift
+        starts at 8PM or later."""
+        s = (shift or "").strip().lower()
+        if not s:
+            return False
+        if "night" in s:
+            return True
+        return s.startswith(("8pm", "9pm", "10pm", "11pm"))
 
     def _parse_day(s):
         return _date.fromisoformat(s)
@@ -1310,13 +1320,19 @@ def _hours_pdf_bytes(co, start, end, result):
                 inv_sum += inv_tot
             # NAME
             x, w = col_x(0)
-            label = (r["employee"] if len(r["employee"]) <= 22
-                     else r["employee"][:21] + "...")
+            label = (r["employee"] if len(r["employee"]) <= 21
+                     else r["employee"][:20] + "...")
             cell(x, y, w, label, align="L", size=8)
-            # SHIFT / POSITION (blank — the app does not store them).
-            for j in (1, 2):
-                x, w = col_x(j)
-                cell(x, y, w, "", align="C", size=8)
+            # SHIFT / POSITION from the employee's rate row. A night
+            # shift cell is yellow, like the recap sheet. 7pt so a long
+            # shift ("8PM-4AM (Night)") fits the column.
+            shift = r.get("shift") or ""
+            position = r.get("position") or ""
+            x, w = col_x(1)
+            cell(x, y, w, shift, align="C", size=7,
+                 fill=YELLOW if _is_night(shift) else None)
+            x, w = col_x(2)
+            cell(x, y, w, position, align="C", size=7)
             # Day cells: total hours ('-' when not worked).
             for j, d in enumerate(week_days):
                 x, w = col_x(3 + j)
@@ -1724,18 +1740,23 @@ def rates():
                         r["billing"] = float(request.form.get("billing"))
                     except (TypeError, ValueError):
                         r["billing"] = None
+                    r["shift"] = (request.form.get("shift") or "").strip() or None
+                    r["position"] = (request.form.get("position") or "").strip() or None
                     save_db()
                     flash(f"Rate updated for {r['name']} ({r['company']}).")
                     break
         elif action == "update_all":
             # Bulk save: one Save all button posts every row's
-            # staffing_<id> / billing_<id> at once, so the user does
-            # not have to press Save on each row one by one.
+            # staffing_<id> / billing_<id> / shift_<id> / position_<id>
+            # at once, so the user does not have to press Save on each
+            # row one by one.
             updated = 0
             for r in DB["rates"]:
                 sid = request.form.get("staffing_" + str(r.get("id")))
                 bid = request.form.get("billing_" + str(r.get("id")))
-                if sid is None and bid is None:
+                sh = request.form.get("shift_" + str(r.get("id")))
+                po = request.form.get("position_" + str(r.get("id")))
+                if sid is None and bid is None and sh is None and po is None:
                     continue
                 try:
                     r["staffing"] = float(sid) if sid not in (None, "") else None
@@ -1745,6 +1766,10 @@ def rates():
                     r["billing"] = float(bid) if bid not in (None, "") else None
                 except (TypeError, ValueError):
                     r["billing"] = None
+                if sh is not None:
+                    r["shift"] = sh.strip() or None
+                if po is not None:
+                    r["position"] = po.strip() or None
                 updated += 1
             if updated:
                 save_db()
@@ -1765,6 +1790,8 @@ def rates():
                     "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
                     "company": comp, "staffing": staffing,
                     "billing": billing,
+                    "shift": (request.form.get("shift") or "").strip() or None,
+                    "position": (request.form.get("position") or "").strip() or None,
                 })
                 save_db()
                 flash(f"Rate added for {name} ({comp}).")
@@ -1811,20 +1838,25 @@ def company_rates(company):
                         r["billing"] = float(request.form.get("billing"))
                     except (TypeError, ValueError):
                         r["billing"] = None
+                    r["shift"] = (request.form.get("shift") or "").strip() or None
+                    r["position"] = (request.form.get("position") or "").strip() or None
                     save_db()
                     flash(f"Rate updated for {r['name']} ({co['name']}).")
                     break
         elif action == "update_all":
             # Bulk save: one Save all button posts every row's
-            # staffing_<id> / billing_<id> at once, so the user does
-            # not have to press Save on each row one by one.
+            # staffing_<id> / billing_<id> / shift_<id> / position_<id>
+            # at once, so the user does not have to press Save on each
+            # row one by one.
             updated = 0
             for r in DB["rates"]:
                 if r.get("company") != co["name"]:
                     continue
                 sid = request.form.get("staffing_" + str(r.get("id")))
                 bid = request.form.get("billing_" + str(r.get("id")))
-                if sid is None and bid is None:
+                sh = request.form.get("shift_" + str(r.get("id")))
+                po = request.form.get("position_" + str(r.get("id")))
+                if sid is None and bid is None and sh is None and po is None:
                     continue
                 try:
                     r["staffing"] = float(sid) if sid not in (None, "") else None
@@ -1834,6 +1866,10 @@ def company_rates(company):
                     r["billing"] = float(bid) if bid not in (None, "") else None
                 except (TypeError, ValueError):
                     r["billing"] = None
+                if sh is not None:
+                    r["shift"] = sh.strip() or None
+                if po is not None:
+                    r["position"] = po.strip() or None
                 updated += 1
             if updated:
                 save_db()
@@ -1853,6 +1889,8 @@ def company_rates(company):
                     "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
                     "company": co["name"], "staffing": staffing,
                     "billing": billing,
+                    "shift": (request.form.get("shift") or "").strip() or None,
+                    "position": (request.form.get("position") or "").strip() or None,
                 })
                 save_db()
                 flash(f"Rate added for {name} ({co['name']}).")
@@ -2256,6 +2294,8 @@ def employee_page(company):
         except (TypeError, ValueError):
             billing = None
         employee_id = (request.form.get("employee_id") or "").strip()
+        shift = (request.form.get("shift") or "").strip() or None
+        position = (request.form.get("position") or "").strip() or None
         # Refuse a rename that would collide with an existing worker
         # in the target company.
         if new_name != name:
@@ -2323,11 +2363,14 @@ def employee_page(company):
             rate["staffing"] = staffing
             rate["billing"] = billing
             rate["employee_id"] = employee_id or None
-        elif staffing is not None or billing is not None or employee_id:
+            rate["shift"] = shift
+            rate["position"] = position
+        elif staffing is not None or billing is not None or employee_id or shift or position:
             DB["rates"].append({
                 "id": "rate-" + uuid.uuid4().hex[:8], "name": new_name,
                 "company": target["name"], "staffing": staffing,
                 "billing": billing, "employee_id": employee_id or None,
+                "shift": shift, "position": position,
             })
         save_db()
         flash(f"Updated {new_name} ({target['name']}).")
@@ -2484,6 +2527,8 @@ def employees_add():
     to_slug = (request.form.get("to_company") or "").strip()
     co = find_company(to_slug) if to_slug else None
     employee_id = (request.form.get("employee_id") or "").strip()
+    shift = (request.form.get("shift") or "").strip() or None
+    position = (request.form.get("position") or "").strip() or None
     try:
         staffing = float(request.form.get("staffing"))
     except (TypeError, ValueError):
@@ -2512,6 +2557,7 @@ def employees_add():
         "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
         "company": co["name"], "staffing": staffing,
         "billing": billing, "employee_id": employee_id or None,
+        "shift": shift, "position": position,
     })
     save_db()
     flash(f"Added {name} to {co['name']}.")
@@ -2619,6 +2665,8 @@ def employee_detail_post(person):
             billing = float(request.form.get("billing"))
         except (TypeError, ValueError):
             billing = None
+        shift = (request.form.get("shift") or "").strip() or None
+        position = (request.form.get("position") or "").strip() or None
         rate = next((r for r in rates
                      if r.get("company") == co["name"]), None)
         if rate is None:
@@ -2627,6 +2675,8 @@ def employee_detail_post(person):
         else:
             rate["staffing"] = staffing
             rate["billing"] = billing
+            rate["shift"] = shift
+            rate["position"] = position
             save_db()
             flash(f"Updated {old_name}'s rate in {co['name']}.")
         return redirect(url_for(".employee_detail",
@@ -2651,10 +2701,13 @@ def employee_detail_post(person):
             billing = float(request.form.get("billing"))
         except (TypeError, ValueError):
             billing = None
+        shift = (request.form.get("shift") or "").strip() or None
+        position = (request.form.get("position") or "").strip() or None
         DB["rates"].append({
             "id": "rate-" + uuid.uuid4().hex[:8], "name": old_name,
             "company": co["name"], "staffing": staffing,
             "billing": billing, "employee_id": old_id,
+            "shift": shift, "position": position,
         })
         save_db()
         flash(f"Added {old_name} to {co['name']}.")
