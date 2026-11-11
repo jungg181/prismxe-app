@@ -15,23 +15,23 @@
 </div>
 
 <div class="section-head"><h2>Sites</h2><a href="{{ url_for('.sites') }}">Manage sites <span aria-hidden="true">→</span></a></div>
-<div class="cards">
+<div class="table-wrap">
+<table class="tbl">
+<thead><tr><th>Site</th><th>PM</th><th class="num">Days left</th><th class="num">Incidents</th><th class="num">Defects</th></tr></thead>
+<tbody>
 {% for r in sites %}
-  <div class="card">
-    {% if r.site.photo_url %}<img class="card-photo" src="{{ r.site.photo_url }}">{% endif %}
-    <div class="card-body">
-      <div class="card-title">{{ r.site.name }}</div>
-      <div class="muted small">{{ r.site.address or 'No address' }}</div>
-      <div class="muted small">PM: {{ r.site.pm or 'Unassigned' }}{% if r.days is not none %} · {{ r.days }} days left{% endif %}</div>
-      <div class="tiles">
-        <span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{ r.incidents }} incidents</span>
-        <span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L3 18l3 3 5.7-5.7a4.5 4.5 0 0 0 6-6L14 13l-3-3 3.7-3.7Z"/></svg>{{ r.defects }} defects</span>
-      </div>
-    </div>
-  </div>
+<tr>
+  <td><b>{{ r.site.name }}</b><div class="muted small">{{ r.site.address or 'No address' }}</div></td>
+  <td>{{ r.site.pm or 'Unassigned' }}</td>
+  <td class="num">{{ r.days if r.days is not none else '—' }}</td>
+  <td class="num">{{ r.incidents }}</td>
+  <td class="num">{{ r.defects }}</td>
+</tr>
 {% else %}
-  <div class="card"><div class="card-body empty">No sites yet. Add your first site to get started.</div></div>
+<tr><td colspan="5" class="empty">No sites yet. Add your first site to get started.</td></tr>
 {% endfor %}
+</tbody>
+</table>
 </div>
 
 <div class="section-head"><h2>Recent incidents</h2><a href="{{ url_for('.incidents') }}">View all <span aria-hidden="true">→</span></a></div>
