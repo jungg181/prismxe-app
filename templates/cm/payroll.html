@@ -55,8 +55,8 @@
 {% endfor %}
 </div></div>
 <div class="filters row-form" style="margin-top:12px">
-  <a class="btn small" href="{{ url_for('cm.payroll_export', start=start, end=end, worker=worker) }}">⬇ Export CSV</a>
-  <a class="btn small" href="{{ url_for('cm.payroll_export_xlsx', start=start, end=end, worker=worker) }}">⬇ Export XLSX</a>
+  <a class="btn small" href="{{ url_for('cm.payroll_export', start=start, end=end, worker=worker) }}">Export CSV</a>
+  <a class="btn small" href="{{ url_for('cm.payroll_export_xlsx', start=start, end=end, worker=worker) }}">Export XLSX</a>
   <button class="btn small" type="button" onclick="window.print()">🖨️ Print</button>
 </div>
 <form class="email-form" method="post" action="{{ url_for('cm.payroll_email') }}" style="margin-top:20px">
