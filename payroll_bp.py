@@ -1072,9 +1072,9 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     return bytes(pdf.output())
 
 def _hours_pdf_bytes(co, start, end, result):
-    """Build the Hours per Day PDF for one company + period from a
+    """Build the Payroll Recap PDF for one company + period from a
     compute_payroll result (rows carry days / days_ot; result carries
-    days + weekdays). One block per Mon-Sun week, stacked."""
+    days + weekdays). One week per page."""
     from fpdf import FPDF
     from datetime import date as _date, timedelta
 
@@ -1083,79 +1083,81 @@ def _hours_pdf_bytes(co, start, end, result):
     PAGE_H = 215.9
     TOP = 10.0
     BOTTOM = 10.0
-    EMP_W = 44.0
-    RTOT_W = 15.0
-    TOT_W = 15.0
     ROW_H = 8.0
-    TITLE_H = 7.0
-    GAP_H = 4.0
-    ORANGE = (180, 83, 9)      # dark amber — readable on white
-    MUTED = (100, 116, 139)
+    TITLE_H = 8.0
+    # Column widths (mm). Day columns fill the remaining width.
+    NAME_W = 34.0
+    SHIFT_W = 20.0
+    POS_W = 16.0
+    WTOTAL_W = 17.0
+    REG_W = 16.0
+    OT_W = 16.0
+    INVREG_W = 16.0
+    INVOT_W = 16.0
+    INVTOT_W = 19.0
+    FIXED_W = (NAME_W + SHIFT_W + POS_W + WTOTAL_W + REG_W + OT_W
+               + INVREG_W + INVOT_W + INVTOT_W)
+    DAY_W = (RIGHT - LEFT - FIXED_W) / 7.0
+    YELLOW = (255, 255, 0)
+    RED = (220, 0, 0)
     NAVY = (10, 48, 65)
-    HDR_FILL = (230, 235, 240)
-    # Right-side columns (RT/OT, then Total last) eat this much width.
-    TAIL_W = RTOT_W + TOT_W
+    MUTED = (100, 116, 139)
 
-    def hrs(v):
+    def hrs1(v):
+        """Hours with at least one decimal ('8.0', '11.5', '10.75')."""
         if v is None or v == 0:
             return ""
-        return f"{v:.2f}".rstrip("0").rstrip(".")
+        s = f"{v:.2f}".rstrip("0")
+        if s.endswith("."):
+            s += "0"
+        return s
 
-    def mdy(d):
-        return f"{d.strftime('%b')} {d.day}, {d.year}"
+    def hrs2(v):
+        """Hours with two decimals ('40.00', '7.50')."""
+        if v is None:
+            return ""
+        return f"{v:.2f}"
+
+    def money(v):
+        """Money with $ and commas ('$2,818.75')."""
+        if v is None:
+            return ""
+        return f"${v:,.2f}"
+
+    def mdy_short(d):
+        """MM/DD for the first date of the pay-period label."""
+        return d.strftime("%m/%d")
+
+    def mdy_short_y(d):
+        """MM/DD/YY for the second date of the pay-period label."""
+        return d.strftime("%m/%d/%y")
 
     days = result["days"]
     weekdays = result["weekdays"]
     rows = result["rows"]
 
-    class _PDF(FPDF):
-        def footer(self):
-            self.set_y(-10)
-            self.set_font("helvetica", "", 7.5)
-            self.set_text_color(*MUTED)
-            self.cell(0, 5, f"Page {self.page_no()} of {{nb}}",
-                     align="C")
-
-    pdf = _PDF(orientation="L", unit="mm", format="Letter")
-    pdf.alias_nb_pages()
+    pdf = FPDF(orientation="L", unit="mm", format="Letter")
     pdf.set_auto_page_break(auto=False)
     pdf.set_margins(LEFT, TOP, 10.0)
     pdf.set_line_width(0.1)
 
-    title_txt = (f"{co['name']} - Hours per Day - "
-                 f"{mdy(start)} - {mdy(end)}")
-    legend_txt = ("One block per Mon-Sun week. Regular on top, overtime "
-                  "below in orange. Overtime is hours over 40 in a Mon-Sun "
-                  "week, counted on the later days of the week. R/T = "
-                  "Regular Time, O/T = Overtime, Total last.")
-
-    def day_w_for(n):
-        """Day-column width for a week with n days: fill the page
-        width, capped at 22mm so a short week does not stretch."""
-        avail = RIGHT - LEFT - EMP_W - TAIL_W
-        return min(22.0, avail / max(1, n))
-
-    def tail_x(n, dw):
-        """x of the RT/OT column for a week with n day-columns."""
-        return LEFT + EMP_W + n * dw
-
-    def col_x(i, n, dw):
-        """(x, width) for column i of a week with n day-columns:
-        0 = employee, 1..n = days, n+1 = RT/OT, n+2 = Total (last)."""
-        if i == 0:
-            return LEFT, EMP_W
-        if i == n + 1:
-            return tail_x(n, dw), RTOT_W
-        if i == n + 2:
-            return tail_x(n, dw) + RTOT_W, TOT_W
-        return LEFT + EMP_W + (i - 1) * dw, dw
+    # Column x positions (fixed layout; day columns use DAY_W).
+    # Order: NAME, SHIFT, POSITION, MON..SUN, WEEK TOTAL, REG, OT,
+    # INV REG, INV OT, INV TOTAL.
+    def col_x(i):
+        """(x, width) for column i of the recap table."""
+        x = LEFT
+        widths = [NAME_W, SHIFT_W, POS_W]
+        widths += [DAY_W] * 7
+        widths += [WTOTAL_W, REG_W, OT_W, INVREG_W, INVOT_W, INVTOT_W]
+        for j in range(i):
+            x += widths[j]
+        return x, widths[i]
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
                  color=(0, 0, 0)):
         """Draw txt on one line, baseline at y, horizontally placed
-        inside [x, x+w] by align. Uses pdf.text() with an x computed
-        from the string width, so the text can never drift past the
-        cell edge the way cell() alignment did."""
+        inside [x, x+w] by align."""
         if not txt:
             return
         pdf.set_font("helvetica", "B" if bold else "", size)
@@ -1169,138 +1171,209 @@ def _hours_pdf_bytes(co, start, end, result):
             tx = x + 1.0
         pdf.text(tx, y, txt)
 
-    def cell_two_lines(x, y, w, line1, line2, align="R",
-                       size1=8, size2=8, color1=(0, 0, 0),
-                       color2=ORANGE, bold1=False):
-        """A bordered ROW_H cell with line1 on top, line2 below."""
-        pdf.rect(x, y, w, ROW_H)
-        put_text(x, y + 3.3, w, line1, align=align, size=size1,
-                 bold=bold1, color=color1)
-        put_text(x, y + 7.3, w, line2, align=align, size=size2,
-                 color=color2)
-
-    def cell_one_line(x, y, w, txt, align="R", size=8, bold=False,
-                      color=(0, 0, 0), fill=False):
+    def cell(x, y, w, txt, align="R", size=8, bold=False,
+             color=(0, 0, 0), fill=None):
         """A bordered ROW_H cell with a single vertically-centered line."""
-        if fill:
-            pdf.set_fill_color(*HDR_FILL)
+        if fill is not None:
+            pdf.set_fill_color(*fill)
             pdf.rect(x, y, w, ROW_H, style="F")
         pdf.rect(x, y, w, ROW_H)
         put_text(x, y + 5.3, w, txt, align=align, size=size, bold=bold,
                  color=color)
 
-    def cell_dot(x, y, w):
-        """A bordered ROW_H cell with a centered middle dot (no hours)."""
-        pdf.rect(x, y, w, ROW_H)
-        put_text(x, y + 5.3, w, "·", align="C", size=8, color=MUTED)
-
-    def draw_page_top():
-        """Title block at the top of a page. Returns the y just below
-        the legend."""
-        y = TOP
-        pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "B", 14)
-        pdf.set_text_color(*NAVY)
-        pdf.cell(0, 7, title_txt, new_x="LMARGIN", new_y="NEXT")
-        y += 8
-        pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "", 7.5)
-        pdf.set_text_color(*MUTED)
-        pdf.cell(0, 4, legend_txt, new_x="LMARGIN", new_y="NEXT")
-        return y + 6
-
     def _parse_day(s):
         return _date.fromisoformat(s)
 
-    def _week_label(week_days):
-        """'Week Oct 19-25' for the Mon-Sun days in this week."""
+    def _week_label(n):
+        return f"WEEK {n} (HOURS)"
+
+    def draw_week_page(week_days, week_no):
+        """One week's Payroll Recap page. week_days are the dates of
+        this week within the period."""
         first = _parse_day(week_days[0])
         last = _parse_day(week_days[-1])
-        if first.month == last.month:
-            return (f"Week {first.strftime('%b')} {first.day}-"
-                    f"{last.day}")
-        return (f"Week {first.strftime('%b')} {first.day}-"
-                f"{last.strftime('%b')} {last.day}")
-
-    def draw_week_block(y, week_days):
-        """One week's block: title, column header, one row per
-        employee for that week's days only. Returns the y below the
-        block (including the gap after it)."""
-        n = len(week_days)
-        dw = day_w_for(n)
-        # Week title, like a name: bold, same left edge as the names.
+        pay_period = f"{mdy_short(first)}-{mdy_short_y(last)}"
+        pdf.add_page()
+        # Title row: 'Payroll Recap' left, 'PAY PERIOD: ...' right.
+        y = TOP
         pdf.set_xy(LEFT, y)
-        pdf.set_font("helvetica", "B", 11)
-        pdf.set_text_color(*NAVY)
-        pdf.cell(0, TITLE_H, _week_label(week_days),
-                new_x="LMARGIN", new_y="NEXT")
-        y += TITLE_H
-        # Column header: Employee | weekday/date per day | R/T over O/T |
-        # Total (last).
-        x, w = col_x(0, n, dw)
-        cell_one_line(x, y, w, "Employee", align="L", size=8, bold=True,
-                      fill=True)
-        for j, d in enumerate(week_days):
-            x, w = col_x(j + 1, n, dw)
-            pdf.set_fill_color(*HDR_FILL)
-            pdf.rect(x, y, w, ROW_H, style="F")
-            pdf.rect(x, y, w, ROW_H)
-            put_text(x, y + 3.3, w, weekdays.get(d, ""), align="C",
-                     size=7, color=MUTED)
-            put_text(x, y + 7.3, w, d[5:], align="C", size=8, bold=True)
-        x, w = col_x(n + 1, n, dw)
-        pdf.set_fill_color(*HDR_FILL)
-        pdf.rect(x, y, w, ROW_H, style="F")
-        pdf.rect(x, y, w, ROW_H)
-        put_text(x, y + 3.3, w, "R/T", align="C", size=8, bold=True)
-        put_text(x, y + 7.3, w, "O/T", align="C", size=8, bold=True,
-                 color=ORANGE)
-        x, w = col_x(n + 2, n, dw)
-        cell_one_line(x, y, w, "Total", align="C", size=8, bold=True,
-                      fill=True)
-        y += ROW_H
-        # One row per employee: hours for this week's days only, with
-        # R/T, O/T and Total for this week on the right.
-        for r in rows:
-            x, w = col_x(0, n, dw)
-            pdf.set_xy(x, y)
-            pdf.set_font("helvetica", "", 8)
+        pdf.set_font("helvetica", "B", 14)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, TITLE_H, "Payroll Recap", new_x="LMARGIN",
+                new_y="NEXT")
+        put_text(LEFT, y + 5.5, RIGHT - LEFT,
+                 f"PAY PERIOD: {pay_period}", align="R", size=11,
+                 bold=True)
+        y += TITLE_H + 2.0
+        # Group header row (row 1) + column header row (row 2).
+        # The three INVOICE columns are tall cells spanning both rows.
+        hdr1_y = y
+        hdr2_y = y + ROW_H
+        # EMPLOYEE NAME spans NAME+SHIFT+POSITION.
+        x0, _ = col_x(0)
+        x1, _ = col_x(3)
+        pdf.rect(x0, hdr1_y, x1 - x0, ROW_H)
+        put_text(x0, hdr1_y + 5.3, x1 - x0, "EMPLOYEE NAME",
+                 align="C", size=8, bold=True)
+        # WEEK N (HOURS) spans the day columns + WEEK TOTAL.
+        x0, _ = col_x(3)
+        x1, _ = col_x(11)
+        pdf.rect(x0, hdr1_y, x1 - x0, ROW_H)
+        put_text(x0, hdr1_y + 5.3, x1 - x0, _week_label(week_no),
+                 align="C", size=8, bold=True)
+        # TOTAL HOURS spans REG. TIME + OVER TIME.
+        x0, _ = col_x(11)
+        x1, _ = col_x(13)
+        pdf.rect(x0, hdr1_y, x1 - x0, ROW_H)
+        put_text(x0, hdr1_y + 5.3, x1 - x0, "TOTAL HOURS",
+                 align="C", size=8, bold=True)
+        # INVOICE columns: tall cells spanning both header rows.
+        inv_labels = ["INVOICE RATE (REG)", "INVOICE RATE (OT)",
+                      "INVOICE TOTAL"]
+        for k, label in enumerate(inv_labels):
+            x, w = col_x(13 + k)
+            fill = YELLOW if k == 2 else None
+            if fill is not None:
+                pdf.set_fill_color(*fill)
+                pdf.rect(x, hdr1_y, w, 2 * ROW_H, style="F")
+            pdf.rect(x, hdr1_y, w, 2 * ROW_H)
+            # Center the (possibly two-line) label in the tall cell.
+            pdf.set_font("helvetica", "B", 8)
             pdf.set_text_color(0, 0, 0)
-            label = (r["employee"] if len(r["employee"]) <= 26
-                     else r["employee"][:25] + "...")
-            pdf.rect(x, y, w, ROW_H)
-            put_text(x, y + 5.3, w, label, align="L", size=8)
+            tw = pdf.get_string_width(label)
+            if tw <= w - 2:
+                pdf.text(x + (w - tw) / 2.0, hdr1_y + ROW_H + 1.5,
+                         label)
+            else:
+                # Wrap into two lines.
+                words = label.split()
+                line1 = ""
+                for wd in words:
+                    trial = (line1 + " " + wd).strip()
+                    if pdf.get_string_width(trial) <= w - 2:
+                        line1 = trial
+                    else:
+                        break
+                line2 = label[len(line1):].strip()
+                tw1 = pdf.get_string_width(line1)
+                tw2 = pdf.get_string_width(line2)
+                pdf.text(x + (w - tw1) / 2.0, hdr1_y + ROW_H - 0.5,
+                         line1)
+                pdf.text(x + (w - tw2) / 2.0, hdr1_y + ROW_H + 4.5,
+                         line2)
+        # Column header row (row 2): NAME / SHIFT / POSITION / days /
+        # WEEK TOTAL / REG. TIME / OVER TIME.
+        col_labels = ["NAME", "SHIFT", "POSITION"]
+        for j, lab in enumerate(col_labels):
+            x, w = col_x(j)
+            cell(x, hdr2_y, w, lab, align="C", size=8, bold=True)
+        for j, d in enumerate(week_days):
+            x, w = col_x(3 + j)
+            pdf.rect(x, hdr2_y, w, ROW_H)
+            put_text(x, hdr2_y + 3.3, w, weekdays.get(d, ""),
+                     align="C", size=7, color=MUTED)
+            put_text(x, hdr2_y + 7.3, w, str(_parse_day(d).day),
+                     align="C", size=8, bold=True, color=RED)
+        for j, lab in enumerate(["WEEK TOTAL", "REG. TIME",
+                                 "OVER TIME"]):
+            x, w = col_x(10 + j)
+            cell(x, hdr2_y, w, lab, align="C", size=7, bold=True)
+        y = hdr2_y + ROW_H
+        # Data rows + column totals.
+        day_tot = {d: 0.0 for d in week_days}
+        wtotal_sum = 0.0
+        reg_sum = 0.0
+        ot_sum = 0.0
+        inv_sum = 0.0
+        for r in rows:
             w_tot = 0.0
             w_ot = 0.0
-            for j, d in enumerate(week_days):
-                x, w = col_x(j + 1, n, dw)
+            for d in week_days:
                 t = r["days"].get(d) or 0.0
                 o = r["days_ot"].get(d) or 0.0
+                day_tot[d] += t
                 w_tot += t
                 w_ot += o
-                if t:
-                    rr = round(t - o, 2)
-                    if o:
-                        cell_two_lines(x, y, w, hrs(rr), hrs(o),
-                                       size1=7.5, size2=7.5)
-                    else:
-                        cell_two_lines(x, y, w, hrs(t), "",
-                                       size1=7.5, size2=7.5)
-                else:
-                    cell_dot(x, y, w)
             w_reg = round(w_tot - w_ot, 2)
-            x, w = col_x(n + 1, n, dw)
-            if w_reg or w_ot:
-                cell_two_lines(x, y, w, hrs(w_reg), hrs(w_ot))
+            wtotal_sum += w_tot
+            reg_sum += w_reg
+            ot_sum += w_ot
+            br = r.get("billing")
+            if br is not None:
+                br = float(br)
+            if br is None:
+                inv_reg = inv_ot = inv_tot = None
             else:
-                cell_dot(x, y, w)
-            x, w = col_x(n + 2, n, dw)
-            if w_tot:
-                cell_one_line(x, y, w, hrs(w_tot), bold=True)
-            else:
-                cell_dot(x, y, w)
+                inv_reg = br
+                inv_ot = round(br * 1.5, 2)
+                inv_tot = round(w_reg * br + w_ot * br * 1.5, 2)
+                inv_sum += inv_tot
+            # NAME
+            x, w = col_x(0)
+            label = (r["employee"] if len(r["employee"]) <= 22
+                     else r["employee"][:21] + "...")
+            cell(x, y, w, label, align="L", size=8)
+            # SHIFT / POSITION (blank — the app does not store them).
+            for j in (1, 2):
+                x, w = col_x(j)
+                cell(x, y, w, "", align="C", size=8)
+            # Day cells: total hours ('-' when not worked).
+            for j, d in enumerate(week_days):
+                x, w = col_x(3 + j)
+                t = r["days"].get(d) or 0.0
+                cell(x, y, w, hrs1(t) if t else "-", align="C",
+                     size=8)
+            # WEEK TOTAL / REG. TIME / OVER TIME. Blank when the
+            # employee did not work this week.
+            x, w = col_x(10)
+            cell(x, y, w, hrs1(w_tot) if w_tot else "", align="R",
+                 size=8, bold=True)
+            x, w = col_x(11)
+            cell(x, y, w, hrs2(w_reg) if w_tot else "", align="R",
+                 size=8)
+            x, w = col_x(12)
+            cell(x, y, w, hrs2(w_ot) if w_tot else "", align="R",
+                 size=8)
+            # INVOICE RATE (REG) / (OT) / TOTAL (TOTAL column yellow).
+            # The rates show even with no hours; the total is blank.
+            x, w = col_x(13)
+            cell(x, y, w, money(inv_reg) if inv_reg is not None else "",
+                 align="R", size=8)
+            x, w = col_x(14)
+            cell(x, y, w, money(inv_ot) if inv_ot is not None else "",
+                 align="R", size=8)
+            x, w = col_x(15)
+            cell(x, y, w,
+                 money(inv_tot) if (inv_tot is not None and w_tot)
+                 else "", align="R", size=8, bold=True, fill=YELLOW)
             y += ROW_H
-        return y + GAP_H
+        # COLUMN TOTAL row (yellow).
+        x, w = col_x(0)
+        cell(x, y, w, "COLUMN TOTAL", align="L", size=8, bold=True,
+             fill=YELLOW)
+        for j in (1, 2):
+            x, w = col_x(j)
+            cell(x, y, w, "", align="C", size=8, fill=YELLOW)
+        for j, d in enumerate(week_days):
+            x, w = col_x(3 + j)
+            cell(x, y, w, hrs1(day_tot[d]), align="C", size=8,
+                 bold=True, fill=YELLOW)
+        x, w = col_x(10)
+        cell(x, y, w, hrs1(wtotal_sum), align="R", size=8, bold=True,
+             fill=YELLOW)
+        x, w = col_x(11)
+        cell(x, y, w, hrs2(reg_sum), align="R", size=8, bold=True,
+             fill=YELLOW)
+        x, w = col_x(12)
+        cell(x, y, w, hrs2(ot_sum), align="R", size=8, bold=True,
+             fill=YELLOW)
+        for j in (13, 14):
+            x, w = col_x(j)
+            cell(x, y, w, "", align="R", size=8, fill=YELLOW)
+        x, w = col_x(15)
+        cell(x, y, w, money(inv_sum), align="R", size=8, bold=True,
+             fill=YELLOW)
+        return y + ROW_H
 
     # Group the period's days into Mon-Sun weeks.
     weeks = []
@@ -1321,15 +1394,8 @@ def _hours_pdf_bytes(co, start, end, result):
     if not weeks:
         weeks = [[]]
 
-    pdf.add_page()
-    y = draw_page_top()
-    for w in weeks:
-        # A week block that does not fit starts a new page.
-        block_h = TITLE_H + ROW_H + len(rows) * ROW_H + GAP_H
-        if y + block_h > PAGE_H - BOTTOM:
-            pdf.add_page()
-            y = draw_page_top()
-        y = draw_week_block(y, w)
+    for i, w in enumerate(weeks, start=1):
+        draw_week_page(w, i)
 
     return bytes(pdf.output())
 
@@ -1561,11 +1627,10 @@ def invoice_pdf(company):
 
 @bp.get("/<company>/hours/pdf")
 def hours_pdf(company):
-    """Download the Hours per Day table as a printable PDF (Letter
-    landscape): one row per employee, one column per day, Regular on
-    top and OT below in orange — the same split as the Hours per Day
-    table on the payroll page. Up to 16 day-columns per page; longer
-    periods split into consecutive pages."""
+    """Download a Payroll Recap PDF (Letter landscape), one week per
+    page: employee name / shift / position, MON-SUN daily hours + week
+    total, reg/OT split, invoice rate (reg, OT at 1.5x) and invoice
+    total, with a yellow COLUMN TOTAL row."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
