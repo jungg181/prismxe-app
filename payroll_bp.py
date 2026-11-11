@@ -1183,13 +1183,18 @@ def _hours_pdf_bytes(co, start, end, result):
 
     def _is_night(shift):
         """True for a night shift: the text says 'night', or the shift
-        starts at 8PM or later."""
+        spans midnight (starts PM, ends AM, e.g. '7PM-7AM')."""
         s = (shift or "").strip().lower()
         if not s:
             return False
         if "night" in s:
             return True
-        return s.startswith(("8pm", "9pm", "10pm", "11pm"))
+        parts = s.split("-")
+        if len(parts) == 2:
+            start, end = parts[0].strip(), parts[1].strip()
+            if "pm" in start and "am" in end:
+                return True
+        return False
 
     def _parse_day(s):
         return _date.fromisoformat(s)
@@ -1204,8 +1209,16 @@ def _hours_pdf_bytes(co, start, end, result):
         last = _parse_day(week_days[-1])
         pay_period = f"{mdy_short(first)}-{mdy_short_y(last)}"
         pdf.add_page()
-        # Title row: 'Payroll Recap' left, 'PAY PERIOD: ...' right.
         y = TOP
+        # Prismxe logo, centered at the top.
+        logo_path = os.path.join(BASE_DIR, "static", "prism-logo.png")
+        if os.path.exists(logo_path):
+            logo_w = 40.0
+            logo_h = logo_w * 130.0 / 484.0
+            pdf.image(logo_path, x=LEFT + (RIGHT - LEFT - logo_w) / 2.0,
+                      y=y, w=logo_w)
+            y += logo_h + 2.0
+        # Title row: 'Payroll Recap' left, 'PAY PERIOD: ...' right.
         pdf.set_xy(LEFT, y)
         pdf.set_font("helvetica", "B", 14)
         pdf.set_text_color(0, 0, 0)
