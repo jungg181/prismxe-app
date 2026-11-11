@@ -2,7 +2,20 @@
 {% block title %}Rates{% endblock %}
 {% block content %}
 <h1>Rates</h1>
-<p class="sub">Staffing Rate = worker pay per hour. Billing Rate = client charge per hour. Lookup is by name + company, exact match. Seeded from PrismXe Info (read 2026-11-05).</p>
+<p class="sub">Staffing Rate = worker pay per hour. Billing Rate = client charge per hour. Lookup is by name + company, exact match. Seeded from PrismXe Info (read 2026-11-05). Shift and Position show on the Payroll Recap PDF (night shifts are highlighted).</p>
+
+<datalist id="shift-list">
+  <option value="4AM-12PM"></option>
+  <option value="12PM-8PM"></option>
+  <option value="8PM-4AM (Night)"></option>
+</datalist>
+<datalist id="position-list">
+  <option value="F"></option>
+  <option value="H"></option>
+  <option value="Foreman"></option>
+  <option value="Helper"></option>
+  <option value="Supervisor"></option>
+</datalist>
 
 {% for comp, rows in grouped.items() %}
 {% set group_idx = loop.index %}
@@ -17,12 +30,14 @@
   </div>
   <div class="table-scroll">
     <table style="table-layout:fixed">
-      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:150px"></colgroup>
-      <thead><tr><th>Employee</th><th class="num">Staffing Rate</th><th class="num">Billing Rate</th><th></th></tr></thead>
+      <colgroup><col><col style="width:130px"><col style="width:90px"><col style="width:120px"><col style="width:120px"><col style="width:150px"></colgroup>
+      <thead><tr><th>Employee</th><th>Shift</th><th>Position</th><th class="num">Staffing Rate</th><th class="num">Billing Rate</th><th></th></tr></thead>
       <tbody>
         {% for r in rows %}
         <tr>
           <td>{{ r.name }}</td>
+          <td><input name="shift_{{ r.id }}" form="save-all-{{ group_idx }}" type="text" list="shift-list" value="{{ r.shift or '' }}" placeholder="e.g. 4AM-12PM" aria-label="Shift for {{ r.name }}" style="width:100%"></td>
+          <td><input name="position_{{ r.id }}" form="save-all-{{ group_idx }}" type="text" list="position-list" value="{{ r.position or '' }}" placeholder="e.g. F" aria-label="Position for {{ r.name }}" style="width:100%"></td>
           <td><input name="staffing_{{ r.id }}" form="save-all-{{ group_idx }}" type="number" step="0.01" min="0" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="Staffing" aria-label="Staffing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
           <td><input name="billing_{{ r.id }}" form="save-all-{{ group_idx }}" type="number" step="0.01" min="0" value="{{ r.billing if r.billing is not none else '' }}" placeholder="Billing" aria-label="Billing rate for {{ r.name }}" style="width:100%;text-align:right"></td>
           <td style="white-space:nowrap">
@@ -50,6 +65,8 @@
     <div class="form-grid">
       <div><label for="name">Employee name</label><input id="name" name="name" placeholder="Exact name as in time entries" value="{{ prefill_name }}" required></div>
       <div><label for="company">Company</label><select id="company" name="company">{% for c in companies %}<option value="{{ c.name }}"{% if c.name == prefill_company %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="shift">Shift</label><input id="shift" name="shift" type="text" list="shift-list" placeholder="e.g. 4AM-12PM"></div>
+      <div><label for="position">Position</label><input id="position" name="position" type="text" list="position-list" placeholder="e.g. F"></div>
       <div><label for="staffing">Staffing Rate ($/h)</label><input id="staffing" name="staffing" type="number" step="0.01" min="0" placeholder="e.g. 40"></div>
       <div><label for="billing">Billing Rate ($/h)</label><input id="billing" name="billing" type="number" step="0.01" min="0" placeholder="e.g. 48"></div>
     </div>
