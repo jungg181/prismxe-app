@@ -269,12 +269,18 @@ def compute_payroll(entries, rates, company, start, end,
         billing = rate.get("billing") if rate else None
         staffing = float(staffing) if staffing is not None else None
         billing = float(billing) if billing is not None else None
+        # Shift / position are display fields for the Payroll Recap
+        # PDF (e.g. "4AM-12PM", "8PM-4AM (Night)", "F"/"H"). They
+        # ride on the rate row, so they are blank until entered.
+        shift = (rate.get("shift") or "").strip() if rate else ""
+        position = (rate.get("position") or "").strip() if rate else ""
         if staffing is None or billing is None:
             # No usable rate row: pay/billing stay blank, never $0.
             rows.append({
                 "employee": name, "reg_hours": reg, "ot_hours": ot,
                 "total_hours": round(reg + ot, 2),
                 "staffing": staffing, "billing": billing,
+                "shift": shift, "position": position,
                 "gross_pay": None, "billing_gross": None,
                 "no_rate": True,
                 "days": {day: round(per_day[name].get(day, 0.0), 2)
@@ -289,6 +295,7 @@ def compute_payroll(entries, rates, company, start, end,
             "employee": name, "reg_hours": reg, "ot_hours": ot,
             "total_hours": round(reg + ot, 2),
             "staffing": staffing, "billing": billing,
+            "shift": shift, "position": position,
             "gross_pay": gross, "billing_gross": bill,
             "no_rate": False,
             "days": {day: round(per_day[name].get(day, 0.0), 2)
