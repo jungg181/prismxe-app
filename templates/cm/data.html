@@ -5,7 +5,7 @@
 <p class="muted">Save point-in-time snapshots before exiting. Recover accidentally deleted records with 1 click.</p>
 
 <div class="toolbar">
-  <a class="btn primary" href="{{ url_for('.data_backup') }}">⬇️ Download JSON Backup</a>
+  <a class="btn primary" href="{{ url_for('.data_backup') }}">Download JSON Backup</a>
   <form method="post" action="{{ url_for('.data_snapshot') }}" class="row-form grow">
     <input name="name" placeholder="Snapshot name (optional)" class="grow">
     <button class="btn" type="submit">💾 Save Data Snapshot</button>
