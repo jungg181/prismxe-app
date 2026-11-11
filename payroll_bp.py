@@ -1098,7 +1098,7 @@ def _hours_pdf_bytes(co, start, end, result):
     FIXED_W = (NAME_W + SHIFT_W + POS_W + WTOTAL_W + REG_W + OT_W
                + INVREG_W + INVOT_W + INVTOT_W)
     DAY_W = (RIGHT - LEFT - FIXED_W) / 7.0
-    YELLOW = (255, 255, 0)
+    HIGHLIGHT = (214, 234, 248)
     RED = (220, 0, 0)
     NAVY = (10, 48, 65)
     MUTED = (100, 116, 139)
@@ -1255,7 +1255,7 @@ def _hours_pdf_bytes(co, start, end, result):
                       "INVOICE TOTAL"]
         for k, label in enumerate(inv_labels):
             x, w = col_x(13 + k)
-            fill = YELLOW if k == 2 else None
+            fill = HIGHLIGHT if k == 2 else None
             if fill is not None:
                 pdf.set_fill_color(*fill)
                 pdf.rect(x, hdr1_y, w, 2 * ROW_H, style="F")
@@ -1337,13 +1337,13 @@ def _hours_pdf_bytes(co, start, end, result):
                      else r["employee"][:20] + "...")
             cell(x, y, w, label, align="L", size=8)
             # SHIFT / POSITION from the employee's rate row. A night
-            # shift cell is yellow, like the recap sheet. 7pt so a long
+            # shift cell is light blue, like the recap sheet. 7pt so a long
             # shift ("8PM-4AM (Night)") fits the column.
             shift = r.get("shift") or ""
             position = r.get("position") or ""
             x, w = col_x(1)
             cell(x, y, w, shift, align="C", size=7,
-                 fill=YELLOW if _is_night(shift) else None)
+                 fill=HIGHLIGHT if _is_night(shift) else None)
             x, w = col_x(2)
             cell(x, y, w, position, align="C", size=7)
             # Day cells: total hours ('-' when not worked).
@@ -1363,7 +1363,7 @@ def _hours_pdf_bytes(co, start, end, result):
             x, w = col_x(12)
             cell(x, y, w, hrs2(w_ot) if w_tot else "", align="R",
                  size=8)
-            # INVOICE RATE (REG) / (OT) / TOTAL (TOTAL column yellow).
+            # INVOICE RATE (REG) / (OT) / TOTAL (TOTAL column light blue).
             # The rates show even with no hours; the total is blank.
             x, w = col_x(13)
             cell(x, y, w, money(inv_reg) if inv_reg is not None else "",
@@ -1374,34 +1374,34 @@ def _hours_pdf_bytes(co, start, end, result):
             x, w = col_x(15)
             cell(x, y, w,
                  money(inv_tot) if (inv_tot is not None and w_tot)
-                 else "", align="R", size=8, bold=True, fill=YELLOW)
+                 else "", align="R", size=8, bold=True, fill=HIGHLIGHT)
             y += ROW_H
-        # COLUMN TOTAL row (yellow).
+        # COLUMN TOTAL row (light blue).
         x, w = col_x(0)
         cell(x, y, w, "COLUMN TOTAL", align="L", size=8, bold=True,
-             fill=YELLOW)
+             fill=HIGHLIGHT)
         for j in (1, 2):
             x, w = col_x(j)
-            cell(x, y, w, "", align="C", size=8, fill=YELLOW)
+            cell(x, y, w, "", align="C", size=8, fill=HIGHLIGHT)
         for j, d in enumerate(week_days):
             x, w = col_x(3 + j)
             cell(x, y, w, hrs1(day_tot[d]), align="C", size=8,
-                 bold=True, fill=YELLOW)
+                 bold=True, fill=HIGHLIGHT)
         x, w = col_x(10)
         cell(x, y, w, hrs1(wtotal_sum), align="R", size=8, bold=True,
-             fill=YELLOW)
+             fill=HIGHLIGHT)
         x, w = col_x(11)
         cell(x, y, w, hrs2(reg_sum), align="R", size=8, bold=True,
-             fill=YELLOW)
+             fill=HIGHLIGHT)
         x, w = col_x(12)
         cell(x, y, w, hrs2(ot_sum), align="R", size=8, bold=True,
-             fill=YELLOW)
+             fill=HIGHLIGHT)
         for j in (13, 14):
             x, w = col_x(j)
-            cell(x, y, w, "", align="R", size=8, fill=YELLOW)
+            cell(x, y, w, "", align="R", size=8, fill=HIGHLIGHT)
         x, w = col_x(15)
         cell(x, y, w, money(inv_sum), align="R", size=8, bold=True,
-             fill=YELLOW)
+             fill=HIGHLIGHT)
         return y + ROW_H
 
     # Group the period's days into Mon-Sun weeks.
