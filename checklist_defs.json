@@ -565,6 +565,23 @@
        "monitor": false
       }
      ]
+    },
+    {
+     "title": "6. LNG Flow Totalizer",
+     "items": [
+      {
+       "no": 42,
+       "row": 55,
+       "name": "LNG Flow Totalizer",
+       "tag": "TOT",
+       "unit": "Nm³",
+       "range": "TBD",
+       "type": "number",
+       "choices": [],
+       "monitor": true,
+       "manual": true
+      }
+     ]
     }
    ]
   },
