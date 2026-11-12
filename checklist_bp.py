@@ -1224,7 +1224,10 @@ def _monitor_items(system_id):
         return None
     for s in defs.get("systems", []):
         if s.get("id") == system_id:
-            return [it for sec in s.get("sections", []) for it in sec.get("items", []) if it.get("monitor")]
+            # manual monitor items (e.g. HOB TOT totalizer) are read off the
+            # screen and typed by hand - never photo auto-read.
+            return [it for sec in s.get("sections", []) for it in sec.get("items", [])
+                    if it.get("monitor") and not it.get("manual")]
     return None
 
 
