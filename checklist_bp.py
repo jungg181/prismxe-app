@@ -855,6 +855,29 @@ def loc_index():
                     "items": items})
 
 
+@bp.post("/api/crash-log")
+def crash_log():
+    """App crash report: {text, version}. Appended to
+    data_checklist_crash.log (one block per crash, newest last).
+    v2.14: the heater-arrow force-close survived three guarded
+    fixes, so the app now uploads its crash-log.txt on launch
+    and this endpoint keeps it server-side for diagnosis."""
+    try:
+        payload = request.get_json(force=True)
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid json"}), 400
+    text = (payload or {}).get("text", "")
+    version = (payload or {}).get("version", "")
+    if not text:
+        return jsonify({"ok": False, "error": "text required"}), 400
+    log_path = os.path.join(BASE_DIR, "data_checklist_crash.log")
+    with _lock:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(datetime.now(timezone.utc).isoformat()
+                    + " v" + str(version) + "\n" + str(text) + "\n---\n")
+    return jsonify({"ok": True})
+
+
 @bp.get("/api/day")
 def day():
     """Merged values for one system/equipment/date, for the app viewer.
