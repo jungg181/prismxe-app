@@ -7,42 +7,40 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-         background: #0f172a; color: #e2e8f0; min-height: 100vh;
+         background: #0a0a0b; color: #f2f3f5; min-height: 100vh;
          display: flex; flex-direction: column; align-items: center;
          padding: 48px 16px; }
-  h1 { font-size: 2rem; letter-spacing: 2px; margin-bottom: 8px; }
-  p.sub { color: #94a3b8; margin-bottom: 32px; }
-  .folders { display: grid; gap: 16px; width: 100%; max-width: 560px; }
-  .folder { background: #1e293b; border: 1px solid #334155;
-            border-radius: 16px; overflow: hidden; }
-  .folder-header { display: flex; align-items: center; gap: 14px;
-                   padding: 20px 24px; cursor: pointer; user-select: none;
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+  p.sub { color: #a1a5ad; margin-bottom: 32px; font-size: .9rem; }
+  .folders { display: grid; gap: 12px; width: 100%; max-width: 560px; }
+  .folder { background: #131316; border: 1px solid rgba(255,255,255,.09);
+            border-radius: 8px; overflow: hidden; }
+  .folder-header { display: flex; align-items: center; gap: 12px;
+                   padding: 16px 20px; cursor: pointer; user-select: none;
                    width: 100%; background: none; border: none;
                    color: inherit; font: inherit; text-align: left; }
-  .folder-header:hover { background: #243049; }
-  .folder-icon { font-size: 1.8rem; }
-  .folder-header b { font-size: 1.15rem; flex: 1; }
-  .folder-header .count { color: #94a3b8; font-size: .85rem;
-                         background: #0f172a; padding: 4px 10px;
-                         border-radius: 20px; }
-  .folder-header .arrow { color: #94a3b8; font-size: 1.2rem;
+  .folder-header:hover { background: #1a1a1e; }
+  .folder-header b { font-size: 1rem; font-weight: 600; flex: 1; }
+  .folder-header .count { color: #a1a5ad; font-size: .8rem;
+                         background: #0a0a0b; border: 1px solid rgba(255,255,255,.09);
+                         padding: 4px 8px; border-radius: 4px; }
+  .folder-header .arrow { color: #4ade80; font-size: 1.1rem; line-height: 1;
                          transition: transform .2s; }
   .folder.open .folder-header .arrow { transform: rotate(90deg); }
-  .folder-apps { display: none; padding: 0 12px 12px; }
-  .folder.open .folder-apps { display: grid; gap: 10px; }
-  .card { display: flex; align-items: center; gap: 16px;
-           background: #0f172a; border: 1px solid #334155;
-           border-radius: 12px; padding: 18px 20px; text-decoration: none;
+  .folder-apps { display: none; padding: 0 8px 8px; }
+  .folder.open .folder-apps { display: grid; gap: 8px; }
+  .card { display: flex; align-items: center; gap: 12px;
+           background: #0a0a0b; border: 1px solid rgba(255,255,255,.09);
+           border-radius: 8px; padding: 12px 16px; text-decoration: none;
            color: inherit; transition: border-color .12s; }
-  a.card:hover { border-color: #3b82f6; }
-  .icon { font-size: 2rem; }
-  .card b { font-size: 1.05rem; display: block; margin-bottom: 2px; }
-  .card span { color: #94a3b8; font-size: .88rem; }
-  .manage-link { margin-top: 32px; color: #e2e8f0; font-size: 1rem;
-                 text-decoration: none; background: #1e293b;
-                 border: 1px solid #334155; border-radius: 12px;
-                 padding: 14px 28px; display: inline-block; }
-  .manage-link:hover { border-color: #3b82f6; background: #243049; }
+  a.card:hover { border-color: #4ade80; }
+  .card b { font-size: .95rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .card span { color: #a1a5ad; font-size: .85rem; }
+  .manage-link { margin-top: 24px; color: #f2f3f5; font-size: .9rem;
+                 text-decoration: none; background: #131316;
+                 border: 1px solid rgba(255,255,255,.09); border-radius: 8px;
+                 padding: 12px 24px; display: inline-block; }
+  .manage-link:hover { border-color: #4ade80; }
 </style>
 </head>
 <body>
@@ -52,21 +50,18 @@
     {% for co in companies %}
     <div class="folder{% if loop.first %} open{% endif %}">
       <button class="folder-header" onclick="this.parentElement.classList.toggle('open')">
-        <span class="folder-icon">{{ co.icon }}</span>
         <b>{{ co.name }}</b>
         <span class="count">{{ co.apps|length }} app{{ 's' if co.apps|length != 1 }}</span>
-        <span class="arrow">▶</span>
+        <span class="arrow">›</span>
       </button>
       <div class="folder-apps">
         {% for a in co.apps %}
         {% if a.url %}
         <a class="card" href="{{ a.url }}"{% if a.download %} download{% endif %}>
-          <div class="icon">{{ a.icon }}</div>
           <div><b>{{ a.name }}</b><span>{{ a.desc }}</span></div>
         </a>
         {% else %}
         <div class="card">
-          <div class="icon">{{ a.icon }}</div>
           <div><b>{{ a.name }}</b><span>{{ a.desc }}</span></div>
         </div>
         {% endif %}
@@ -75,6 +70,6 @@
     </div>
     {% endfor %}
   </div>
-  <a class="manage-link" href="/manage">⚙️ Manage folders</a>
+  <a class="manage-link" href="/manage">Manage folders</a>
 </body>
 </html>
