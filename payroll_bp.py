@@ -513,6 +513,22 @@ def _parse_entry_date(value):
         return None
 
 
+def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
+                       site, notes, jobsite_id=""):
+    """Build a payroll entry dict from already-parsed values, the way
+    the single Add form does (same fields, same defaults). Used by
+    both the single add/update path and the bulk-add path so the two
+    never drift apart."""
+    return {
+        "company": co["name"], "employee": employee, "date": day,
+        "payroll_hours": round(hours, 2),
+        "clock_in": clock_in, "clock_out": clock_out,
+        "clock_out_date": None, "gross_hours": None,
+        "site": site, "notes": notes,
+        "jobsite_id": jobsite_id or None,
+    }
+
+
 def _norm_header(name):
     return (name or "").strip().lower().replace(" ", "").replace("_", "").replace("-", "")
 
@@ -2488,6 +2504,54 @@ def entries(company):
                     flash(f"{count} entries tagged to {job['code']}.")
                 else:
                     flash("No untagged entries in this period.")
+        elif action == "bulk_add":
+            # Bulk Add: up to 10 rows in one submit. Completely empty
+            # rows are ignored; a row with content but no employee,
+            # no parseable date, or no parseable hours is skipped;
+            # exact duplicates (same key the CSV import uses) are
+            # skipped too, so a double-submit adds nothing twice.
+            existing = {_entry_key(e) for e in DB.get("entries", [])}
+            added = skipped = 0
+            for i in range(10):
+                p = f"rows[{i}]"
+                employee = (request.form.get(p + "[employee]") or "").strip()
+                raw_date = (request.form.get(p + "[date]") or "").strip()
+                raw_hours = (request.form.get(p + "[payroll_hours]") or "").strip()
+                clock_in = (request.form.get(p + "[clock_in]") or "").strip()
+                clock_out = (request.form.get(p + "[clock_out]") or "").strip()
+                site = (request.form.get(p + "[site]") or "").strip()
+                notes = (request.form.get(p + "[notes]") or "").strip()
+                if not any([employee, raw_date, raw_hours, clock_in,
+                            clock_out, site, notes]):
+                    continue
+                day = _parse_entry_date(raw_date)
+                try:
+                    hours = float(raw_hours) if raw_hours else None
+                except ValueError:
+                    hours = None
+                if not employee or not day or hours is None:
+                    skipped += 1
+                    continue
+                entry = _entry_from_values(
+                    co, employee, day, hours, clock_in, clock_out,
+                    site, notes)
+                if _entry_key(entry) in existing:
+                    skipped += 1
+                    continue
+                entry["id"] = uuid.uuid4().hex[:12]
+                existing.add(_entry_key(entry))
+                DB["entries"].append(entry)
+                added += 1
+            if added:
+                save_db()
+            if added and skipped:
+                flash(f"Added {added} entries ({skipped} skipped).")
+            elif added:
+                flash(f"Added {added} entries.")
+            elif skipped:
+                flash(f"No entries added ({skipped} skipped).")
+            else:
+                flash("No entries to add.")
         else:
             employee = (request.form.get("employee") or "").strip()
             day = _parse_entry_date(request.form.get("date"))
@@ -2496,16 +2560,13 @@ def entries(company):
             except ValueError:
                 hours = 0
             jobsite_id = (request.form.get("jobsite_id") or "").strip()
-            entry = {
-                "company": co["name"], "employee": employee, "date": day,
-                "payroll_hours": round(hours, 2),
-                "clock_in": (request.form.get("clock_in") or "").strip(),
-                "clock_out": (request.form.get("clock_out") or "").strip(),
-                "clock_out_date": None, "gross_hours": None,
-                "site": (request.form.get("site") or "").strip(),
-                "notes": (request.form.get("notes") or "").strip(),
-                "jobsite_id": jobsite_id or None,
-            }
+            entry = _entry_from_values(
+                co, employee, day, hours,
+                (request.form.get("clock_in") or "").strip(),
+                (request.form.get("clock_out") or "").strip(),
+                (request.form.get("site") or "").strip(),
+                (request.form.get("notes") or "").strip(),
+                jobsite_id)
             if not employee or not day:
                 flash("Employee and date are required.")
             elif action == "update":
