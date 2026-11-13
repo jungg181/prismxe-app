@@ -6,87 +6,123 @@
 <title>Inspection</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    background: #f5f5f5;
-    color: #222;
+    background: var(--bg);
+    color: var(--ink);
     min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
   }
   header {
-    background: #1976d2;
-    color: #fff;
+    background: var(--card);
+    color: var(--ink);
     padding: 16px 20px;
     text-align: center;
     position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid var(--line);
   }
   header h1 { margin: 0; font-size: 20px; font-weight: 600; }
-  header p { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+  header p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
   main { padding: 16px; max-width: 640px; margin: 0 auto; }
   .card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     padding: 16px;
     margin-bottom: 12px;
   }
-  .card.done { border: 2px solid #2e7d32; }
-  .gname { font-size: 17px; font-weight: 600; color: #222; }
-  .gmeta { font-size: 13px; color: #666; margin: 4px 0 10px; }
+  .card.done { border: 1px solid var(--green); }
+  .gname { font-size: 17px; font-weight: 600; color: var(--ink); }
+  .gmeta { font-size: 13px; color: var(--muted); margin: 4px 0 10px; }
   .btn {
     display: block; width: 100%;
     padding: 14px; font-size: 16px; font-weight: 600;
-    border: none; border-radius: 8px;
+    border: 1px solid var(--line); border-radius: var(--radius);
     margin-top: 8px; cursor: pointer;
+    background: var(--card); color: var(--ink);
   }
-  .btn-cam { background: #1976d2; color: #fff; }
-  .btn-ok { background: #2e7d32; color: #fff; }
-  .btn-edit { background: #fff; color: #222; border: 1px solid #bbb; font-weight: normal; }
+  .btn-cam { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .btn-cam { color: #0a0a0b; }
+  .btn-ok { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .btn-ok { color: #0a0a0b; }
+  .btn-edit { background: var(--card); color: var(--ink); border: 1px solid var(--line); font-weight: 400; }
   .btn:disabled { opacity: 0.5; }
-  .sec { font-size: 15px; font-weight: 700; color: #1976d2; margin: 16px 4px 8px; }
-  .sec small { color: #666; font-weight: normal; }
-  .val { font-size: 32px; font-weight: 700; color: #222; margin: 8px 0; }
-  .thumb { width: 100%; border-radius: 8px; margin-top: 8px; }
+  .sec { font-size: 15px; font-weight: 600; color: var(--brand); margin: 16px 4px 8px; }
+  .sec small { color: var(--muted); font-weight: 400; }
+  .val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 32px; font-weight: 600; color: var(--ink); margin: 8px 0; }
+  .thumb { width: 100%; border-radius: var(--radius); margin-top: 8px; }
   .row { display: flex; gap: 8px; }
   input[type=text], input[type=number] {
     width: 100%; padding: 12px; font-size: 16px;
-    border: 1px solid #bbb; border-radius: 8px; margin-top: 8px;
-    background: #fff; color: #222;
+    border: 1px solid var(--line); border-radius: var(--radius); margin-top: 8px;
+    background: var(--input-bg); color: var(--ink);
   }
-  input::placeholder { color: #999; }
+  input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+  input::placeholder { color: var(--faint); }
   .prog {
     position: sticky; top: 0; z-index: 9;
-    background: #1976d2; color: #fff;
+    background: var(--brand); color: #fff;
     text-align: center; font-size: 15px; font-weight: 600; padding: 10px;
   }
+  [data-theme="dark"] .prog { color: #0a0a0b; }
   .bar { height: 6px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; }
   .bar > div { height: 6px; background: #fff; border-radius: 3px; width: 0; }
+  [data-theme="dark"] .bar > div { background: #0a0a0b; }
   .warn {
-    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
-    padding: 10px; font-size: 13px; margin-top: 8px; color: #7a5c00;
+    background: var(--amber-bg); border: 1px solid var(--amber); border-radius: var(--radius);
+    padding: 10px; font-size: 13px; margin-top: 8px; color: var(--ink);
   }
-  .ok-badge { color: #2e7d32; font-weight: bold; }
-  .cal-need { color: #e65100; }
-  .muted { color: #666; }
-  .muted-sm { color: #888; }
+  .ok-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; vertical-align: middle; }
+  .cal-need { color: var(--orange); }
+  .muted { color: var(--muted); }
+  .muted-sm { color: var(--faint); }
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #333; color: #fff;
-    padding: 12px 20px; border-radius: 8px; display: none;
+    background: var(--ink); color: var(--bg);
+    padding: 12px 20px; border-radius: var(--radius); display: none;
     font-size: 15px; z-index: 50;
   }
   .topbtns { display: flex; gap: 8px; margin-bottom: 4px; }
   .topbtns a, .topbtns button {
     flex: 1; text-align: center; padding: 10px; font-size: 14px;
-    border-radius: 8px; border: 1px solid #bbb;
-    background: #fff; color: #222; text-decoration: none; cursor: pointer;
+    border-radius: var(--radius); border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); text-decoration: none; cursor: pointer;
   }
-  .seg-on { background: #1976d2 !important; color: #fff !important; border-color: #1976d2 !important; }
-  #driveModal details { font-size: 12px; color: #666; margin-top: 6px; }
+  .seg-on { background: var(--brand) !important; color: #fff !important; border-color: var(--brand) !important; }
+  [data-theme="dark"] .seg-on { color: #0a0a0b !important; }
+  #driveModal details { font-size: 12px; color: var(--muted); margin-top: 6px; }
   #pendingList .pitem {
     display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
-    border: 1px solid #ddd; border-radius: 8px; padding: 6px;
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px;
   }
 </style>
 </head>
@@ -98,20 +134,20 @@
 <div class="prog"><span id="progText">Loading...</span><div class="bar"><div id="progBar"></div></div></div>
 <main>
   <div class="card" style="text-align:center">
-    <button class="btn btn-cam" id="scanQrBtn" style="margin-top:0">📷 Scan QR Code</button>
+    <button class="btn btn-cam" id="scanQrBtn" style="margin-top:0">Scan QR Code</button>
   </div>
   <div class="card">
     <div class="muted" style="font-size:14px;margin-bottom:4px">Worker name</div>
     <input type="text" id="worker" placeholder="e.g. John" style="margin-top:0">
   </div>
   <div class="card">
-    <div style="font-weight:bold;font-size:15px">📱 Photo storage</div>
+    <div style="font-weight:600;font-size:15px">Photo storage</div>
     <div class="muted" style="font-size:13px;margin:2px 0 8px">Save photos on the phone first, upload them to Google Drive later.</div>
     <div class="row">
-      <button class="btn" id="modeUploadBtn" style="margin-top:0">☁️ Upload now</button>
-      <button class="btn" id="modeSaveBtn" style="margin-top:0">📱 Save to phone</button>
+      <button class="btn" id="modeUploadBtn" style="margin-top:0">Upload now</button>
+      <button class="btn" id="modeSaveBtn" style="margin-top:0">Save to phone</button>
     </div>
-    <button class="btn btn-cam" id="pendingBtn">📤 Pending uploads (<span id="pendingCount">0</span>)</button>
+    <button class="btn btn-cam" id="pendingBtn">Pending uploads (<span id="pendingCount">0</span>)</button>
   </div>
   <div class="topbtns">
     <a href="/Hanseong/gauge/">‹ Change boilers</a>
@@ -123,29 +159,29 @@
 <div id="camOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:100">
   <video id="camVideo" autoplay playsinline style="width:100%;height:calc(100% - 96px);object-fit:cover;background:#000"></video>
   <div style="display:flex;gap:8px;padding:16px">
-    <button class="btn" style="background:#555;color:#fff;margin-top:0" onclick="closeCam()">Cancel</button>
-    <button class="btn" style="background:#2e7d32;color:#fff;margin-top:0" onclick="capturePhoto()">📷 Capture</button>
+    <button class="btn btn-edit" style="margin-top:0" onclick="closeCam()">Cancel</button>
+    <button class="btn btn-ok" style="margin-top:0" onclick="capturePhoto()">Capture</button>
   </div>
 </div>
 <div id="qrOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:100">
   <video id="qrVideo" autoplay playsinline style="width:100%;height:calc(100% - 96px);object-fit:cover;background:#000"></video>
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid #1976d2;border-radius:12px;pointer-events:none"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border:3px solid var(--brand);border-radius:12px;pointer-events:none"></div>
   <div style="display:flex;gap:8px;padding:16px;position:absolute;bottom:0;left:0;right:0">
-    <button class="btn" style="background:#555;color:#fff;margin-top:0" onclick="closeQrScan()">Cancel</button>
+    <button class="btn btn-edit" style="margin-top:0" onclick="closeQrScan()">Cancel</button>
   </div>
   <div style="position:absolute;top:20px;left:0;right:0;text-align:center;color:#fff;font-size:16px">Point at a gauge QR code</div>
 </div>
 <div id="driveModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300">
   <div class="card" style="margin:20px auto;max-width:560px;max-height:88vh;overflow-y:auto">
     <div style="display:flex;align-items:center;gap:8px">
-      <h3 style="margin:0;flex:1">📤 Pending uploads</h3>
+      <h3 style="margin:0;flex:1">Pending uploads</h3>
       <button class="btn btn-edit" id="driveCloseBtn" style="width:auto;margin-top:0;padding:8px 14px">Close</button>
     </div>
     <div style="margin-top:10px">
       <div class="muted" style="font-size:13px">Photos upload directly to the configured Google Drive folder — no sign-in needed.</div>
     </div>
     <div id="pendingList" style="margin-top:10px"></div>
-    <button class="btn btn-ok" id="driveUploadBtn">⬆ Upload all to Google Drive</button>
+    <button class="btn btn-ok" id="driveUploadBtn">Upload all to Google Drive</button>
     <div id="driveStatus" class="muted" style="font-size:13px;margin-top:8px;white-space:pre-line"></div>
   </div>
 </div>
@@ -190,7 +226,7 @@ function updateProg() {
 async function load() {
   if (!BOILERS.length && !PUMPS.length) { location.href = "/"; return; }
   document.getElementById("subtitle").textContent =
-    (SLOT ? "🕐 Patrol " + SLOT + (SLOT_SYS ? " (" + SLOT_SYS + ")" : "") + " · " : "")
+    (SLOT ? "Patrol " + SLOT + (SLOT_SYS ? " (" + SLOT_SYS + ")" : "") + " · " : "")
     + "Burners: " + (BOILERS.join(", ") || "—") + " · Pumps: " + (PUMPS.join(", ") || "—");
   const q = "boilers=" + BOILERS.join(",") + (HAS_PUMPS_PARAM ? "&pumps=" + PUMPS.join(",") : "");
   const r = await fetch("/Hanseong/gauge/api/inspect?" + q);
@@ -209,11 +245,11 @@ async function load() {
       card.className = "card" + (doneSet.has(g.id) ? " done" : "");
       card.id = "card-" + g.id;
       card.innerHTML = `
-        <div class="gname">${doneSet.has(g.id) ? '<span class="ok-badge">✓</span> ' : ""}${esc(g.name)}</div>
+        <div class="gname">${doneSet.has(g.id) ? '<span class="ok-badge"></span> ' : ""}${esc(g.name)}</div>
         <div class="gmeta">${esc(it.name)} · ${esc(g.item || "Item not registered")} ${g.unit ? "· " + esc(g.unit) : ""}${g.calibrated ? "" : ' · <span class="cal-need">Calibration needed</span>'}</div>
         <div class="res" style="display:none"></div>
         <input type="file" accept="image/*" style="display:none" id="file-${g.id}">
-        <button class="btn btn-cam" onclick="shoot('${g.id}')">📷 Take photo</button>`;
+        <button class="btn btn-cam" onclick="shoot('${g.id}')">Take photo</button>`;
       box.appendChild(card);
       card.querySelector("input").addEventListener("change", ev => onPhoto(g.id, ev.target.files[0]));
     });
@@ -368,7 +404,7 @@ function readingHtml(gid, data) {
     // Not calibrated — tap the two ticks around the needle (local interpolation = most accurate)
     return `<div class="warn">Needle angle: ${data.angle_deg}° (not calibrated)</div>
       <div style="margin:12px 0">
-        <button class="btn btn-ok" style="width:100%;padding:14px;font-size:16px" onclick="startTickMode('${gid}')">📍 Tap ticks to calculate</button>
+        <button class="btn btn-ok" style="width:100%;padding:14px;font-size:16px" onclick="startTickMode('${gid}')">Tap ticks to calculate</button>
         <div style="margin-top:12px">
           <div style="font-weight:600;margin-bottom:8px">Or manual entry — unit?</div>
           <div class="row" style="margin-bottom:12px">
@@ -383,9 +419,9 @@ function readingHtml(gid, data) {
   // Auto-save the reading immediately
   setTimeout(() => confirmReading(gid, false), 100);
   return `<div class="val">${data.value} <span style="font-size:18px">${esc(data.unit || "")}</span></div>
-      <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read ✓ saved</div>
+      <div class="muted-sm" style="font-size:12px">Needle angle ${data.angle_deg}° · auto read · saved</div>
       <div class="row">
-        <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
+        <button class="btn btn-edit" onclick="showManual('${gid}')">Correct value</button>
       </div>
       <div class="manual" style="display:none">${manualHtml(gid, data.value)}</div>`;
 }
@@ -394,11 +430,11 @@ function readingHtml(gid, data) {
 function quickUnit(gid, unit) {
   event.target.closest('.row').querySelectorAll('.btn').forEach(b => b.style.opacity = '0.5');
   event.target.style.opacity = '1';
-  event.target.style.borderColor = '#1976d2';
+  event.target.style.borderColor = 'var(--brand)';
   const div = document.getElementById(`quick-val-${gid}`);
   div.innerHTML = `<div style="margin-top:8px">
       <input type="number" step="any" id="quick-input-${gid}" placeholder="Enter value (${unit})" style="width:150px;padding:10px;font-size:16px">
-      <button class="btn btn-ok" onclick="quickSave('${gid}','${unit}')">✓ Save</button>
+      <button class="btn btn-ok" onclick="quickSave('${gid}','${unit}')">Save</button>
     </div>`;
   setTimeout(() => document.getElementById(`quick-input-${gid}`).focus(), 100);
 }
@@ -418,7 +454,7 @@ function quickSave(gid, unit) {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
     res.innerHTML = `<div class="val">${val} <span style="font-size:18px">${unit}</span></div>
-        <div class="muted-sm" style="font-size:12px">✓ saved</div>`;
+        <div class="muted-sm" style="font-size:12px">saved</div>`;
   });
 }
 
@@ -450,15 +486,15 @@ function startTickMode(gid) {
       <button class="btn tick-u" onclick="tickUnitSel('${gid}','bar',event)">bar</button>
     </div>
     <div style="margin:18px 0 6px">
-      <div style="font-weight:600;margin-bottom:4px">Needle position (15 steps): <span id="tick-pos-${gid}" style="color:#1976d2">—</span></div>
+      <div style="font-weight:600;margin-bottom:4px">Needle position (15 steps): <span id="tick-pos-${gid}" style="color:var(--brand)">—</span></div>
       <input type="range" id="tick-slider-${gid}" min="0" max="15" step="1" value="7"
         style="width:100%;height:44px" oninput="tickSliderMove('${gid}')">
-      <div style="display:flex;justify-content:space-between;font-size:13px;color:#666">
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted)">
         <span>← left tick</span><span>right tick →</span>
       </div>
     </div>
-    <div id="tick-result-${gid}" style="font-size:26px;font-weight:700;margin:10px 0;min-height:36px"></div>
-    <button class="btn btn-ok" style="width:100%;padding:14px;font-size:17px" onclick="calcTicksSlider('${gid}')">✓ Save reading</button>`;
+    <div id="tick-result-${gid}" style="font-family:var(--mono);font-size:26px;font-weight:600;margin:10px 0;min-height:36px"></div>
+    <button class="btn btn-ok" style="width:100%;padding:14px;font-size:17px" onclick="calcTicksSlider('${gid}')">Save reading</button>`;
 }
 
 function tickUnitSel(gid, unit, event) {
@@ -506,9 +542,9 @@ function calcTicksSlider(gid) {
     const card = document.getElementById("card-" + gid);
     const res = card.querySelector(".res");
     res.innerHTML = `<div class="val">${value} <span style="font-size:18px">${unit}</span></div>
-        <div class="muted" style="font-size:12px">✓ saved</div>
+        <div class="muted" style="font-size:12px">saved</div>
         <div class="row" style="margin-top:8px">
-          <button class="btn btn-edit" onclick="showManual('${gid}')">✏️ Correct value</button>
+          <button class="btn btn-edit" onclick="showManual('${gid}')">Correct value</button>
         </div>
         <div class="manual" style="display:none">${manualHtml(gid, value)}</div>`;
   });
@@ -548,11 +584,11 @@ async function onPhoto(gid, file, fname, stampLines) {
     } catch (e) { toast("Could not save to phone: " + e); return; }
     window["_last_" + gid] = { data: reading || {}, equip };
     const note = reading
-      ? `<div class="ok-badge" style="margin:6px 0">✓ Saved to phone — will upload to Drive later</div>`
+      ? `<div class="muted" style="margin:6px 0">Saved to phone — will upload to Drive later</div>`
       : `<div class="warn">Saved to phone (reading skipped — no connection). Value not recorded.</div>`;
     res.innerHTML = `<img class="thumb" src="${smallUrl}">` + note + (reading ? readingHtml(gid, reading) : "");
     updatePendingBadge();
-    toast("Saved to phone ✓");
+    toast("Saved to phone");
     return;
   }
 
@@ -566,7 +602,7 @@ async function onPhoto(gid, file, fname, stampLines) {
 
 function manualHtml(gid, preset) {
   return `<input type="number" step="any" id="manual-${gid}" placeholder="Enter value" value="${preset == null ? "" : preset}">
-    <button class="btn btn-ok" onclick="confirmReading('${gid}', true)">✓ Save</button>`;
+    <button class="btn btn-ok" onclick="confirmReading('${gid}', true)">Save</button>`;
 }
 function showManual(gid) {
   const m = document.querySelector("#card-" + gid + " .manual");
@@ -597,8 +633,8 @@ async function confirmReading(gid, manual) {
   const card = document.getElementById("card-" + gid);
   card.classList.add("done");
   const name = card.querySelector(".gname");
-  if (!name.innerHTML.includes("ok-badge")) name.innerHTML = '<span class="ok-badge">✓</span> ' + name.innerHTML;
-  toast("Saved ✓");
+  if (!name.innerHTML.includes("ok-badge")) name.innerHTML = '<span class="ok-badge"></span> ' + name.innerHTML;
+  toast("Saved");
   updateProg();
 }
 
@@ -682,7 +718,7 @@ async function renderPending() {
     <div class="pitem">
       <img src="${URL.createObjectURL(r.blob)}" style="width:72px;height:72px;object-fit:cover;border-radius:6px">
       <div style="flex:1;font-size:12px;min-width:0">
-        <div style="font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.filename)}</div>
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.filename)}</div>
         <div class="muted">${esc(r.gaugeName)} · ${esc((r.ts || "").replace("T", " ").slice(0, 19))}${r.reading && r.reading.value != null ? " · " + esc(String(r.reading.value)) : ""}</div>
       </div>
       <button class="btn btn-edit" style="width:auto;margin-top:0;padding:8px 10px" onclick="hcDeletePending(${r.id})">✕</button>
@@ -728,11 +764,11 @@ document.getElementById("driveUploadBtn").onclick = async () => {
   }
   btn.disabled = false;
   if (failed.length) {
-    driveStatus("Finished: " + done + " uploaded ✓, " + failed.length + " failed (kept on phone):\n" + failed.join("\n"));
+    driveStatus("Finished: " + done + " uploaded, " + failed.length + " failed (kept on phone):\n" + failed.join("\n"));
     toast("Some uploads failed — kept on phone");
   } else {
-    driveStatus("✓ All " + done + " photos uploaded to Google Drive. Phone copies deleted.");
-    toast("All uploaded ✓ — phone cleared");
+    driveStatus("All " + done + " photos uploaded to Google Drive. Phone copies deleted.");
+    toast("All uploaded — phone cleared");
   }
   renderPending(); updatePendingBadge();
 };
