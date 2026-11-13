@@ -1,6 +1,25 @@
 {% extends "payroll/base.html" %}
-{% block title %}Invoice {{ number }}{% endblock %}
+{% block title %}{% if period_required %}Invoice — {{ company.name }}{% else %}Invoice {{ number }}{% endif %}{% endblock %}
 {% block content %}
+{% if period_required %}
+<h1>Invoice</h1>
+<p class="sub">{{ company.name }} — pick a period first</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Choose a period</h2>
+  <p class="small">An invoice needs a From–To period. Pick one below — no invoice number is shown until a period is picked, and Download PDF stays off, so an invoice for an undefined period cannot be saved by mistake.</p>
+  <form method="get" action="{{ url_for('.invoice', company=company.slug) }}">
+    <div class="form-grid">
+      <div><label for="from">From</label><input type="date" id="from" name="from" required></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Show Invoice</button>
+      <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug) }}">Back to Payroll</a>
+    </div>
+  </form>
+</div>
+{% else %}
 <h1>Invoice {{ number }}</h1>
 <p class="sub">{{ company.vendor }} · {{ start }} → {{ end }} · {{ company.category }} · Ship to: {{ company.ship_to }}</p>
 
@@ -47,6 +66,7 @@
     </div>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
   <h2 style="margin-top:0">Saved Invoices</h2>
@@ -76,6 +96,7 @@
   {% endif %}
 </div>
 
+{% if not period_required %}
 <div class="card">
   <h2 style="margin-top:0">Add Expense</h2>
   <form method="post" action="{{ url_for('.add_expense', company=company.slug, **{'from': start, 'to': end}) }}">
@@ -100,4 +121,5 @@
   </div>
   {% endif %}
 </div>
+{% endif %}
 {% endblock %}
