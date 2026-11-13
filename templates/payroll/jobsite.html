@@ -17,7 +17,7 @@
 
 {% if summary.pnl.no_rate %}
 <div class="card">
-  <h2 style="margin-top:0">⚠️ No rate — not counted in revenue or labor cost</h2>
+  <h2 style="margin-top:0">No rate — not counted in revenue or labor cost</h2>
   <p class="small muted">These workers have hours on this jobsite but no rate row, so their pay and billing stay blank. Add a rate for them and the numbers update.</p>
   <p>{{ summary.pnl.no_rate | join(', ') }}</p>
 </div>
