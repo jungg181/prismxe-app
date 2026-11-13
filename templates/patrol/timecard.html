@@ -15,26 +15,33 @@
   <p class="muted">No batches yet. Send hours from <b>Email hours</b> and a batch is created here automatically.</p>
   {% else %}
   <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem">
+    <table class="fixed">
+      <colgroup><col><col style="width:150px"><col style="width:150px"></colgroup>
+      <tr><th>Period</th><th class="num">Confirmed</th><th class="num">Problems</th></tr>
     {% for b in batches %}
-    <a class="btn small {{ 'primary' if sel_batch and b.id == sel_batch.id else '' }}" href="{{ url_for('.timecard_batch_detail', batch_id=b.id) }}" style="text-decoration:none">
-      {{ b.start }} → {{ b.end }} · ✓ {{ b.counts.confirmed }}/{{ b.counts.total }}{% if b.counts.problem %} · ⚠ {{ b.counts.problem }}{% endif %}
-    </a>
+    <tr {{ 'style="background:var(--brand-soft)"' if sel_batch and b.id == sel_batch.id else '' }}>
+      <td><a href="{{ url_for('.timecard_batch_detail', batch_id=b.id) }}" style="text-decoration:none"><b>{{ b.start }} → {{ b.end }}</b></a></td>
+      <td class="num">{{ b.counts.confirmed }}/{{ b.counts.total }}</td>
+      <td class="num">{% if b.counts.problem %}{{ b.counts.problem }}{% else %}—{% endif %}</td>
+    </tr>
     {% endfor %}
+    </table>
   </div>
   {% if sel_batch %}
   <p class="muted small" style="margin:.2rem 0 .6rem">Sent {{ (sel_batch.created_at or '')[:10] }} {{ (sel_batch.created_at or '')[11:16] }} · {{ sel_batch.counts.confirmed }} confirmed · {{ sel_batch.counts.sent }} waiting · {{ sel_batch.counts.problem }} problem reported</p>
-  <table>
-    <tr><th>Name</th><th>Total hrs</th><th>Status</th><th></th></tr>
+  <table class="fixed">
+    <colgroup><col><col style="width:100px"><col style="width:180px"><col style="width:190px"></colgroup>
+    <tr><th>Name</th><th class="num">Total hrs</th><th>Status</th><th></th></tr>
     {% for e in sel_batch.entries %}
     <tr>
       <td><b>{{ e.name }}</b><div class="muted small">{{ e.email }}</div>
-        {% if e.problem_note %}<div class="small" style="color:#b45309">⚠ {{ e.problem_note }}</div>{% endif %}
+        {% if e.problem_note %}<div class="small" style="color:var(--amber)">{{ e.problem_note }}</div>{% endif %}
       </td>
-      <td>{{ '%.2f'|format(e.total) }}</td>
+      <td class="num">{{ '%.2f'|format(e.total) }}</td>
       <td>
-        {% if e.status == 'confirmed' %}<span style="color:#146c2e"><b>✓ Confirmed</b></span><div class="muted small">{{ (e.confirmed_at or '')[:10] }} {{ (e.confirmed_at or '')[11:16] }}</div>
-        {% elif e.status == 'problem' %}<span style="color:#b45309"><b>⚠ Problem reported</b></span>
-        {% else %}<span class="muted">⏳ Waiting</span>{% endif %}
+        {% if e.status == 'confirmed' %}<span style="color:var(--green)"><b>Confirmed</b></span><div class="muted small">{{ (e.confirmed_at or '')[:10] }} {{ (e.confirmed_at or '')[11:16] }}</div>
+        {% elif e.status == 'problem' %}<span style="color:var(--amber)"><b>Problem reported</b></span>
+        {% else %}<span class="muted">Waiting</span>{% endif %}
         {% if e.resends %}<div class="muted small">resent ×{{ e.resends }}</div>{% endif %}
       </td>
       <td style="white-space:nowrap">
@@ -51,41 +58,46 @@
 <div class="card">
   <h2>Clock In / Out</h2>
   <div id="tc-grid">
+    <table class="fixed">
+      <colgroup><col><col style="width:96px"><col style="width:96px"></colgroup>
+      <tr><th>Worker</th><th></th><th></th></tr>
     {% for s in status %}
-    <div class="rowline" data-wid="{{ s.worker.id }}">
-      <span style="font-size:1.3rem">👷</span>
-      <div class="grow"><b>{{ s.worker.name }}</b>{% if s.worker.phone %} <span class="muted small">📞 {{ s.worker.phone }}</span>{% endif %}
+    <tr data-wid="{{ s.worker.id }}">
+      <td><b>{{ s.worker.name }}</b>{% if s.worker.phone %} <span class="muted small">{{ s.worker.phone }}</span>{% endif %}
         {% if s.clocked_in %}<div class="muted small">in since {{ s.since[11:16] if s.since and s.since|length>16 else s.since }}</div>{% endif %}
-      </div>
-      <button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}">🟢 IN</button>
-      <button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:#fee2e2;color:#991b1b' if s.clocked_in else '' }}">🔴 OUT</button>
-    </div>
+      </td>
+      <td><button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}"><span class="cdot green"></span>IN</button></td>
+      <td><button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:var(--red-bg);color:var(--red)' if s.clocked_in else '' }}"><span class="cdot red"></span>OUT</button></td>
+    </tr>
     {% else %}
-    <p class="muted">No workers yet — add them in Settings.</p>
+    <tr><td colspan="3" class="muted">No workers yet — add them in Settings.</td></tr>
     {% endfor %}
+    </table>
   </div>
   {% if inactive_status %}
   <details style="margin-top:.8rem">
     <summary class="muted small" style="cursor:pointer">Inactive workers ({{ inactive_status|length }}) — show</summary>
     <div style="margin-top:.5rem">
+    <table class="fixed">
+      <colgroup><col><col style="width:96px"><col style="width:96px"></colgroup>
     {% for s in inactive_status %}
-    <div class="rowline" data-wid="{{ s.worker.id }}">
-      <span style="font-size:1.3rem">👷</span>
-      <div class="grow"><b>{{ s.worker.name }}</b>{% if s.worker.phone %} <span class="muted small">📞 {{ s.worker.phone }}</span>{% endif %}
-        <span class="muted small" style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:99px">Inactive</span>
+    <tr data-wid="{{ s.worker.id }}">
+      <td><b>{{ s.worker.name }}</b>{% if s.worker.phone %} <span class="muted small">{{ s.worker.phone }}</span>{% endif %}
+        <span class="muted small" style="background:var(--red-bg);color:var(--red);padding:1px 8px;border-radius:99px">Inactive</span>
         {% if s.clocked_in %}<div class="muted small">in since {{ s.since[11:16] if s.since and s.since|length>16 else s.since }}</div>{% endif %}
-      </div>
-      <button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}">🟢 IN</button>
-      <button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:#fee2e2;color:#991b1b' if s.clocked_in else '' }}">🔴 OUT</button>
-    </div>
+      </td>
+      <td><button class="btn {{ 'primary' if not s.clocked_in else '' }}" onclick="clockIt('{{ s.worker.id }}','in')" {{ 'disabled' if s.clocked_in else '' }} style="{{ 'opacity:.4' if s.clocked_in else '' }}"><span class="cdot green"></span>IN</button></td>
+      <td><button class="btn" onclick="clockIt('{{ s.worker.id }}','out')" {{ 'disabled' if not s.clocked_in else '' }} style="{{ '' if s.clocked_in else 'opacity:.4' }};{{ 'background:var(--red-bg);color:var(--red)' if s.clocked_in else '' }}"><span class="cdot red"></span>OUT</button></td>
+    </tr>
     {% endfor %}
+    </table>
     </div>
   </details>
   {% endif %}
   <p class="muted small">Workers can also clock in from their own phones by scanning the QR code on the dashboard.</p>
 </div>
 <div class="card">
-  <h2>Records <span style="float:right;display:inline-flex;gap:.4rem;align-items:center"><input type="date" id="export-from" title="From" style="padding:.35rem"><input type="date" id="export-to" title="To" style="padding:.35rem"><button class="btn small" onclick="exportCsv()">⬇ Export CSV</button></span><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">➕ Add record</button><button class="btn small" onclick="openBulk()" style="float:right;margin-right:.4rem">➕ Bulk add</button></h2>
+  <h2>Records <span style="float:right;display:inline-flex;gap:.4rem;align-items:center"><input type="date" id="export-from" title="From" style="padding:.35rem"><input type="date" id="export-to" title="To" style="padding:.35rem"><button class="btn small" onclick="exportCsv()">Export CSV</button></span><button class="btn small" onclick="openAdd()" style="float:right;margin-right:.4rem">Add record</button><button class="btn small" onclick="openBulk()" style="float:right;margin-right:.4rem">Bulk add</button></h2>
   <div style="display:flex;gap:.5rem;align-items:center;margin:.2rem 0 .7rem">
     <label for="sort" class="muted small" style="margin:0">Sort</label>
     <select id="sort" onchange="applySort()" style="padding:.35rem">
@@ -97,14 +109,15 @@
       <option value="hours_asc" {% if sort|default('date_desc') == 'hours_asc' %}selected{% endif %}>Hours: least first</option>
     </select>
   </div>
-  <table>
-    <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th>Hours</th><th></th></tr>
+  <table class="fixed">
+    <colgroup><col style="width:110px"><col><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:90px"></colgroup>
+    <tr><th>Date</th><th>Name</th><th>In</th><th>Out</th><th class="num">Hours</th><th></th></tr>
     {% for r in records %}
     <tr>
       <td>{{ (r.clock_in or '')[:10] }}</td><td>{{ r.name }}</td>
       <td>{{ (r.clock_in or '')[11:16] }}</td><td>{{ (r.clock_out or '')[11:16] if r.clock_out else '<span class="muted">—</span>'|safe }}</td>
-      <td>{{ r.hours if r.hours is not none else '—' }}</td>
-      <td style="white-space:nowrap"><button class="btn small" onclick="openEdit({{ r|tojson|forceescape }})">✏️ Edit</button></td>
+      <td class="num">{{ r.hours if r.hours is not none else '—' }}</td>
+      <td style="white-space:nowrap"><button class="btn small" onclick="openEdit({{ r|tojson|forceescape }})">Edit</button></td>
     </tr>
     {% else %}
     <tr><td colspan="6" class="muted">No records yet.</td></tr>
@@ -124,11 +137,11 @@
       <input type="datetime-local" id="edit-out" style="width:100%;padding:.5rem;margin:.25rem 0 1rem">
     </label>
     <div style="display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap">
-      <button class="btn" id="edit-delete" style="background:#fee2e2;color:#991b1b;margin-right:auto">🗑 Delete</button>
+      <button class="btn" id="edit-delete" style="background:var(--red-bg);color:var(--red);margin-right:auto">Delete</button>
       <button class="btn" onclick="closeEdit()">Cancel</button>
       <button class="btn primary" onclick="saveEdit()">Save</button>
     </div>
-    <p class="muted small" id="edit-err" style="color:#991b1b"></p>
+    <p class="muted small" id="edit-err" style="color:var(--red)"></p>
   </div>
 </div>
 <!-- Add record modal -->
@@ -158,7 +171,7 @@
       <button class="btn" onclick="closeAdd()">Cancel</button>
       <button class="btn primary" onclick="saveAdd()">Save</button>
     </div>
-    <p class="muted small" id="add-err" style="color:#991b1b"></p>
+    <p class="muted small" id="add-err" style="color:var(--red)"></p>
   </div>
 </div>
 <!-- Bulk add modal -->
@@ -166,7 +179,8 @@
   <div class="card" style="width:min(680px,94vw);margin:0;max-height:92vh;overflow:auto">
     <h2 style="margin-top:0">Bulk add</h2>
     <p class="muted small">Add up to 8 records at once. Rows without a worker are skipped.</p>
-    <table>
+    <table class="fixed">
+      <colgroup><col><col style="width:150px"><col style="width:110px"><col style="width:110px"></colgroup>
       <tr><th>Worker</th><th>Date</th><th>In</th><th>Out</th></tr>
       {% for i in range(8) %}
       <tr class="bulk-row">
@@ -181,7 +195,7 @@
       <button class="btn" onclick="closeBulk()">Cancel</button>
       <button class="btn primary" onclick="saveBulk()">Add records</button>
     </div>
-    <p class="muted small" id="bulk-err" style="color:#991b1b"></p>
+    <p class="muted small" id="bulk-err" style="color:var(--red)"></p>
   </div>
 </div>
 {% endblock %}
@@ -194,7 +208,7 @@ async function resendBatch(batchId, email, btn){
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({batch_id: batchId, email: email})});
     const d = await r.json();
-    if (d.ok) { btn.textContent = '✓ Sent'; setTimeout(() => location.reload(), 700); }
+    if (d.ok) { btn.textContent = 'Sent'; setTimeout(() => location.reload(), 700); }
     else { btn.textContent = 'Failed'; alert(d.error || 'Send failed'); btn.disabled = false; }
   } catch (e) { btn.textContent = 'Failed'; btn.disabled = false; }
 }
