@@ -6,27 +6,26 @@
 <title>My Schedule</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='patrol/style.css') }}">
 <style>
-.pc-head{background:#1e40af;color:#fff;padding:14px 16px;border-radius:0 0 16px 16px;text-align:center}
+.pc-head{background:var(--ink);color:#fff;padding:14px 16px;border-radius:0 0 8px 8px;text-align:center}
 .pc-head h1{margin:0;font-size:1.25rem}
-.pc-head p{margin:4px 0 0;color:#bfdbfe;font-size:.8rem}
+.pc-head p{margin:4px 0 0;color:rgba(255,255,255,.65);font-size:.8rem}
 label{display:block;margin:10px 0;font-weight:600;font-size:.9rem}
-input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;margin-top:4px}
-.req{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff}
-.day{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.st-pending{color:#b45309;font-weight:800}.st-approved{color:#16a34a;font-weight:800}.st-rejected{color:#991b1b;font-weight:800}
+input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;margin-top:4px}
+.req{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;background:var(--card)}
+.st-pending{color:var(--amber);font-weight:600}.st-approved{color:var(--green);font-weight:600}.st-rejected{color:var(--red);font-weight:600}
 </style>
 </head>
 <body>
 <div class="pc-head">
-  <h1>📅 My Schedule</h1>
+  <h1>My Schedule</h1>
   <p>Your hours for the next 2 weeks · ask for a change below</p>
 </div>
 <main style="max-width:560px;margin:0 auto;padding:14px">
   {% with msgs = get_flashed_messages() %}
-  {% if msgs %}<div style="background:#dcfce7;color:#166534;padding:10px 12px;border-radius:10px;margin-bottom:10px">{{ msgs[0] }}</div>{% endif %}
+  {% if msgs %}<div style="background:var(--green-bg);color:var(--green);padding:10px 12px;border-radius:8px;margin-bottom:10px">{{ msgs[0] }}</div>{% endif %}
   {% endwith %}
 
-  <form method="get" action="{{ url_for('.my_schedule') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px">
+  <form method="get" action="{{ url_for('.my_schedule') }}" style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px">
     <label style="margin-top:0">Your email (the one you clock in with)
       <input type="email" name="email" value="{{ email }}" placeholder="you@example.com" required>
     </label>
@@ -34,19 +33,24 @@ input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10
   </form>
 
   {% if worker %}
-  <h3 style="margin:18px 0 4px">👷 {{ worker.name }}{% if worker.role %} <span class="muted small">{{ worker.role }}</span>{% endif %}</h3>
+  <h3 style="margin:18px 0 4px">{{ worker.name }}{% if worker.role %} <span class="muted small">{{ worker.role }}</span>{% endif %}</h3>
   {% if my_days %}
+    <table class="fixed">
+      <colgroup><col style="width:170px"><col><col style="width:90px"></colgroup>
+      <tr><th>Day</th><th>Hours</th><th></th></tr>
     {% for d in my_days %}
-    <div class="day" {{ 'style="border-color:#2563eb;background:#eff6ff"' if d.today }}>
-      <b>{{ d.label }}</b>{% if d.today %}<span class="badge" style="background:#2563eb;color:#fff">TODAY</span>{% endif %}
-      <span style="color:#1d4ed8;font-weight:700">{% for r in d.ranges %}{{ r[0] }} – {{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</span>
-    </div>
+    <tr {{ 'style="background:var(--brand-soft)"' if d.today }}>
+      <td><b>{{ d.label }}</b></td>
+      <td style="color:var(--brand-strong);font-weight:600">{% for r in d.ranges %}{{ r[0] }} – {{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</td>
+      <td>{% if d.today %}<span class="badge">TODAY</span>{% endif %}</td>
+    </tr>
     {% endfor %}
+    </table>
   {% else %}
-  <p style="background:#f1f5f9;padding:12px;border-radius:10px">No hours assigned to you in the next 2 weeks yet.</p>
+  <p style="background:var(--tile-bg);padding:12px;border-radius:8px">No hours assigned to you in the next 2 weeks yet.</p>
   {% endif %}
 
-  <form method="post" action="{{ url_for('.my_schedule_request') }}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-top:14px">
+  <form method="post" action="{{ url_for('.my_schedule_request') }}" style="background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:14px">
     <h4 style="margin:2px 0 6px">Request a change</h4>
     <input type="hidden" name="email" value="{{ worker.email }}">
     <label>What do you need changed?
@@ -66,7 +70,7 @@ input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10
   {% endfor %}
   {% endif %}
   {% elif email %}
-  <p style="background:#fee2e2;color:#991b1b;padding:10px 12px;border-radius:10px">No worker found for that email. Use the email you clock in with.</p>
+  <p style="background:var(--red-bg);color:var(--red);padding:10px 12px;border-radius:8px">No worker found for that email. Use the email you clock in with.</p>
   {% endif %}
   <p style="text-align:center;margin-top:16px"><a href="{{ url_for('.patrol_clock') }}">← Back to Clock In / Out</a></p>
 </main>
