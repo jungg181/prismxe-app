@@ -42,9 +42,38 @@
     <div class="btn-row" style="margin-top:12px">
       <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug, **{'from': start, 'to': end}) }}">Back to Payroll</a>
       <button class="btn" type="submit">Download PDF</button>
+      <a class="btn secondary" href="{{ url_for('.invoices_list', company=company.slug) }}">Saved Invoices</a>
       <a class="btn secondary" href="{{ url_for('.export_xlsx', company=company.slug, **{'from': start, 'to': end}) }}">Export XLSX</a>
     </div>
   </form>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Saved Invoices</h2>
+  {% if saved %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Invoice</th><th>Period</th><th>Saved</th><th class="num">Total</th><th></th></tr></thead>
+      <tbody>
+        {% for r in saved %}
+        <tr>
+          <td>{{ r.number }}</td>
+          <td>{{ r.start }} → {{ r.end }}</td>
+          <td>{{ (r.created or '')[:10] }}</td>
+          <td class="num">{{ money(r.total) }}</td>
+          <td>
+            <a class="btn secondary small" href="{{ url_for('.invoice_saved', company=company.slug, inv_id=r.id) }}">View</a>
+            <a class="btn secondary small" href="{{ url_for('.invoice_saved_pdf', company=company.slug, inv_id=r.id) }}">PDF</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted" style="margin-top:8px"><a href="{{ url_for('.invoices_list', company=company.slug) }}">See all saved invoices</a></p>
+  {% else %}
+  <p class="small muted">No invoices saved yet. Download this invoice as a PDF and it will appear here.</p>
+  {% endif %}
 </div>
 
 <div class="card">
