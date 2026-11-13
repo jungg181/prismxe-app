@@ -5,78 +5,113 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Photos — Hanseong Check List</title>
 <style>
-  body { font-family: -apple-system, sans-serif; margin: 0; background: #f5f5f5; }
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; }
   .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
-  .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-  h2 { margin: 0 0 8px; font-size: 20px; }
-  .muted { color: #666; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+  .muted { color: var(--muted); font-size: 13px; }
   .btn { display: block; width: 100%; padding: 14px; margin-top: 10px; font-size: 16px;
-         border: none; border-radius: 10px; background: #1976d2; color: #fff; cursor: pointer; }
+         border: 1px solid var(--brand); border-radius: var(--radius); background: var(--brand); color: #fff; cursor: pointer; font-weight: 600; }
+  [data-theme="dark"] .btn { color: #0a0a0b; }
   .btn:disabled { opacity: .5; }
+  .btn-sec { background: var(--card); color: var(--ink); border-color: var(--line); }
   .nav { display: flex; gap: 8px; margin-bottom: 12px; }
-  .nav a { flex: 1; text-align: center; padding: 12px; background: #fff; border: 1px solid #ddd;
-           border-radius: 10px; text-decoration: none; color: #1976d2; font-weight: 600; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
-  .thumb { background: #fafafa; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
-  .thumb img { width: 100%; height: 100px; object-fit: cover; display: block; }
-  .thumb .meta { padding: 6px; font-size: 11px; word-break: break-all; }
-  .thumb .meta a { color: #1976d2; text-decoration: none; font-weight: 600; }
-  .drow { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+  .nav a { flex: 1; text-align: center; padding: 12px; background: var(--card); border: 1px solid var(--line);
+           border-radius: var(--radius); text-decoration: none; color: var(--brand); font-weight: 600; }
+  .tbl { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; margin-top: 10px; }
+  .tbl th, .tbl td { padding: 8px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl td.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl td .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl a { color: var(--brand); text-decoration: none; font-weight: 600; }
+  .thumb-img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; display: block; cursor: pointer; }
+  .drow { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
   .drow .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .drow a { color: #1976d2; text-decoration: none; font-weight: 600; white-space: nowrap; }
+  .drow a { color: var(--brand); text-decoration: none; font-weight: 600; white-space: nowrap; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="nav">
-    <a href="/Hanseong/gauge/">🏠 Home</a>
-    <a href="/Hanseong/gauge/inspect">📋 Inspection</a>
+    <a href="/Hanseong/gauge/">Home</a>
+    <a href="/Hanseong/gauge/inspect">Inspection</a>
   </div>
   <div class="card">
-    <h2>📷 Add a Photo for Tagging</h2>
+    <h2>Add a Photo for Tagging</h2>
     <div class="muted">Take a photo (or pick one) — it is saved here, then you place Tag pins on it. The same photo keeps its Tags every time you open it.</div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn" id="cameraBtn" style="flex:1">📷 Camera</button>
-      <button class="btn" id="galleryBtn" style="flex:1;background:#43a047">🖼️ Choose Photo</button>
+      <button class="btn" id="cameraBtn" style="flex:1">Camera</button>
+      <button class="btn btn-sec" id="galleryBtn" style="flex:1">Choose Photo</button>
     </div>
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="galleryInput" accept="image/*" style="display:none">
     <div id="upStatus" class="muted" style="margin-top:8px"></div>
   </div>
   <div class="card">
-    <h2>📱 Pending Photos on This Device</h2>
+    <h2>Pending Photos on This Device</h2>
     <div class="muted">Photos picked on this device but not yet sent to Drive. Tap a photo to preview it first, then tag it — it is saved to the server, then the tag editor opens. (Pending photos only show on the device where they were picked.)</div>
-    <div id="pendingGrid" class="grid"></div>
+    <table class="tbl">
+      <colgroup><col style="width:72px"><col><col style="width:150px"></colgroup>
+      <tbody id="pendingGrid"></tbody>
+    </table>
     <div id="pendingNote" class="muted" style="margin-top:8px"></div>
   </div>
   <div id="pendingPreview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this) closePendingPreview()">
     <img id="pendingPreviewImg" style="max-width:100%;max-height:72vh;object-fit:contain;border-radius:8px" alt="">
     <div id="pendingPreviewName" style="color:#fff;margin-top:10px;font-size:14px;word-break:break-all;text-align:center"></div>
     <div style="margin-top:14px;display:flex;gap:10px">
-      <button class="btn" onclick="tagFromPreview()">🏷️ Tag this photo</button>
-      <button class="btn" onclick="closePendingPreview()">✕ Close</button>
+      <button class="btn" onclick="tagFromPreview()">Tag this photo</button>
+      <button class="btn btn-sec" onclick="closePendingPreview()">✕ Close</button>
     </div>
   </div>
   <div class="card">
-    <h2>🏷️ Photos on This Server</h2>
+    <h2>Photos on This Server</h2>
     {% if local_photos %}
-    <div class="grid">
+    <table class="tbl">
+      <colgroup><col style="width:72px"><col><col style="width:150px"></colgroup>
+      <tbody>
       {% for fn in local_photos %}
-      <div class="thumb">
-        <a href="/Hanseong/gauge/photo/local:{{ fn }}"><img src="/Hanseong/gauge/api/tag-photo/{{ fn }}" alt=""></a>
-        <div class="meta">
-          <div>{{ fn }}</div>
-          <div><a href="/Hanseong/gauge/photo/local:{{ fn }}">View</a>{% if tag_editing %} · <a href="/Hanseong/gauge/photo/local:{{ fn }}/edit">Edit tags</a>{% endif %}</div>
-        </div>
-      </div>
+      <tr>
+        <td><a href="/Hanseong/gauge/photo/local:{{ fn }}"><img class="thumb-img" src="/Hanseong/gauge/api/tag-photo/{{ fn }}" alt=""></a></td>
+        <td class="nm">{{ fn }}</td>
+        <td><a href="/Hanseong/gauge/photo/local:{{ fn }}">View</a>{% if tag_editing %} · <a href="/Hanseong/gauge/photo/local:{{ fn }}/edit">Edit tags</a>{% endif %}</td>
+      </tr>
       {% endfor %}
-    </div>
+      </tbody>
+    </table>
     {% else %}
     <p class="muted">No photos here yet — add one above.</p>
     {% endif %}
   </div>
   <div class="card">
-    <h2>☁️ Google Drive Photos</h2>
+    <h2>Google Drive Photos</h2>
     <div id="driveList" class="muted">Loading…</div>
   </div>
 </div>
@@ -144,15 +179,15 @@ async function renderPendingTaggable() {
   }
   note.textContent = recs.length + " pending photo(s). Tap a photo to preview it first, then Tag saves a copy to the server and opens the tag editor (the pending copy stays on this device).";
   grid.innerHTML = recs.map(r => `
-    <div class="thumb">
-      <img src="${URL.createObjectURL(r.blob)}" alt="" style="cursor:pointer" onclick="previewPending(${r.id})" title="Tap to preview">
-      <div class="meta">
-        <div>${esc(r.filename)}</div>
+    <tr>
+      <td><img src="${URL.createObjectURL(r.blob)}" alt="" class="thumb-img" onclick="previewPending(${r.id})" title="Tap to preview"></td>
+      <td>
+        <div class="nm">${esc(r.filename)}</div>
         <div class="muted">${esc((r.ts || "").replace("T", " ").slice(0, 19))}</div>
-        <div class="muted">🔍 Tap photo to preview</div>
-        <button class="btn" style="padding:8px;font-size:13px;margin-top:6px" onclick="tagPending(${r.id}, this)">🏷️ Tag this photo</button>
-      </div>
-    </div>`).join("");
+        <div class="muted">Tap photo to preview</div>
+      </td>
+      <td><button class="btn" style="padding:8px;font-size:13px;margin-top:0" onclick="tagPending(${r.id}, this)">Tag this photo</button></td>
+    </tr>`).join("");
 }
 let previewPendingId = null;
 let previewPendingUrl = null;
