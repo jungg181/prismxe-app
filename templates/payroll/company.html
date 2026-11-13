@@ -131,7 +131,7 @@
 
 {% if variances %}
 <div class="card">
-  <h2 style="margin-top:0">⚠️ Rate Variance — Sheet vs PrismXe Info</h2>
+  <h2 style="margin-top:0">Rate Variance — Sheet vs PrismXe Info</h2>
   <p class="small muted">Pay is computed at PrismXe Info rates. The sheet pays these employees at a different rate — the gap is flagged here, not adjusted.</p>
   <div class="table-scroll">
     {% set show_billing = variances|selectattr('sheet_billing')|list|length > 0 %}
@@ -193,9 +193,9 @@
       return r.json();
     }).then(function(d){
       if(!d.ok) throw new Error('not saved');
-      if(status){ status.textContent = '✓ Saved'; status.style.color = '#22c55e'; }
+      if(status){ status.textContent = 'Saved'; status.style.color = '#22c55e'; }
     }).catch(function(){
-      if(status){ status.textContent = '⚠️ Not saved — edit again'; status.style.color = '#ef4444'; }
+      if(status){ status.textContent = 'Not saved — edit again'; status.style.color = '#ef4444'; }
     });
   }
   document.querySelectorAll('tr[id^="days-"] input').forEach(function(input){
