@@ -11,11 +11,11 @@
 <div class="card">
   <h2 style="margin-top:0">{% if is_range %}Payroll{% else %}Weekly Payroll{% endif %}
     {% if is_range %}
-    <a class="btn small" href="{{ url_for('.payroll_xlsx') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">⬇ Download Excel</a>
-    <a class="btn small" href="{{ url_for('.payroll_basic_csv') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">⬇ Basic CSV</a>
+    <a class="btn small" href="{{ url_for('.payroll_xlsx') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv') }}?from={{ from_s }}&to={{ to_s }}{{ workers_qs }}" style="float:right">Basic CSV</a>
     {% else %}
-    <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">⬇ Download Excel</a>
-    <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">⬇ Basic CSV</a>
+    <a class="btn small" href="{{ url_for('.payroll_xlsx', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">Download Excel</a>
+    <a class="btn small" href="{{ url_for('.payroll_basic_csv', start=monday.isoformat()) }}{{ workers_qs }}" style="float:right">Basic CSV</a>
     {% endif %}
   </h2>
   <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
@@ -52,13 +52,15 @@
   <p class="muted">{% if filter_active %}No records for the selected workers in this period.{% elif is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
   {% else %}
   <style>
-    .payroll-tbl{border-collapse:collapse;min-width:920px;background:#fff}
-    .payroll-tbl th,.payroll-tbl td{border:1px solid #aeb4bc;padding:7px 8px;text-align:center;vertical-align:middle}
-    .payroll-tbl th{background:#e8eaed}
-    .payroll-tbl td.nm{text-align:left;white-space:nowrap;background:#fafafa}
-    .payroll-tbl td.lbl{white-space:nowrap;background:#fafafa}
-    .payroll-tbl tr.hrs td{background:#f1f3f5}
-    .payroll-tbl tr.blk-end td{border-bottom:3px solid #6b7280}
+    .payroll-tbl{border-collapse:collapse;min-width:920px;background:var(--card)}
+    .payroll-tbl th,.payroll-tbl td{border:1px solid var(--line);padding:7px 8px;text-align:center;vertical-align:middle}
+    .payroll-tbl th{background:var(--thead-bg)}
+    .payroll-tbl td.nm{text-align:left;white-space:nowrap;background:var(--thead-bg)}
+    .payroll-tbl td.lbl{white-space:nowrap;background:var(--thead-bg)}
+    .payroll-tbl tr.hrs td{background:var(--tile-bg)}
+    .payroll-tbl tr.blk-end td{border-bottom:3px solid var(--muted)}
+    .payroll-tbl td.num,.payroll-tbl th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+    .payroll-tbl tr.hrs td{font-family:var(--mono);font-variant-numeric:tabular-nums}
   </style>
   <div style="overflow-x:auto">
   <table class="payroll-tbl">
@@ -73,9 +75,9 @@
       <td rowspan="3" class="nm"><b>{{ r.name }}</b></td>
       <td class="muted small lbl">In</td>
       {% for c in r.days %}<td>{{ c.in if c else '' }}</td>{% endfor %}
-      <td rowspan="3"><b>{{ '%.2f'|format(r.total) }}</b></td>
-      <td rowspan="3">{{ '%.2f'|format(r.reg) }}</td>
-      <td rowspan="3">{{ '%.2f'|format(r.ot) }}</td>
+      <td rowspan="3" class="num"><b>{{ '%.2f'|format(r.total) }}</b></td>
+      <td rowspan="3" class="num">{{ '%.2f'|format(r.reg) }}</td>
+      <td rowspan="3" class="num">{{ '%.2f'|format(r.ot) }}</td>
       <td rowspan="3" style="min-width:150px"></td>
     </tr>
     <tr>
@@ -89,7 +91,7 @@
     {% endfor %}
     <tr>
       <td colspan="{{ 3 + days|length }}" style="text-align:right"><b>Grand total</b></td>
-      <td><b>{{ '%.2f'|format(grand) }}</b></td>
+      <td class="num"><b>{{ '%.2f'|format(grand) }}</b></td>
       <td colspan="3"></td>
     </tr>
   </table>
