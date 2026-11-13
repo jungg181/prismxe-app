@@ -1825,7 +1825,7 @@ def _timesheets_pdf_bytes(co, start, end, result):
     while d <= last_sun:
         weeks.append(d)
         d += timedelta(days=7)
-    CELL_H = 30.0 if len(weeks) <= 5 else 26.0
+    CELL_H = 22.0
     WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     def put_text(x, y, w, txt, align="R", size=8, bold=False,
@@ -1904,7 +1904,7 @@ def _timesheets_pdf_bytes(co, start, end, result):
                     reg = round(t - o, 2)
                     # Regular hours, large and centered in the space
                     # below the date divider.
-                    reg_y = y + 8.5 + (CELL_H - 8.5) / 2 + 2.0
+                    reg_y = y + CELL_H - 8.0
                     put_text(x, reg_y, CELL_W,
                              hrs(reg), align="C", size=13, bold=True)
                     # Overtime, same size as Regular (13pt), bottom-
