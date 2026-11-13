@@ -40,6 +40,44 @@
 </div>
 
 <div class="card">
+  <h2 style="margin-top:0">Bulk Add</h2>
+  <p class="small muted">Add up to 10 entries at once. Fill in a row to add it — empty rows are skipped. A row with an employee but no date or hours is skipped, and exact duplicates are skipped too.</p>
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="action" value="bulk_add">
+    <div class="table-scroll">
+      <table style="table-layout:fixed">
+        <colgroup>
+          <col style="width:200px">
+          <col style="width:140px">
+          <col style="width:90px">
+          <col style="width:110px">
+          <col style="width:110px">
+          <col style="width:120px">
+          <col style="width:140px">
+        </colgroup>
+        <thead><tr><th>Employee</th><th>Date</th><th>Payroll Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for i in range(10) %}
+          <tr>
+            <td><input name="rows[{{i}}][employee]" list="names" placeholder="Exact name"></td>
+            <td><input type="date" name="rows[{{i}}][date]" value="{{ start }}"></td>
+            <td><input type="number" name="rows[{{i}}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7"></td>
+            <td><input name="rows[{{i}}][clock_in]" placeholder="e.g. 7:00 AM"></td>
+            <td><input name="rows[{{i}}][clock_out]" placeholder="e.g. 3:30 PM"></td>
+            <td><input name="rows[{{i}}][site]" placeholder="e.g. LGES"></td>
+            <td><input name="rows[{{i}}][notes]" placeholder="e.g. KB"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add Entries</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
   <h2 style="margin-top:0">Import CSV</h2>
   <p class="small muted">Columns: Employee, Date, Payroll Hours, Notes + optional Clock-In, Clock-Out, Site. Re-importing the same file skips exact duplicates.</p>
   <p class="small"><a href="{{ url_for('.import_app', company=company.slug, **{'from': start, 'to': end}) }}">Or import from the app →</a> pull time records straight from CM, Hanseong Patrol, COA or Patrol COA (preview first).</p>
