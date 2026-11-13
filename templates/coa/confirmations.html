@@ -5,10 +5,10 @@
 <p class="muted">Pick the worked dates, send each worker a confirmation email, and see who confirmed or flagged a problem.</p>
 
 {% if not email_ok %}
-<div class="msg err" style="margin-bottom:12px">📧 Email delivery needs the Apps Script update (sendEmail action). Records and links still work — copy each worker's link and send it manually (text, etc.).</div>
+<div class="msg err" style="margin-bottom:12px">Email delivery needs the Apps Script update (sendEmail action). Records and links still work — copy each worker's link and send it manually (text, etc.).</div>
 {% endif %}
 {% if request.args.get('sent') is not none %}
-<div class="msg ok" style="margin-bottom:12px">✉️ Sent {{ request.args.get('sent') }} email(s){% if request.args.get('failed')|int %} · {{ request.args.get('failed') }} need manual link{% endif %}{% if request.args.get('skipped')|int %} · {{ request.args.get('skipped') }} already pending, skipped{% endif %}.</div>
+<div class="msg ok" style="margin-bottom:12px">Sent {{ request.args.get('sent') }} email(s){% if request.args.get('failed')|int %} · {{ request.args.get('failed') }} need manual link{% endif %}{% if request.args.get('skipped')|int %} · {{ request.args.get('skipped') }} already pending, skipped{% endif %}.</div>
 {% endif %}
 
 <div class="card"><div class="card-body">
@@ -22,7 +22,8 @@
   </form>
   {% if preview %}
   <h3>2 · Preview — {{ preview|length }} worker(s) with hours in this period</h3>
-  <div class="table-wrap"><table class="tbl">
+  <div class="table-wrap"><table class="tbl" style="table-layout:fixed">
+    <colgroup><col style="width:200px"><col style="width:220px"><col style="width:80px"><col style="width:110px"><col style="width:70px"></colgroup>
     <tr><th>Worker</th><th>Email</th><th>System</th><th>Reported</th><th>Shifts</th></tr>
     {% for r in preview %}
     {% set ns = namespace(rep=0.0, rep_n=0) %}
@@ -36,8 +37,8 @@
             <span class="muted">{{ (d.clock_in or '')[5:16].replace('T',' ') }} – {{ (d.clock_out or '')[5:16].replace('T',' ') }}</span>
             {% if d.reported_hours is not none and d.hours is not none %}<br>
             <span>reported <b>{{ d.reported_hours }}h</b>
-              {% if ((d.reported_hours or 0) - (d.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">⚠️ differs</span>
-              {% else %}<span class="pill pill-active small">✓ match</span>{% endif %}</span>
+              {% if ((d.reported_hours or 0) - (d.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">Differs</span>
+              {% else %}<span class="pill pill-active small">Match</span>{% endif %}</span>
             {% endif %}</span>
             <b>{% if d.hours is not none %}{{ d.hours }}h{% else %}—{% endif %}</b></div>
           {% endfor %}
@@ -46,8 +47,8 @@
         <td>{% if r.email %}{{ r.email }}{% else %}<span class="pill pill-low small">no email</span>{% endif %}</td>
         <td><b>{{ r.hours }}h</b></td>
         <td>{% if ns.rep_n %}<b>{{ ns.rep|round(2) }}h</b>
-          {% if (ns.rep - (r.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">⚠️</span>
-          {% else %}<span class="pill pill-active small">✓</span>{% endif %}
+          {% if (ns.rep - (r.hours or 0))|abs >= 0.5 %}<span class="pill pill-low small">Differs</span>
+          {% else %}<span class="pill pill-active small">Match</span>{% endif %}
         {% else %}<span class="muted">—</span>{% endif %}</td>
         <td>{{ r.details|length }}</td></tr>
     {% endfor %}
@@ -56,7 +57,7 @@
         onsubmit="return confirm('Send confirmation emails to {{ preview|length }} worker(s)?')">
     <input type="hidden" name="start" value="{{ start }}">
     <input type="hidden" name="end" value="{{ end }}">
-    <button class="btn primary big" type="submit">✉️ Send Confirmation Emails</button>
+    <button class="btn primary big" type="submit">Send Confirmation Emails</button>
   </form>
   {% elif start and end %}
   <p class="muted">No completed shifts in this period.</p>
@@ -65,18 +66,19 @@
 
 <div class="card" id="results" style="margin-top:12px"><div class="card-body">
   <h3 style="margin-top:0">Confirmations</h3>
-  <div class="table-wrap"><table class="tbl">
+  <div class="table-wrap"><table class="tbl" style="table-layout:fixed">
+    <colgroup><col style="width:180px"><col style="width:150px"><col style="width:70px"><col style="width:170px"><col style="width:130px"><col style="width:130px"><col style="width:180px"></colgroup>
     <tr><th>Worker</th><th>Period</th><th>Hours</th><th>Status</th><th>Sent</th><th>Responded</th><th>Actions</th></tr>
     {% for r in recs %}
     <tr>
       <td><b>{{ r.worker_name }}</b><br><span class="muted small">{{ r.email or 'no email' }}</span></td>
-      <td class="small">{{ r.period_start }} → {{ r.period_end }}</td>
+      <td class="small">{{ r.period_start }} – {{ r.period_end }}</td>
       <td><b>{{ r.hours }}h</b></td>
       <td>
-        {% if r.status == 'confirmed' %}<span class="pill pill-active">✓ No problem</span>
-        {% elif r.status == 'disputed' %}<span class="pill pill-low">⚠️ Problem flagged</span>
+        {% if r.status == 'confirmed' %}<span class="pill pill-active">No problem</span>
+        {% elif r.status == 'disputed' %}<span class="pill pill-low">Problem flagged</span>
         {% else %}<span class="pill pill-pending">Pending</span>{% endif %}
-        {% if r.note %}<br><span class="small" style="color:#991b1b">“{{ r.note }}”</span>{% endif %}
+        {% if r.note %}<br><span class="small" style="color:var(--red)">“{{ r.note }}”</span>{% endif %}
       </td>
       <td class="muted small">{{ r.sent_at[:16].replace('T',' ') if r.sent_at else '—' }}</td>
       <td class="muted small">{{ r.responded_at[:16].replace('T',' ') if r.responded_at else '—' }}</td>
