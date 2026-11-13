@@ -11,8 +11,6 @@
 </div>
 
 <div class="toolbar">
-  <button class="btn primary" onclick="openQr()">📷 Attendance QR</button>
-  <button class="btn" onclick="openDispatch()">📣 Dispatch</button>
   <a class="btn" href="{{ url_for('.worker_new') }}">+ Register Worker</a>
   <a class="btn small" href="{{ url_for('.workers_export') }}">Export CSV</a>
 </div>
@@ -52,7 +50,6 @@
   <td>{{ site_name(w.site_id) }}</td>
   <td><span class="pill {% if w.clocked_in %}pill-active{% elif w.status=='active' %}pill-idle{% else %}pill-{{ w.status }}{% endif %}">{% if w.clocked_in %}Clocked In{% else %}{{ w.status.replace('_',' ').title() }}{% endif %}</span>{% if w.clocked_in %} <span class="live-slot" data-wid="{{ w.id }}"></span>{% endif %}</td>
   <td class="nowrap">
-    <button class="btn small" onclick='openDispatch({{ w.id|tojson }})'>Dispatch</button>
     <button class="btn small" onclick='openDetails({{ w.id|tojson }})'>Details</button>
     <a class="btn small" href="{{ url_for('.worker_edit', wid=w.id) }}">Edit</a>
     <form method="post" action="{{ url_for('.worker_delete', wid=w.id) }}" style="display:inline" onsubmit="return confirm('Delete worker?')">
@@ -67,43 +64,6 @@
 {% endblock %}
 {% block scripts %}
 <script>
-async function openQr(){
-  const sites = {{ sites|map(attribute='name')|list|tojson }};
-  const siteIds = {{ sites|map(attribute='id')|list|tojson }};
-  let opts = siteIds.map((id,i)=>`<option value="${id}">${sites[i]}</option>`).join('');
-  openModal(`<h3>Temporary Attendance QR</h3>
-    <p class="muted small">Choose the jobsite, then show this code to the worker. The code decides which site gets the timecard. Valid for <b>10 minutes</b>.</p>
-    <label>Jobsite <select id="qr-site">${opts}</select></label>
-    <div id="qr-out" style="text-align:center;margin:12px 0"></div>
-    <button class="btn primary" onclick="makeQr()">Create temporary QR</button>`);
-}
-async function makeQr(){
-  const r = await fetch('/staffing/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({site_id: document.getElementById('qr-site').value})});
-  const d = await r.json();
-  document.getElementById('qr-out').innerHTML = `<img src="/staffing/qr/${d.token}.png" style="width:220px;height:220px"><p class="muted small">Expires ${d.expires_at}</p>`;
-}
-async function openDispatch(presetWorker){
-  const workers = {{ rows|map(attribute='name')|list|tojson }};
-  const ids = {{ rows|map(attribute='id')|list|tojson }};
-  let opts = ids.map((id,i)=>`<option value="${id}" ${id===presetWorker?'selected':''}>${workers[i]}</option>`).join('');
-  openModal(`<h3>Dispatch Location &amp; Task</h3>
-    <label>Worker <select id="d-worker">${opts}</select></label>
-    <label>Message <textarea id="d-msg" rows="3" placeholder="Go to Zone A, help with..."></textarea></label>
-    <button class="btn primary" onclick="sendDispatch()">Send dispatch</button>
-    <h4 style="margin-top:12px">Recent dispatches</h4><div id="d-log" class="muted small">Loading...</div>`);
-  try {
-    const log = await (await fetch('/staffing/api/dispatches')).json();
-    document.getElementById('d-log').innerHTML = log.length
-      ? log.map(l=>`<div style="margin:6px 0"><b>${l.worker}</b> · ${l.at}<br>${l.message}</div>`).join('')
-      : 'No dispatches yet.';
-  } catch(e){ document.getElementById('d-log').innerHTML = 'Could not load.'; }
-}
-async function sendDispatch(){
-  await fetch('/staffing/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({worker_id: document.getElementById('d-worker').value, message: document.getElementById('d-msg').value})});
-  closeModal(); alert('Dispatch logged.');
-}
 async function openDetails(wid){
   const d = await (await fetch('/staffing/api/workers/'+wid)).json();
   const rows = d.timecards.map(t=>`<tr><td>${t.date}</td><td>${t.in}–${t.out}</td><td>${t.status}</td><td>${t.hours}h</td></tr>`).join('');
