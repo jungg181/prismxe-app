@@ -340,7 +340,18 @@ def gmaps_link(lat, lng):
 
 
 def needs_attention_count():
-    return sum(1 for t in DB['timecards'] if t.get('status') == 'clocked_out')
+    """Real problems only: still-open shifts, GPS distance warnings
+    (clock-in >= 0.5 km from the jobsite), and unapplied payroll
+    corrections. Clocked-out-but-unapproved timecards are NOT counted:
+    payroll now runs in /payroll/, not via CM approve."""
+    open_shifts = sum(1 for t in DB['timecards']
+                      if t.get('status') == 'clocked_in')
+    gps_warnings = sum(1 for t in DB['timecards']
+                       if (clock_in_distance_km(t) or 0) >= 0.5)
+    pending_corrections = sum(
+        1 for c in DB.get('payroll_corrections', [])
+        if c.get('status') == 'correction' and not c.get('applied_at'))
+    return open_shifts + gps_warnings + pending_corrections
 
 
 def open_defects_count():
@@ -386,14 +397,8 @@ def register_jinja(app):
 NAV = [
     ('dashboard', 'Dashboard', '/staffing/'),
     ('sites', 'Sites', '/staffing/sites'),
-    ('blueprints', 'Map & Plans', '/staffing/blueprints'),
     ('workers', 'Workers', '/staffing/workers'),
     ('timecards', 'Timecards', '/staffing/timecards'),
-    ('incidents', 'Incidents', '/staffing/incidents'),
-    ('daily_logs', 'Daily Logs', '/staffing/daily-logs'),
-    ('labour', 'Labour', '/staffing/labour'),
-    ('materials', 'Materials', '/staffing/materials'),
-    ('qa', 'QA/QC', '/staffing/qa'),
     ('data', 'Data', '/staffing/data'),
 ]
 
@@ -401,8 +406,7 @@ NAV = [
 @bp.context_processor
 def inject_nav():
     return dict(nav=NAV, active_tab=(request.endpoint or '').split('.')[-1],
-                attention=needs_attention_count(),
-                open_defects=open_defects_count())
+                attention=needs_attention_count())
 
 
 # ================= DASHBOARD =================
@@ -521,105 +525,26 @@ def _f(v):
         return None
 
 
-# ================= SITE MAP & PLANS =================
+# ================= REMOVED MODULES =================
+# Incidents, Daily Logs, Labour, Materials, QA/QC and Map & Plans were
+# removed (zero records in each collection). Old bookmarks redirect to
+# the dashboard instead of landing on a 404. The QR clock is gone too:
+# /staffing/clock/<token> points at the On Site worker app, the GPS
+# clock-in workers actually use.
 
+@bp.route('/incidents')
+@bp.route('/daily-logs')
+@bp.route('/labour')
+@bp.route('/materials')
+@bp.route('/qa')
 @bp.route('/blueprints')
-def blueprints():
-    site_id = request.args.get('site_id') or (DB['sites'][0]['id'] if DB['sites'] else '')
-    site = find('sites', site_id)
-    floors = sorted({p['floor'] for p in DB['plans'] if p['site_id'] == site_id} | {'1F', '2F'})
-    floor = request.args.get('floor') or floors[0]
-    plan = next((p for p in DB['plans'] if p['site_id'] == site_id and p['floor'] == floor), None)
-    pins = [p for p in DB['pins'] if p['site_id'] == site_id and p.get('floor') == floor]
-    counts = {
-        'personnel': sum(1 for t in DB['timecards']
-                         if t['site_id'] == site_id and t.get('status') == 'clocked_in'
-                         and t.get('clock_in_lat') not in (None, '')),
-        'defect': sum(1 for p in pins if p.get('kind') == 'defect'),
-        'hazard': sum(1 for p in pins if p.get('kind') == 'hazard'),
-    }
-    return render_template('cm/blueprints.html', sites=DB['sites'], site=site,
-                           floors=floors, floor=floor, plan=plan,
-                           pins=pins, counts=counts)
+def _removed_module():
+    return redirect(url_for('cm.dashboard'))
 
 
-@bp.route('/blueprints/upload', methods=['POST'])
-def plan_upload():
-    site_id = request.form.get('site_id')
-    floor = request.form.get('floor', '1F').strip() or '1F'
-    img = save_upload(request.files.get('plan'))
-    if not img:
-        flash('No file uploaded.')
-        return redirect(url_for('cm.blueprints', site_id=site_id))
-    old = next((p for p in DB['plans'] if p['site_id'] == site_id and p['floor'] == floor), None)
-    if old:
-        DB['plans'].remove(old)
-    DB['plans'].append({'id': new_id(), 'site_id': site_id, 'floor': floor,
-                        'image_path': img, 'bounds': None})
-    save_db()
-    flash(f'Plan uploaded for {floor}.')
-    return redirect(url_for('cm.blueprints', site_id=site_id, floor=floor))
-
-
-@bp.route('/api/plan-bounds', methods=['POST'])
-def api_plan_bounds():
-    data = request.get_json(force=True) or {}
-    plan = next((p for p in DB['plans'] if p['id'] == data.get('plan_id')), None)
-    if not plan:
-        return {'ok': False, 'error': 'plan not found'}, 404
-    b = data.get('bounds')
-    if not b or len(b) != 2:
-        return {'ok': False, 'error': 'invalid bounds'}, 400
-    plan['bounds'] = [[float(b[0][0]), float(b[0][1])], [float(b[1][0]), float(b[1][1])]]
-    save_db()
-    return {'ok': True}
-
-
-@bp.route('/api/pins')
-def api_pins():
-    site_id = request.args.get('site_id')
-    floor = request.args.get('floor')
-    pins = [p for p in DB['pins']
-            if (not site_id or p['site_id'] == site_id)
-            and (not floor or p.get('floor') == floor)]
-    return jsonify(pins)
-
-
-@bp.route('/api/pins', methods=['POST'])
-def api_pin_add():
-    d = request.get_json(force=True)
-    pin = {'id': new_id(), 'site_id': d.get('site_id'), 'floor': d.get('floor', '1F'),
-           'kind': d.get('kind', 'defect'), 'x': d.get('x', 0), 'y': d.get('y', 0),
-           'lat': d.get('lat'), 'lng': d.get('lng'),
-           'label': (d.get('label') or '').strip() or d.get('kind', 'pin').title()}
-    DB['pins'].append(pin)
-    save_db()
-    return jsonify(pin)
-
-
-@bp.route('/api/pins/<pid>', methods=['DELETE'])
-def api_pin_delete(pid):
-    DB['pins'] = [p for p in DB['pins'] if p.get('id') != pid]
-    save_db()
-    return jsonify({'ok': True})
-
-
-@bp.route('/api/personnel')
-def api_personnel():
-    site_id = request.args.get('site_id')
-    out = []
-    for t in DB['timecards']:
-        if t.get('status') != 'clocked_in':
-            continue
-        if site_id and t['site_id'] != site_id:
-            continue
-        if t.get('clock_in_lat') in (None, ''):
-            continue
-        out.append({'worker_id': t['worker_id'],
-                    'worker': worker_name(t['worker_id']),
-                    'lat': t['clock_in_lat'], 'lng': t['clock_in_lng'],
-                    'since': fmt_dt(t.get('clock_in'))})
-    return jsonify(out)
+@bp.route('/clock/<token>')
+def _removed_qr_clock(token):
+    return redirect(url_for('cm.onsite'))
 
 
 # ================= WORKERS =================
@@ -733,75 +658,11 @@ def workers_export():
                      download_name='workers.csv')
 
 
-@bp.route('/api/dispatch', methods=['POST'])
-def api_dispatch():
-    d = request.get_json(force=True)
-    rec = {'id': new_id(), 'worker_id': d.get('worker_id'),
-           'message': (d.get('message') or '').strip(),
-           'created_at': now_iso()}
-    DB['dispatches'].append(rec)
-    save_db()
-    return jsonify(rec)
-
-
-# ================= QR ATTENDANCE =================
-
-@bp.route('/api/qr', methods=['POST'])
-def api_qr_create():
-    d = request.get_json(force=True)
-    token = uuid.uuid4().hex
-    rec = {'token': token, 'site_id': d.get('site_id'),
-           'action': 'toggle',
-           'created_at': now_iso(),
-           'expires_at': (datetime.now() + timedelta(minutes=10)).isoformat(timespec='seconds'),
-           'clock_url': BASE_URL.rstrip('/') + '/staffing/clock/' + token}
-    DB['qr_tokens'] = [t for t in DB['qr_tokens'] if t['token'] != token]
-    DB['qr_tokens'].append(rec)
-    save_db()
-    return jsonify(rec)
-
-
-@bp.route('/qr/<token>.png')
-def qr_image(token):
-    try:
-        import qrcode
-    except ImportError:
-        abort(500, 'qrcode library not installed')
-    rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
-    if not rec:
-        abort(404)
-    img = qrcode.make(rec['clock_url'])
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
-    return send_file(buf, mimetype='image/png')
-
-
-def _valid_token(token):
-    rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
-    if not rec:
-        return None
-    if parse_iso(rec['expires_at']) and parse_iso(rec['expires_at']) < datetime.now():
-        return None
-    return rec
-
-
-@bp.route('/clock/<token>')
-def clock_page(token):
-    rec = _valid_token(token)
-    if not rec:
-        return render_template('cm/clock.html', error='This QR code has expired. Ask your supervisor for a new one.'), 410
-    active_workers = [w for w in DB['workers'] if w.get('status') == 'active']
-    return render_template('cm/clock.html', rec=rec, site=find('sites', rec['site_id']),
-                           workers=active_workers, error=None)
-
-
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
-                   offline=False):
-    """Shared clock-in/out engine used by both the /clock page and the
-    On Site worker app API. at_iso overrides the timestamp (used for
-    offline-synced punches); offline marks the record as synced offline.
-    Returns (ok, info dict)."""
+                   offline=False, reported_hours=None):
+    """Shared clock-in/out engine for the On Site worker app API.
+    at_iso overrides the timestamp (used for offline-synced punches);
+    offline marks the record as synced offline. Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
         return False, {'error': 'Worker not found.'}
@@ -813,7 +674,7 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
         t = {'id': new_id(), 'worker_id': worker_id, 'site_id': site_id,
              'clock_in': now, 'clock_in_lat': lat, 'clock_in_lng': lng,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
-             'hours': 0.0, 'status': 'clocked_in', 'notes': 'QR clock-in',
+             'hours': 0.0, 'status': 'clocked_in', 'notes': 'Onsite clock-in',
              'offline': offline}
         DB['timecards'].append(t)
         save_db()
@@ -828,13 +689,15 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
     t['clock_out_lng'] = lng
     t['hours'] = compute_hours(t['clock_in'], now)
     t['status'] = 'clocked_out'
+    if reported_hours is not None:
+        t['reported_hours'] = reported_hours
     if offline:
         t['offline'] = True
     save_db()
     return True, {'action': 'clock_out', 'site_id': t['site_id'],
                   'site_name': site_name(t['site_id']), 'worker_name': w['name'],
                   'clock_in': t['clock_in'], 'clock_out': now,
-                  'hours': t['hours']}
+                  'hours': t['hours'], 'reported_hours': reported_hours}
 
 
 def _client_at_local_iso(s):
@@ -849,34 +712,42 @@ def _client_at_local_iso(s):
     return dt.isoformat(timespec='seconds')
 
 
-@bp.route('/clock/<token>/confirm', methods=['POST'])
-def clock_confirm(token):
-    rec = _valid_token(token)
-    if not rec:
-        return render_template('cm/clock.html', error='This QR code has expired.'), 410
-    vals = [v for v in request.form.getlist('worker_id') if v]
-    worker_id = vals[0] if vals else None
-    lat = request.form.get('lat') or None
-    lng = request.form.get('lng') or None
-    w = find('workers', worker_id)
-    if not w:
-        flash('Worker not found.')
-        return redirect(url_for('cm.clock_page', token=token))
-    # Toggle mode: clock out if worker has an open timecard, else clock in
-    action = rec['action']
-    if action == 'toggle':
-        action = 'clock_out' if open_timecard(worker_id) else 'clock_in'
-    ok, info = _perform_clock(rec['site_id'], action, worker_id, lat, lng)
-    if ok:
-        if action == 'clock_in':
-            return render_template('cm/clock_done.html',
-                                   message=f"{w['name']} clocked in at {site_name(rec['site_id'])}.",
-                                   site=site_name(rec['site_id']))
-        return render_template('cm/clock_done.html',
-                               message=f"{w['name']} clocked out. Shift: {info['hours']}h (pending approval).",
-                               site=site_name(rec['site_id']))
-    return render_template('cm/clock_done.html', message=info['error'],
-                           site=site_name(rec['site_id']))
+def _reported_hours(d):
+    """Parse an optional worker-reported hours value (0-24) from a
+    clock request body. Returns (value, error_response)."""
+    raw = d.get('reported_hours')
+    if raw in (None, ''):
+        return None, None
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return None, (jsonify({'ok': False,
+                               'error': 'Invalid reported hours.'}), 400)
+    if not 0 <= val <= 24:
+        return None, (jsonify({'ok': False,
+                               'error': 'Reported hours must be 0-24.'}), 400)
+    return val, None
+
+
+@bp.route('/api/direct-clock', methods=['POST'])
+def api_direct_clock():
+    """GPS self clock-in/out from /staffing/onsite (no QR needed).
+    Body: {worker_id, site_id (clock-in only), action, lat, lng,
+    reported_hours (clock-out only, optional)}."""
+    d = request.get_json(force=True) or {}
+    action = d.get('action')
+    if action not in ('clock_in', 'clock_out'):
+        return jsonify({'ok': False, 'error': 'Invalid action.'}), 400
+    if action == 'clock_in' and not d.get('site_id'):
+        return jsonify({'ok': False, 'error': 'Choose a jobsite first.'}), 400
+    reported, err = _reported_hours(d)
+    if err:
+        return err
+    ok, info = _perform_clock(d.get('site_id'), action, d.get('worker_id'),
+                              d.get('lat'), d.get('lng'),
+                              reported_hours=reported)
+    info['ok'] = ok
+    return jsonify(info), (200 if ok else 400)
 
 
 # ================= ON SITE WORKER APP =================
@@ -988,30 +859,6 @@ def api_worker_lookup():
                                            'trade': w.get('trade', '')}})
 
 
-@bp.route('/api/qr-info/<token>')
-def api_qr_info(token):
-    rec = _valid_token(token)
-    if not rec:
-        return jsonify({'ok': False, 'error': 'This QR code has expired. Ask your supervisor for a new one.'}), 410
-    return jsonify({'ok': True, 'site_id': rec['site_id'],
-                    'site_name': site_name(rec['site_id']),
-                    'action': rec['action']})
-
-
-@bp.route('/api/scan-clock', methods=['POST'])
-def api_scan_clock():
-    d = request.get_json(force=True)
-    token = (d.get('token') or '').strip()
-    rec = _valid_token(token)
-    if not rec:
-        return jsonify({'ok': False, 'error': 'This QR code has expired. Ask your supervisor for a new one.'}), 410
-    worker_id = d.get('worker_id')
-    ok, info = _perform_clock(rec['site_id'], rec['action'], worker_id,
-                              d.get('lat'), d.get('lng'))
-    info['ok'] = ok
-    return jsonify(info), (200 if ok else 400)
-
-
 @bp.route('/api/location', methods=['POST'])
 def api_location():
     d = request.get_json(force=True)
@@ -1042,36 +889,30 @@ def service_worker():
 
 @bp.route('/api/sync-clock', methods=['POST'])
 def api_sync_clock():
-    """Accept a clock action captured offline. The QR token is validated
-    against the CLIENT timestamp: created_at <= client_at <= expires_at,
-    i.e. the scan must have happened while the QR was valid. The timecard
-    is stamped with the client time and flagged offline=True."""
-    d = request.get_json(force=True)
-    token = (d.get('token') or '').strip()
-    rec = next((t for t in DB['qr_tokens'] if t['token'] == token), None)
-    if not rec:
-        return jsonify({'ok': False,
-                        'error': 'QR code not recognized.'}), 410
+    """Accept a clock action captured offline by /staffing/onsite and
+    sync it stamped with the client time. The offline queue only ever
+    holds direct (GPS, no-QR) actions now; a token, if one is present
+    in an old queued item, is ignored."""
+    d = request.get_json(force=True) or {}
     client_at = _client_at_local_iso(d.get('client_at'))
     if not client_at:
         return jsonify({'ok': False,
                         'error': 'Missing scan time.'}), 400
-    created = parse_iso(rec.get('created_at'))
-    expires = parse_iso(rec.get('expires_at'))
-    if not created or not expires or not (created <= parse_iso(client_at) <= expires):
-        return jsonify({'ok': False,
-                        'error': 'QR expired before the scan.'}), 410
-    worker_id = d.get('worker_id')
-    if not find('workers', worker_id):
-        return jsonify({'ok': False, 'error': 'Worker not found.'}), 400
-    # Offline the worker picks the action manually (the QR can't be read
-    # for its action), so it comes from the request, not the token.
     action = d.get('action')
     if action not in ('clock_in', 'clock_out'):
         return jsonify({'ok': False, 'error': 'Invalid action.'}), 400
-    ok, info = _perform_clock(rec['site_id'], action, worker_id,
+    if action == 'clock_in' and not d.get('site_id'):
+        return jsonify({'ok': False, 'error': 'Missing site.'}), 400
+    reported, err = _reported_hours(d)
+    if err:
+        return err
+    worker_id = d.get('worker_id')
+    if not find('workers', worker_id):
+        return jsonify({'ok': False, 'error': 'Worker not found.'}), 400
+    ok, info = _perform_clock(d.get('site_id'), action, worker_id,
                               d.get('lat'), d.get('lng'),
-                              at_iso=client_at, offline=True)
+                              at_iso=client_at, offline=True,
+                              reported_hours=reported)
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -2177,278 +2018,13 @@ def payroll_export_xlsx():
         as_attachment=True, download_name=fn)
 
 
-# ================= INCIDENTS =================
-
-@bp.route('/incidents', methods=['GET', 'POST'])
-def incidents():
-    if request.method == 'POST':
-        inc = {'id': new_id(), 'site_id': request.form.get('site_id'),
-               'severity': request.form.get('severity', 'minor'),
-               'status': 'open',
-               'description': request.form.get('description', '').strip(),
-               'photo_url': save_upload(request.files.get('photo')),
-               'lat': _f(request.form.get('lat')), 'lng': _f(request.form.get('lng')),
-               'created_at': now_iso()}
-        DB['incidents'].append(inc)
-        save_db()
-        flash('Incident reported.')
-        return redirect(url_for('cm.incidents'))
-    fsite = request.args.get('site') or 'all'
-    rows = [i for i in DB['incidents'] if fsite == 'all' or i['site_id'] == fsite]
-    rows.sort(key=lambda i: i.get('created_at', ''), reverse=True)
-    return render_template('cm/incidents.html', rows=rows, sites=DB['sites'], fsite=fsite)
-
-
-@bp.route('/incidents/<iid>/resolve', methods=['POST'])
-def incident_resolve(iid):
-    i = find('incidents', iid)
-    if i:
-        i['status'] = 'resolved'
-        save_db()
-        flash('Incident marked resolved.')
-    return redirect(url_for('cm.incidents'))
-
-
-@bp.route('/incidents/<iid>/delete', methods=['POST'])
-def incident_delete(iid):
-    if remove_from('incidents', iid):
-        flash('Incident deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.incidents'))
-
-
-# ================= DAILY LOGS =================
-
-@bp.route('/daily-logs', methods=['GET', 'POST'])
-def daily_logs():
-    if request.method == 'POST':
-        DB['daily_logs'].append({
-            'id': new_id(), 'site_id': request.form.get('site_id'),
-            'log_date': request.form.get('log_date') or today().isoformat(),
-            'weather': request.form.get('weather', '').strip(),
-            'notes': request.form.get('notes', '').strip(),
-            'delays': request.form.get('delays', '').strip(),
-            'visitors': request.form.get('visitors', '').strip()})
-        save_db()
-        flash('Daily log saved.')
-        return redirect(url_for('cm.daily_logs'))
-    fsite = request.args.get('site') or 'all'
-    rows = [l for l in DB['daily_logs'] if fsite == 'all' or l['site_id'] == fsite]
-    rows.sort(key=lambda l: l.get('log_date', ''), reverse=True)
-    return render_template('cm/daily_logs.html', rows=rows, sites=DB['sites'],
-                           fsite=fsite, today=today().isoformat())
-
-
-@bp.route('/daily-logs/<lid>/delete', methods=['POST'])
-def daily_log_delete(lid):
-    if remove_from('daily_logs', lid):
-        flash('Daily log deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.daily_logs'))
-
-
-# ================= LABOUR =================
-
-@bp.route('/labour', methods=['GET', 'POST'])
-def labour():
-    if request.method == 'POST':
-        DB['labour'].append({
-            'id': new_id(), 'site_id': request.form.get('site_id'),
-            'date': request.form.get('date') or today().isoformat(),
-            'trade': request.form.get('trade', '').strip() or 'Other',
-            'workers_count': int(request.form.get('workers_count') or 0),
-            'hours': _f(request.form.get('hours')) or 0.0})
-        save_db()
-        flash('Labour entry logged.')
-        return redirect(url_for('cm.labour'))
-    tdy = today().isoformat()
-    td = [l for l in DB['labour'] if l.get('date') == tdy]
-    stats = {'workers': sum(l.get('workers_count', 0) for l in td),
-             'hours': round(sum(l.get('hours', 0) for l in td), 1),
-             'trades': len({l.get('trade') for l in td})}
-    by_date = {}
-    for l in sorted(DB['labour'], key=lambda x: x.get('date', ''), reverse=True):
-        by_date.setdefault(l.get('date'), []).append(l)
-    return render_template('cm/labour.html', stats=stats, by_date=by_date,
-                           sites=DB['sites'], trades=TRADES, today=tdy)
-
-
-@bp.route('/labour/<lid>/delete', methods=['POST'])
-def labour_delete(lid):
-    if remove_from('labour', lid):
-        flash('Labour entry deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.labour'))
-
-
-# ================= MATERIALS =================
-
-@bp.route('/materials')
-def materials():
-    fsite = request.args.get('site') or 'all'
-    rows = [{'m': m, 'low': is_low_stock(m)} for m in DB['materials']
-            if fsite == 'all' or m['site_id'] == fsite]
-    return render_template('cm/materials.html', rows=rows, sites=DB['sites'], fsite=fsite)
-
-
-@bp.route('/materials/new', methods=['GET', 'POST'])
-def material_new():
-    if request.method == 'POST':
-        m = {'id': new_id(), 'site_id': request.form.get('site_id'),
-             'name': request.form.get('name', '').strip(),
-             'quantity': _f(request.form.get('quantity')) or 0,
-             'unit': request.form.get('unit', '').strip() or 'pcs',
-             'reorder_threshold': _f(request.form.get('reorder_threshold')) or 0,
-             'photo_url': save_upload(request.files.get('photo'))}
-        DB['materials'].append(m)
-        save_db()
-        flash(f"Material '{m['name']}' added.")
-        return redirect(url_for('cm.materials'))
-    return render_template('cm/material_form.html', m=None, sites=DB['sites'])
-
-
-@bp.route('/materials/<mid>/edit', methods=['GET', 'POST'])
-def material_edit(mid):
-    m = find('materials', mid)
-    if not m:
-        abort(404)
-    if request.method == 'POST':
-        m['site_id'] = request.form.get('site_id')
-        m['name'] = request.form.get('name', '').strip()
-        m['quantity'] = _f(request.form.get('quantity')) or 0
-        m['unit'] = request.form.get('unit', '').strip() or 'pcs'
-        m['reorder_threshold'] = _f(request.form.get('reorder_threshold')) or 0
-        ph = save_upload(request.files.get('photo'))
-        if ph:
-            m['photo_url'] = ph
-        save_db()
-        flash('Material updated.')
-        return redirect(url_for('cm.materials'))
-    return render_template('cm/material_form.html', m=m, sites=DB['sites'])
-
-
-@bp.route('/materials/<mid>/delete', methods=['POST'])
-def material_delete(mid):
-    if remove_from('materials', mid):
-        flash('Material deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.materials'))
-
-
-# ================= QA / QC =================
-
-@bp.route('/qa')
-def qa():
-    tab = request.args.get('tab') or 'defects'
-    fsite = request.args.get('site') or 'all'
-    defects = [d for d in DB['defects'] if fsite == 'all' or d['site_id'] == fsite]
-    defects.sort(key=lambda d: d.get('created_at', ''), reverse=True)
-    checks = [c for c in DB['qa_checks'] if fsite == 'all' or c['site_id'] == fsite]
-    checks.sort(key=lambda c: c.get('check_date', ''), reverse=True)
-    return render_template('cm/qa.html', tab=tab, defects=defects, checks=checks,
-                           sites=DB['sites'], fsite=fsite,
-                           open_count=sum(1 for d in defects if d.get('status') == 'open'))
-
-
-@bp.route('/qa/defects/new', methods=['GET', 'POST'])
-def defect_new():
-    if request.method == 'POST':
-        d = {'id': new_id(), 'site_id': request.form.get('site_id'),
-             'category': request.form.get('category', '').strip() or 'General',
-             'severity': request.form.get('severity', 'minor'),
-             'status': 'open',
-             'location': request.form.get('location', '').strip(),
-             'description': request.form.get('description', '').strip(),
-             'photo_url': save_upload(request.files.get('photo')),
-             'assigned_to': request.form.get('assigned_to', '').strip(),
-             'due_date': request.form.get('due_date', ''),
-             'created_at': now_iso()}
-        DB['defects'].append(d)
-        save_db()
-        flash('Defect logged.')
-        return redirect(url_for('cm.qa'))
-    return render_template('cm/defect_form.html', d=None, sites=DB['sites'],
-                           workers=DB['workers'])
-
-
-@bp.route('/qa/defects/<did>/status', methods=['POST'])
-def defect_status(did):
-    d = find('defects', did)
-    if d:
-        d['status'] = request.form.get('status', 'open')
-        save_db()
-        flash('Defect status updated.')
-    return redirect(url_for('cm.qa'))
-
-
-@bp.route('/qa/defects/<did>/edit', methods=['GET', 'POST'])
-def defect_edit(did):
-    d = find('defects', did)
-    if not d:
-        abort(404)
-    if request.method == 'POST':
-        d['site_id'] = request.form.get('site_id')
-        d['category'] = request.form.get('category', '').strip()
-        d['severity'] = request.form.get('severity', 'minor')
-        d['location'] = request.form.get('location', '').strip()
-        d['description'] = request.form.get('description', '').strip()
-        ph = save_upload(request.files.get('photo'))
-        if ph:
-            d['photo_url'] = ph
-        d['assigned_to'] = request.form.get('assigned_to', '').strip()
-        d['due_date'] = request.form.get('due_date', '')
-        save_db()
-        flash('Defect updated.')
-        return redirect(url_for('cm.qa'))
-    return render_template('cm/defect_form.html', d=d, sites=DB['sites'], workers=DB['workers'])
-
-
-@bp.route('/qa/defects/<did>/delete', methods=['POST'])
-def defect_delete(did):
-    if remove_from('defects', did):
-        flash('Defect deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.qa'))
-
-
-@bp.route('/qa/checks/new', methods=['GET', 'POST'])
-def check_new():
-    if request.method == 'POST':
-        c = {'id': new_id(), 'site_id': request.form.get('site_id'),
-             'name': request.form.get('name', '').strip(),
-             'location': request.form.get('location', '').strip(),
-             'result': request.form.get('result', 'pass'),
-             'status': 'awaiting_signoff',
-             'inspector': request.form.get('inspector', '').strip(),
-             'notes': request.form.get('notes', '').strip(),
-             'check_date': request.form.get('check_date') or today().isoformat()}
-        DB['qa_checks'].append(c)
-        save_db()
-        flash('QA check logged.')
-        return redirect(url_for('cm.qa', tab='checks'))
-    return render_template('cm/check_form.html', sites=DB['sites'])
-
-
-@bp.route('/qa/checks/<cid>/signoff', methods=['POST'])
-def check_signoff(cid):
-    c = find('qa_checks', cid)
-    if c:
-        c['status'] = 'signed_off'
-        save_db()
-        flash('Check signed off.')
-    return redirect(url_for('cm.qa', tab='checks'))
-
-
-@bp.route('/qa/checks/<cid>/delete', methods=['POST'])
-def check_delete(cid):
-    if remove_from('qa_checks', cid):
-        flash('QA check deleted (moved to Recycle Bin).')
-    return redirect(url_for('cm.qa', tab='checks'))
-
-
 # ================= DATA & RESTORE =================
 
 @bp.route('/data')
 def data_page():
     trash = sorted(enumerate(DB['trash']),
                    key=lambda x: x[1].get('deleted_at', ''), reverse=True)
-    snaps = sorted(DB['snapshots'], key=lambda s: s.get('created_at', ''), reverse=True)
-    return render_template('cm/data.html', trash=trash, snapshots=snaps)
+    return render_template('cm/data.html', trash=trash)
 
 
 @bp.route('/data/backup')
@@ -2456,41 +2032,6 @@ def data_backup():
     save_db()
     return send_file(DB_PATH, mimetype='application/json', as_attachment=True,
                      download_name='site-manager-backup.json')
-
-
-@bp.route('/data/snapshot', methods=['POST'])
-def data_snapshot():
-    name = (request.form.get('name') or '').strip() or f"Snapshot {now_iso()}"
-    snap_data = {k: copy.deepcopy(v) for k, v in DB.items() if k != 'snapshots'}
-    DB['snapshots'].append({'id': new_id(), 'name': name,
-                            'created_at': now_iso(), 'data': snap_data})
-    save_db()
-    flash(f"Snapshot '{name}' saved.")
-    return redirect(url_for('cm.data_page'))
-
-
-@bp.route('/data/snapshot/<sid>/restore', methods=['POST'])
-def snapshot_restore(sid):
-    s = find('snapshots', sid)
-    if not s:
-        abort(404)
-    snap = s['data']
-    for coll in COLLECTIONS:
-        if coll == 'snapshots':
-            continue
-        if coll in snap:
-            DB[coll] = copy.deepcopy(snap[coll])
-    save_db()
-    flash(f"Restored snapshot '{s['name']}'.")
-    return redirect(url_for('cm.data_page'))
-
-
-@bp.route('/data/snapshot/<sid>/delete', methods=['POST'])
-def snapshot_delete(sid):
-    DB['snapshots'] = [s for s in DB['snapshots'] if s.get('id') != sid]
-    save_db()
-    flash('Snapshot deleted.')
-    return redirect(url_for('cm.data_page'))
 
 
 @bp.route('/data/trash/<int:idx>/restore', methods=['POST'])
