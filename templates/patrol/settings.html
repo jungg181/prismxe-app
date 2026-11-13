@@ -41,12 +41,12 @@
   <div class="rowline" style="margin-top:10px">
     <div class="grow">
       <div class="small muted">ANDROID APP VERSION (integer — bump to trigger in-app update)
-        {% if auto_managed %}<span style="color:#16a34a">✓ auto-updated by builds</span>{% endif %}</div>
+        {% if auto_managed %}<span style="color:var(--green)">auto-updated by builds</span>{% endif %}</div>
       <input type="number" id="app_version" value="{{ app_version }}" style="width:100px" min="1" step="1" {% if auto_managed %}disabled{% endif %}>
     </div>
     <div class="grow">
       <div class="small muted">APK DOWNLOAD URL
-        {% if auto_managed %}<span style="color:#16a34a">✓ auto-updated by builds</span>{% endif %}</div>
+        {% if auto_managed %}<span style="color:var(--green)">auto-updated by builds</span>{% endif %}</div>
       <input type="text" id="apk_url" value="{{ apk_url }}" placeholder="https://…" style="width:100%" {% if auto_managed %}disabled{% endif %}>
     </div>
     <div class="grow">
@@ -66,37 +66,35 @@ function saveDisplay(){
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({zipcode: z, app_version: v, apk_url: u, apk_cert_sha256: s, show_crew_today: ct})
   }).then(function(r){ return r.json(); }).then(function(j){
-    document.getElementById('display-msg').textContent = j.ok ? 'Saved ✓' : 'Error';
+    document.getElementById('display-msg').textContent = j.ok ? 'Saved' : 'Error';
   }).catch(function(){ document.getElementById('display-msg').textContent = 'Error'; });
 }
 </script>
 
 <div class="card" id="sec-equipment" style="display:none">
   <h2><span class="muted">01</span> Equipment <button class="btn small primary" onclick="addEquipment()" style="float:right">+ Add Equipment</button></h2>
-  <div id="eq-list">
+  <div style="overflow-x:auto">
+  <table class="fixed">
+    <colgroup><col style="width:48px"><col><col><col style="width:130px"><col style="width:190px"></colgroup>
+    <tr><th>No</th><th>Equipment name</th><th>Note</th><th>Status</th><th></th></tr>
+    <tbody id="eq-list">
     {% for e in equipment %}
-    <div class="rowline eq-row" data-id="{{ e.id }}">
-      <span class="num">{{ '%02d'|format(loop.index) }}</span>
-      <div class="grow">
-        <div class="small muted">EQUIPMENT NAME</div>
-        <input type="text" class="eq-name" value="{{ e.name }}" style="width:100%">
-      </div>
-      <div class="grow">
-        <div class="small muted">NOTE</div>
-        <input type="text" class="eq-note" value="{{ e.note }}" placeholder="Example: Scheduled for November" style="width:100%">
-      </div>
-      <div>
-        <div class="small muted">STATUS</div>
-        <button class="btn small eq-active" data-on="{{ 1 if e.active else 0 }}">{{ '🟢 Active' if e.active else '⚪ Planned' }}</button>
-      </div>
-      <div>
-        <div class="small muted">&nbsp;</div>
+    <tr class="eq-row" data-id="{{ e.id }}">
+      <td><span class="num">{{ '%02d'|format(loop.index) }}</span></td>
+      <td><input type="text" class="eq-name" value="{{ e.name }}" style="width:100%"></td>
+      <td><input type="text" class="eq-note" value="{{ e.note }}" placeholder="Example: Scheduled for November" style="width:100%"></td>
+      <td>
+        <button class="btn small eq-active" data-on="{{ 1 if e.active else 0 }}">{% if e.active %}<span class="cdot green"></span>Active{% else %}<span class="cdot hollow"></span>Planned{% endif %}</button>
+      </td>
+      <td style="white-space:nowrap">
         <button class="btn small" onclick="moveRow(this,-1)">▲</button>
         <button class="btn small" onclick="moveRow(this,1)">▼</button>
         <button class="btn small danger" onclick="delEquipment('{{ e.id }}')">Delete</button>
-      </div>
-    </div>
+      </td>
+    </tr>
     {% endfor %}
+    </tbody>
+  </table>
   </div>
   <button class="btn primary" onclick="saveEquipment()">Save equipment</button>
   <span class="muted small" id="eq-msg"></span>
@@ -107,7 +105,7 @@ function saveDisplay(){
   <table class="grid" id="check-grid">
     <tr><th></th>{% for s in slots %}<th>{{ s.label }}</th>{% endfor %}</tr>
     {% for e in equipment %}
-    <tr><td style="text-align:left;font-weight:700;white-space:nowrap">{{ e.name }}</td>
+    <tr><td style="text-align:left;font-weight:600;white-space:nowrap">{{ e.name }}</td>
       {% for s in slots %}
       {% set k = e.checks.get(loop.index0|string, 0) %}
       <td class="cell" data-eq="{{ e.id }}" data-slot="{{ loop.index0 }}" data-v="{{ k }}">{% if k %}<span class="dot {{ 'solid' if k==2 else 'hollow' }}"></span>{% endif %}</td>
@@ -129,24 +127,30 @@ function saveDisplay(){
     <button type="button" class="btn small" onclick="copyWeek()">Copy Week 1 → Week 2</button>
   </div>
   <div id="day-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
-  <div id="slot-list">
+  <div style="overflow-x:auto">
+  <table class="fixed">
+    <colgroup><col style="width:48px"><col style="width:96px"><col style="width:200px"><col><col style="width:150px"><col style="width:90px"></colgroup>
+    <tr><th>No</th><th>Hour</th><th>Shift</th><th>Workers</th><th>Add</th><th></th></tr>
+    <tbody id="slot-list">
     {% for s in slots %}
-    <div class="rowline slot-row" style="flex-wrap:wrap;gap:8px">
-      <span class="num">{{ '%02d'|format(loop.index) }}</span>
-      <input type="text" class="slot-label" value="{{ s.label }}" style="width:80px">
-      <span class="seg-wrap" data-cur="{{ s.shift }}">
+    <tr class="slot-row">
+      <td><span class="num">{{ '%02d'|format(loop.index) }}</span></td>
+      <td><input type="text" class="slot-label" value="{{ s.label }}" style="width:80px"></td>
+      <td><span class="seg-wrap" data-cur="{{ s.shift }}">
         {% for sh in shifts %}
         <button class="seg-btn {{ 'on' if sh.id==s.shift else '' }}" data-shift="{{ sh.id }}" style="{{ 'background:'+sh.color if sh.id==s.shift else '' }}">{{ sh.name }}</button>
         {% endfor %}
-      </span>
-      <span class="slot-workers" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
-      <select class="slot-add" onchange="addToSlot(this)" style="padding:7px;border-radius:8px">
+      </span></td>
+      <td><span class="slot-workers" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span></td>
+      <td><select class="slot-add" onchange="addToSlot(this)" style="padding:7px;border-radius:8px">
         <option value="">+ worker…</option>
         {% for w in workers %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}
-      </select>
-      <button type="button" class="btn small" title="Copy these workers to the next hour" onclick="copySlotDown(this)">copy ↓</button>
-    </div>
+      </select></td>
+      <td><button type="button" class="btn small" title="Copy these workers to the next hour" onclick="copySlotDown(this)">copy ↓</button></td>
+    </tr>
     {% endfor %}
+    </tbody>
+  </table>
   </div>
   <button class="btn primary" onclick="saveSlots()">Save slots &amp; plan</button>
   <span class="muted small" id="slot-msg"></span>
@@ -161,35 +165,41 @@ function saveDisplay(){
 
 <div class="card" id="sec-workers" style="display:none">
   <h2><span class="muted">05</span> Workers <button class="btn small primary" onclick="addWorker()" style="float:right">+ Add Worker</button></h2>
-  <div id="worker-list">
+  <div style="overflow-x:auto">
+  <table class="fixed" style="min-width:1100px">
+    <colgroup><col style="width:48px"><col style="width:170px"><col style="width:200px"><col style="width:140px"><col style="width:130px"><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:90px"></colgroup>
+    <tr><th>No</th><th>Name</th><th>Email</th><th>Phone</th><th>Staffing</th><th>Shift</th><th>Role</th><th>Status</th><th></th></tr>
+    <tbody id="worker-list">
     {% for w in workers %}
-    <div class="rowline wk-row" data-id="{{ w.id }}">
-      <span class="num">{{ '%02d'|format(loop.index) }}</span>
-      <div class="grow"><div class="small muted">NAME</div><input type="text" class="wk-name" value="{{ w.name }}" style="width:100%"></div>
-      <div class="grow"><div class="small muted">EMAIL</div><input type="email" class="wk-email" value="{{ w.email }}" style="width:100%"></div>
-      <div class="grow"><div class="small muted">PHONE</div><input type="tel" class="wk-phone" value="{{ w.phone or '' }}" style="width:100%"></div>
-      <div class="grow"><div class="small muted">STAFFING</div><input type="text" class="wk-staffing" value="{{ w.staffing or '' }}" style="width:100%"></div>
-      <div><div class="small muted">SHIFT</div>
+    <tr class="wk-row" data-id="{{ w.id }}">
+      <td><span class="num">{{ '%02d'|format(loop.index) }}</span></td>
+      <td><input type="text" class="wk-name" value="{{ w.name }}" style="width:100%"></td>
+      <td><input type="email" class="wk-email" value="{{ w.email }}" style="width:100%"></td>
+      <td><input type="tel" class="wk-phone" value="{{ w.phone or '' }}" style="width:100%"></td>
+      <td><input type="text" class="wk-staffing" value="{{ w.staffing or '' }}" style="width:100%"></td>
+      <td>
         <select class="wk-shift">
           <option value="">—</option>
           {% for sh in shifts %}<option value="{{ sh.id }}" {{ 'selected' if w.shift_id==sh.id else '' }}>{{ sh.name }}</option>{% endfor %}
         </select>
-      </div>
-      <div><div class="small muted">ROLE</div>
+      </td>
+      <td>
         <select class="wk-role">
           <option value="">—</option>
           {% for r in ['Supervisor','Foreman','Helper'] %}<option value="{{ r }}" {{ 'selected' if w.role==r else '' }}>{{ r }}</option>{% endfor %}
         </select>
-      </div>
-      <div><div class="small muted">STATUS</div>
+      </td>
+      <td>
         <select class="wk-status">
           <option value="active" {{ 'selected' if w.get('active', True) else '' }}>Active</option>
           <option value="inactive" {{ 'selected' if not w.get('active', True) else '' }}>Inactive</option>
         </select>
-      </div>
-      <div><div class="small muted">&nbsp;</div><button class="btn small danger" onclick="delWorker('{{ w.id }}')">Delete</button></div>
-    </div>
+      </td>
+      <td><button class="btn small danger" onclick="delWorker('{{ w.id }}')">Delete</button></td>
+    </tr>
     {% endfor %}
+    </tbody>
+  </table>
   </div>
   <button class="btn primary" onclick="saveWorkers()">Save workers</button>
   <span class="muted small" id="wk-msg"></span>
@@ -197,7 +207,7 @@ function saveDisplay(){
 
 <div class="card" id="sec-data" style="display:none">
   <h2><span class="muted">06</span> Data</h2>
-  <a class="btn" href="{{ url_for('.data_backup') }}">⬇ Download backup (JSON)</a>
+  <a class="btn" href="{{ url_for('.data_backup') }}">Download backup (JSON)</a>
   <form method="post" action="{{ url_for('.settings_reset') }}" style="display:inline" onsubmit="return confirm('Reset timetable to defaults? Workers and punches are kept.')">
     <button class="btn danger">Reset timetable to defaults</button>
   </form>
@@ -234,7 +244,7 @@ document.querySelectorAll('.eq-active').forEach(b=>{
   b.onclick = ()=>{
     const on = b.dataset.on === '1';
     b.dataset.on = on ? '0' : '1';
-    b.textContent = on ? '⚪ Planned' : '🟢 Active';
+    b.innerHTML = on ? '<span class="cdot hollow"></span>Planned' : '<span class="cdot green"></span>Active';
   };
 });
 async function saveEquipment(){
@@ -245,7 +255,7 @@ async function saveEquipment(){
     active: row.querySelector('.eq-active').dataset.on === '1'
   }));
   await post("{{ url_for('.settings_equipment_save') }}", {equipment: rows});
-  document.getElementById('eq-msg').textContent = 'Saved ✓';
+  document.getElementById('eq-msg').textContent = 'Saved';
   setTimeout(()=>location.reload(), 600);
 }
 function addEquipment(){
@@ -300,8 +310,7 @@ function chipEl(wid){
   const w = PLAN_WORKERS.find(x => x.id === wid);
   const s = document.createElement('span');
   s.className = 'wchip'; s.dataset.wid = wid;
-  s.style.cssText = 'background:#dbeafe;border-radius:99px;padding:3px 6px 3px 10px;font-size:.85rem;font-weight:600';
-  s.innerHTML = (w ? w.name : wid) + ' <a href="#" style="color:#991b1b;text-decoration:none;font-weight:800">×</a>';
+  s.innerHTML = (w ? w.name : wid) + ' <a href="#">×</a>';
   s.querySelector('a').onclick = e => { e.preventDefault(); s.remove(); };
   return s;
 }
@@ -331,7 +340,7 @@ function renderTabs(){
     b.type = 'button';
     b.className = 'btn small' + (s === curDate ? ' primary' : '');
     b.textContent = fmtDay(s) + (s === {{ today_str|tojson }} ? ' •' : '');
-    if (PLAN[s] && Object.keys(PLAN[s]).length) b.style.boxShadow = 'inset 0 -3px 0 #16a34a';
+    if (PLAN[s] && Object.keys(PLAN[s]).length) b.style.boxShadow = 'inset 0 -3px 0 var(--brand)';
     b.onclick = () => { collectDay(); curDate = s; renderDay(); };
     t.appendChild(b);
   }
@@ -378,7 +387,7 @@ async function saveSlots(){
     shift: row.querySelector('.seg-wrap').dataset.cur
   }));
   await post("{{ url_for('.settings_slots_save') }}", {slots, slot_plan: PLAN});
-  document.getElementById('slot-msg').textContent = 'Saved ✓';
+  document.getElementById('slot-msg').textContent = 'Saved';
   setTimeout(()=>location.reload(), 600);
 }
 // --- shifts (name + color only; hours come from Time Slots) ---
@@ -387,7 +396,7 @@ function renderShifts(){
   box.innerHTML = '';
   SHIFTS.forEach((sh, si)=>{
     const div = document.createElement('div');
-    div.className = 'card'; div.style.background = '#f8fafc';
+    div.className = 'card'; div.style.background = 'var(--tile-bg)';
     div.innerHTML =
       '<div class="rowline"><b>Shift</b>' +
       '<input type="text" class="sh-name" value="'+sh.name+'" style="width:80px">' +
@@ -407,7 +416,7 @@ async function saveShifts(){
     color: card.querySelector('.sh-color').value, intervals: SHIFTS[si].intervals || []
   }));
   await post("{{ url_for('.settings_shifts_save') }}", {shifts: out});
-  document.getElementById('shift-msg').textContent = 'Saved ✓';
+  document.getElementById('shift-msg').textContent = 'Saved';
   setTimeout(()=>location.reload(), 600);
 }
 renderShifts();
@@ -424,7 +433,7 @@ async function saveWorkers(){
     active: row.querySelector('.wk-status') ? row.querySelector('.wk-status').value === 'active' : true
   }));
   await post("{{ url_for('.settings_workers_save') }}", {workers: rows});
-  document.getElementById('wk-msg').textContent = 'Saved ✓';
+  document.getElementById('wk-msg').textContent = 'Saved';
   setTimeout(()=>location.reload(), 600);
 }
 function addWorker(){
