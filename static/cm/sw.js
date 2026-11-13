@@ -1,7 +1,7 @@
 /* On Site service worker — offline support for the worker app.
-   Bump CACHE when /cm/onsite or its core assets change. */
-const CACHE = 'onsite-v1';
-const CORE = ['/cm/onsite', '/static/cm/style.css'];
+   Bump CACHE when /staffing/onsite or its core assets change. */
+const CACHE = 'onsite-v2';
+const CORE = ['/staffing/onsite', '/static/cm/style.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -21,17 +21,11 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-function isQrLib(url) {
-  return url.origin === 'https://unpkg.com' &&
-         url.pathname.startsWith('/html5-qrcode');
-}
-
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return; // API POSTs pass through
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin && !isQrLib(url)) return;
-  const cacheable = CORE.includes(url.pathname) || isQrLib(url);
-  if (!cacheable) return;
+  if (url.origin !== self.location.origin) return;
+  if (!CORE.includes(url.pathname)) return;
   e.respondWith(
     caches.match(e.request).then((hit) => {
       const net = fetch(e.request).then((res) => {
