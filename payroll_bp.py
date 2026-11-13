@@ -171,6 +171,21 @@ def _period_args():
     return start, end
 
 
+def _period_supplied():
+    """(start, end) only when ?from&to are both present and valid
+    dates, else None. The invoice page must not invent a period: an
+    invoice with no period would be numbered with today's date and,
+    once downloaded, saved as a stray frozen snapshot."""
+    try:
+        start = date.fromisoformat(str(request.args.get("from"))[:10])
+        end = date.fromisoformat(str(request.args.get("to"))[:10])
+    except (ValueError, TypeError):
+        return None
+    if start > end:
+        start, end = end, start
+    return start, end
+
+
 def _payroll_for(company, start, end):
     s = _settings()
     return compute_payroll(DB.get("entries", []), DB.get("rates", []),
@@ -780,7 +795,16 @@ def invoice(company):
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
-    start, end = _period_args()
+    period = _period_supplied()
+    if period is None:
+        # No period picked yet: show the picker, not an invoice
+        # numbered with today's date for an undefined period.
+        return render_template(
+            "payroll/invoice.html", company=co, start="", end="",
+            number="", inv=None, bank=_company_bank(co),
+            approved_by=APPROVED_BY, money=_money,
+            saved=_company_invoices(co)[:10], period_required=True)
+    start, end = period
     result = _payroll_for(co, start, end)
     inv = invoice_lines(result["rows"],
                         _period_expenses(co, start, end),
@@ -791,7 +815,7 @@ def invoice(company):
         "payroll/invoice.html", company=co, start=start.isoformat(),
         end=end.isoformat(), number=number, inv=inv, bank=_company_bank(co),
         approved_by=APPROVED_BY, money=_money,
-        saved=_company_invoices(co)[:10])
+        saved=_company_invoices(co)[:10], period_required=False)
 
 
 @bp.get("/<company>/invoices")
@@ -1736,11 +1760,16 @@ def invoice_pdf(company):
     """Download the invoice as a PDF in the Hanseong sheet format.
     The invoice page can pass per-download overrides as query params
     (phone / top / bottom); they apply to this download only and do
-    not change the company's saved values."""
+    not change the company's saved values. A period is required: with
+    no ?from&to the user is sent back to the invoice page, which asks
+    for a period, instead of saving a stray snapshot."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
-    start, end = _period_args()
+    period = _period_supplied()
+    if period is None:
+        return redirect(url_for(".invoice", company=co["slug"]))
+    start, end = period
     result = _payroll_for(co, start, end)
     inv = invoice_lines(result["rows"],
                         _period_expenses(co, start, end),
@@ -2040,7 +2069,13 @@ def company_rates(company):
     # row at all — they never show up in the rates list, so the user
     # cannot tell who is missing a rate. List them here with an
     # inline Add so each one can be given a rate on the spot.
-    entry_names = sorted({(e.get("employee") or "").strip()
+    # Resolve stored aliases first: "Francisco" is entered in the time
+    # entries but the rate row is under the canonical name, so an
+    # alias-covered worker is NOT missing a rate. The missing list
+    # shows canonical names — that is the name a new rate row needs.
+    alias_map = _alias_map(co)
+    entry_names = sorted({alias_map.get((e.get("employee") or "").strip(),
+                                        (e.get("employee") or "").strip())
                           for e in DB.get("entries", [])
                           if e.get("company") == co["name"]
                           and (e.get("employee") or "").strip()})
