@@ -6,7 +6,8 @@
 <form class="filters" method="get">
   <input type="search" name="q" placeholder="Search name, email, phone..." value="{{ q }}">
 </form>
-<div class="table-wrap"><table class="tbl">
+<div class="table-wrap"><table class="tbl" style="table-layout:fixed">
+<colgroup><col style="width:180px"><col style="width:140px"><col><col style="width:140px"><col style="width:120px"><col style="width:160px"></colgroup>
 <tr><th>Name</th><th>Position</th><th>Email</th><th>Phone</th><th>Registered</th><th></th></tr>
 {% for w in rows %}
 <tr><td><b>{{ w.name }}</b></td><td>{{ w.position or '<span class="muted">—</span>' }}</td><td>{{ w.email }}</td><td>{{ w.phone }}</td><td class="muted small">{{ w.created_at[:10] if w.created_at }}</td><td><a class="btn small" href="{{ url_for('coa.worker_edit', wid=w.id) }}">Edit</a>
