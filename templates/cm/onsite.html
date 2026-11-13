@@ -10,9 +10,6 @@
 .onsite-head h1{margin:0;font-size:1.25rem}
 .onsite-head p{margin:4px 0 0;color:#cbd5e1;font-size:.8rem}
 .scan-btn{width:100%;padding:18px;font-size:1.15rem;font-weight:800;border-radius:14px;margin:10px 0}
-#qr-reader{border-radius:12px;overflow:hidden}
-#qr-reader video{border-radius:12px}
-.confirm-card{border:2px solid var(--blue);border-radius:14px;padding:14px;margin:10px 0;background:#eff6ff}
 .switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}
 .switch{position:relative;width:52px;height:30px;flex:none}
 .switch input{opacity:0;width:0;height:0}
@@ -32,14 +29,14 @@
 </head>
 <body>
 <div class="onsite-head">
-  <h1>📍 On Site</h1>
+  <h1>On Site</h1>
   <p>Construction Manager · Worker App</p>
-  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem">👷 <b id="head-worker-name"></b> · <a href="#" id="switch-link" style="color:#93c5fd">Switch worker</a></p>
+  <p id="head-worker" class="hidden" style="margin:6px 0 0;font-size:.85rem"><b id="head-worker-name"></b> · <a href="#" id="switch-link" style="color:#93c5fd">Switch worker</a></p>
 </div>
 
 <main class="container narrow">
   <div id="flash"></div>
-  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — clock actions and locations will sync when reconnected.</div>
+  <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">Offline — clock actions and locations will sync when reconnected.</div>
 
   <div class="card" id="register-card" style="margin-top:12px"><div class="card-body">
     <h3 style="margin-top:0">Register your phone</h3>
@@ -72,7 +69,7 @@
   </div></div>
 
   <div class="card" style="margin-top:12px" id="direct-clock-card"><div class="card-body">
-    <h3 style="margin-top:0">⏱️ Clock In / Out</h3>
+    <h3 style="margin-top:0">Clock In / Out</h3>
     <p class="muted small" style="margin-top:0">No QR code needed — tap below when you arrive at the jobsite. Your location is captured automatically.</p>
     <div id="dc-in-ui">
       <label><b>Jobsite</b>
@@ -81,46 +78,14 @@
         </select>
       </label>
       {% if not sites %}<p class="msg err">No active jobsites — ask your supervisor to add one.</p>{% endif %}
-      <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()">🟢 Clock In</button>
+      <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()">Clock In</button>
     </div>
     <div id="dc-out-ui" class="hidden">
       <p style="margin-top:0"><b>Jobsite:</b> <span id="dc-site-name"></span></p>
-      <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()" style="background:#dc2626;color:#fff;border-color:#dc2626">🔴 Clock Out</button>
+      <button class="btn scan-btn" id="dc-out-btn" onclick="openHoursModal()" style="background:#dc2626;color:#fff;border-color:#dc2626">Clock Out</button>
     </div>
     <p class="muted small" id="dc-geo"></p>
   </div></div>
-
-  <button class="btn scan-btn" id="scan-btn" onclick="startScan()" style="background:#fff">📷 Scan QR <span class="muted small">(optional)</span></button>
-
-  <div id="scanner-box" class="hidden">
-    <div class="card"><div class="card-body">
-      <div id="qr-reader"></div>
-      <p class="muted small" id="scan-hint">Point your camera at the supervisor's QR code.</p>
-      <button class="btn small" onclick="stopScan()">Cancel</button>
-      <div style="margin-top:10px">
-        <label class="small"><b>Or enter the code manually</b>
-          <input type="text" id="manual-token" placeholder="Paste QR code text or token" style="width:100%">
-        </label>
-        <button class="btn small" style="margin-top:6px" onclick="useManualToken()">Use code</button>
-      </div>
-    </div></div>
-  </div>
-
-  <div id="confirm-box" class="confirm-card hidden">
-    <h3 id="cf-title" style="margin-top:0"></h3>
-    <p><b>Site:</b> <span id="cf-site"></span><br>
-       <b>Worker:</b> <span id="cf-worker"></span></p>
-    <p class="muted small" id="cf-geo">Getting your location...</p>
-    <div class="row-actions" id="cf-online-actions">
-      <button class="btn primary big" id="cf-confirm" onclick="confirmClock()">Confirm</button>
-      <button class="btn big" onclick="cancelConfirm()">Cancel</button>
-    </div>
-    <div class="row-actions hidden" id="cf-offline-actions">
-      <button class="btn primary big" onclick="confirmClockOffline('clock_in')">Clock In</button>
-      <button class="btn big" onclick="confirmClockOffline('clock_out')">Clock Out</button>
-      <button class="btn" onclick="cancelConfirm()">Cancel</button>
-    </div>
-  </div>
 
   <div class="card" style="margin-top:10px"><div class="card-body switch-row">
     <div><b>Share my live location</b><br>
@@ -138,7 +103,6 @@
 <!-- Clock-out hours confirmation -->
 <div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
   <div class="card" style="width:100%;max-width:400px;margin:0"><div class="card-body" style="text-align:center">
-    <div style="font-size:40px">⏱️</div>
     <h3 style="margin:8px 0 4px">Clock Out</h3>
     <p style="margin:4px 0"><b>오늘 일한 시간을 적어주세요</b></p>
     <p class="muted small" style="margin:0 0 10px">(Meal Break 시간 제외)<br>Enter the hours you worked today, excluding meal break.</p>
@@ -152,12 +116,11 @@
   </div></div>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
 <script>
 const $ = id => document.getElementById(id);
 const LS_KEY = 'onsite_worker_id';
 const NAME_KEY = 'onsite_worker_name';
-let pendingToken = null, scanner = null, locTimer = null, curWorker = null;
+let locTimer = null, curWorker = null;
 
 /* ---------- offline support ---------- */
 const QUEUE_KEY = 'pendingClockActions';
@@ -204,8 +167,8 @@ async function flushQueue(){
     }
   }
   saveQueue(QUEUE_KEY, remaining);
-  if (synced) msg(`✓ Synced ${synced} offline clock action${synced > 1 ? 's' : ''}.`, 'ok');
-  if (errors.length) msg('⚠ ' + errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} more)` : ''), 'err');
+  if (synced) msg(`Synced ${synced} offline clock action${synced > 1 ? 's' : ''}.`, 'ok');
+  if (errors.length) msg('' + errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} more)` : ''), 'err');
   if (synced || errors.length) refreshAll();
 }
 
@@ -231,7 +194,7 @@ function workerName(){
 }
 
 function showRegister(){
-  stopLocSharing(); stopScan(); cancelConfirm();
+  stopLocSharing();
   curWorker = null;
   $('register-card').classList.remove('hidden');
   $('main-app').classList.add('hidden');
@@ -296,7 +259,7 @@ async function registerWorker(){
     if (!r.ok || !d.ok) { regMsg(d.error || 'Registration failed.', 'err'); return; }
     regMsg('', '');
     enterMain(d.worker_id, d.worker_name);
-    msg(d.existing ? 'Welcome back, ' + d.worker_name + '!' : 'Registered! You can now scan QR codes.', 'ok');
+    msg(d.existing ? 'Welcome back, ' + d.worker_name + '!' : 'Registered! You can now clock in.', 'ok');
   } catch(e) {
     regMsg('Network error — try again.', 'err');
   }
@@ -332,12 +295,12 @@ async function refreshStatus(){
   const c = $('status-card');
   updateDirectClockUI(d);
   if (d.clocked_in) {
-    c.innerHTML = `<div class="status-big">🟢 Clocked in</div>
+    c.innerHTML = `<div class="status-big">Clocked in</div>
       <div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>
       <div class="muted small">Today: ${d.today_hours}h</div>`;
     $('loc-toggle').disabled = false;
   } else {
-    c.innerHTML = `<div class="status-big">⚪ Not clocked in</div>
+    c.innerHTML = `<div class="status-big">Not clocked in</div>
       <div class="muted small">Today: ${d.today_hours}h</div>`;
     $('loc-toggle').disabled = true;
     stopLocSharing();
@@ -356,90 +319,6 @@ async function refreshTimecards(){
      <span class="muted small">${t.clock_in}${t.clock_out ? ' – ' + t.clock_out : ' – on shift'} · ${t.status.replace('_',' ')}</span></span>
      <b>${t.hours}h</b></div>`).join('')
     : '<div class="muted">No timecards in the last 7 days.</div>';
-}
-
-/* ---------- QR scanning ---------- */
-function extractToken(text){
-  text = (text || '').trim();
-  if (!text) return '';
-  const m = text.match(/\/clock\/([A-Za-z0-9]+)/);
-  if (m) return m[1];
-  return text.split('/').pop().split('?')[0];
-}
-
-async function startScan(){
-  if (!curWorker) { msg('Select your name first.', 'info'); return; }
-  $('scanner-box').classList.remove('hidden');
-  $('scan-btn').classList.add('hidden');
-  try {
-    scanner = new Html5Qrcode('qr-reader');
-    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:240,height:240}},
-      onScan, ()=>{});
-  } catch(e) {
-    $('scan-hint').textContent = 'Camera unavailable (' + (e && e.message ? e.message : 'denied') + '). You can enter the code manually below.';
-  }
-}
-async function stopScan(){
-  try { if (scanner) { await scanner.stop(); await scanner.clear(); } } catch(e){}
-  scanner = null;
-  $('scanner-box').classList.add('hidden');
-  $('scan-btn').classList.remove('hidden');
-}
-function onScan(text){
-  const token = extractToken(text);
-  if (!token) { msg('Could not read a code from that QR.', 'err'); return; }
-  stopScan();
-  prepareConfirm(token);
-}
-function useManualToken(){
-  const token = extractToken($('manual-token').value);
-  if (!token) { msg('Paste the QR code text first.', 'err'); return; }
-  stopScan();
-  prepareConfirm(token);
-}
-
-let pendingGeo = null;
-function captureGeo(){
-  pendingGeo = null;
-  $('cf-geo').textContent = 'Getting your location...';
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      p => { pendingGeo = {lat: p.coords.latitude, lng: p.coords.longitude};
-             $('cf-geo').textContent = '✓ Location captured'; },
-      () => { $('cf-geo').textContent = 'Location unavailable — you can still continue.'; },
-      {enableHighAccuracy: true, timeout: 10000});
-  } else { $('cf-geo').textContent = 'Geolocation not supported.'; }
-}
-async function prepareConfirm(token){
-  pendingToken = token;
-  $('confirm-box').classList.remove('hidden');
-  $('cf-worker').textContent = workerName();
-  if (!isOnline()) {
-    // Offline: the token can't be validated, so the worker picks the
-    // action manually. It's queued and validated on sync.
-    $('cf-title').textContent = '⏱️ Offline clock';
-    $('cf-site').textContent = 'Will sync when reconnected';
-    $('cf-online-actions').classList.add('hidden');
-    $('cf-offline-actions').classList.remove('hidden');
-    captureGeo();
-    window.scrollTo(0, 0);
-    return;
-  }
-  const r = await fetch('/staffing/api/qr-info/' + encodeURIComponent(token));
-  const d = await r.json();
-  if (!r.ok || !d.ok) { msg(d.error || 'Invalid or expired QR code.', 'err'); cancelConfirm(); return; }
-  $('cf-title').textContent = d.action === 'clock_in' ? '⏱️ Clock In' : '⏱️ Clock Out';
-  $('cf-site').textContent = d.site_name;
-  $('cf-online-actions').classList.remove('hidden');
-  $('cf-offline-actions').classList.add('hidden');
-  captureGeo();
-  window.scrollTo(0, 0);
-}
-function cancelConfirm(){
-  pendingToken = null; pendingGeo = null;
-  $('confirm-box').classList.add('hidden');
-  $('cf-online-actions').classList.remove('hidden');
-  $('cf-offline-actions').classList.add('hidden');
 }
 
 /* ---------- direct clock in/out (no QR) ---------- */
@@ -477,7 +356,7 @@ async function directClockIn(){
   btn.disabled = true;
   $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking in anyway.';
+  $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking in anyway.';
   const payload = {worker_id: curWorker, site_id: siteId, action: 'clock_in',
                    lat: pos ? pos.lat : null, lng: pos ? pos.lng : null};
   if (!isOnline()) {
@@ -485,14 +364,14 @@ async function directClockIn(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(QUEUE_KEY, q);
     btn.disabled = false;
-    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
+    msg('Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
     const r = await fetch('/staffing/api/direct-clock', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
-    if (d.ok) msg(`✓ Clocked in at ${d.site_name}`, 'ok');
+    if (d.ok) msg(`Clocked in at ${d.site_name}`, 'ok');
     else msg(d.error || 'Clock in failed.', 'err');
   } catch(e) {
     msg('Network error — try again.', 'err');
@@ -516,7 +395,7 @@ async function confirmDirectClockOut(){
   closeHoursModal();
   $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking out anyway.';
+  $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking out anyway.';
   const payload = {worker_id: curWorker, action: 'clock_out',
                    lat: pos ? pos.lat : null, lng: pos ? pos.lng : null};
   if (rh !== '') payload.reported_hours = rh;
@@ -525,7 +404,7 @@ async function confirmDirectClockOut(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(QUEUE_KEY, q);
     btn.disabled = false;
-    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
+    msg('Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
@@ -533,7 +412,7 @@ async function confirmDirectClockOut(){
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
     if (d.ok) {
-      msg(`✓ Clocked out — ${d.hours}h` +
+      msg(`Clocked out — ${d.hours}h` +
           (d.reported_hours ? ` (you reported ${d.reported_hours}h)` : ''), 'ok');
     } else {
       msg(d.error || 'Clock out failed.', 'err');
@@ -542,38 +421,6 @@ async function confirmDirectClockOut(){
     msg('Network error — try again.', 'err');
   }
   btn.disabled = false;
-  refreshAll();
-}
-
-function confirmClockOffline(action){
-  if (!pendingToken || !curWorker) return;
-  const q = loadQueue(QUEUE_KEY);
-  q.push({token: pendingToken, worker_id: curWorker, action: action,
-          client_at: new Date().toISOString(),
-          lat: pendingGeo ? pendingGeo.lat : null,
-          lng: pendingGeo ? pendingGeo.lng : null});
-  saveQueue(QUEUE_KEY, q);
-  cancelConfirm();
-  msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
-}
-
-async function confirmClock(){
-  if (!pendingToken || !curWorker) return;
-  $('cf-confirm').disabled = true;
-  const body = {token: pendingToken, worker_id: curWorker,
-                lat: pendingGeo ? pendingGeo.lat : null,
-                lng: pendingGeo ? pendingGeo.lng : null};
-  const r = await fetch('/staffing/api/scan-clock', {method:'POST',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  const d = await r.json();
-  $('cf-confirm').disabled = false;
-  cancelConfirm();
-  if (d.ok) {
-    msg(`✓ ${d.action === 'clock_in' ? 'Clocked in' : 'Clocked out'} at ${d.site_name}` +
-        (d.hours ? ` — ${d.hours}h` : ''), 'ok');
-  } else {
-    msg(d.error || 'Clock action failed.', 'err');
-  }
   refreshAll();
 }
 
