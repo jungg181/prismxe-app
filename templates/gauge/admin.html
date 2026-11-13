@@ -5,81 +5,114 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Settings</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    background: #f5f5f5;
-    color: #222;
+    background: var(--bg);
+    color: var(--ink);
     min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
   }
   header {
-    background: #1976d2;
-    color: #fff;
+    background: var(--card);
+    color: var(--ink);
     padding: 16px 20px;
     text-align: center;
+    border-bottom: 1px solid var(--line);
   }
   header h1 { margin: 0; font-size: 20px; font-weight: 600; }
-  header p { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+  header p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
   main { padding: 16px; max-width: 720px; margin: 0 auto; }
   .card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     padding: 16px;
     margin-bottom: 12px;
   }
-  .card h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; color: #222; }
-  .card h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; color: #1976d2; }
+  .card h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; color: var(--ink); }
+  .card h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; color: var(--brand); }
   .btn {
     display: block; width: 100%;
     padding: 13px; font-size: 16px; font-weight: 600;
-    border: none; border-radius: 8px;
+    border: 1px solid var(--line); border-radius: var(--radius);
     margin-top: 10px; cursor: pointer;
+    background: var(--card); color: var(--ink);
   }
-  .btn-save { background: #1976d2; color: #fff; }
-  .btn-add { background: #1976d2; color: #fff; }
-  .btn-del { background: #fff; color: #d32f2f; border: 1px solid #d32f2f; font-weight: normal; font-size: 14px; padding: 8px; }
-  .btn-sec { background: #fff; color: #222; border: 1px solid #bbb; }
+  .btn-save { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .btn-save { color: #0a0a0b; }
+  .btn-add { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .btn-add { color: #0a0a0b; }
+  .btn-del { background: var(--card); color: var(--red); border: 1px solid var(--red); font-weight: 400; font-size: 14px; padding: 8px; }
+  .btn-sec { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
   .row { display: flex; gap: 8px; }
   .row > * { flex: 1; }
-  label { display: block; font-size: 13px; color: #666; margin: 8px 0 2px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 2px; }
   input[type=text], input[type=number], input[type=password], select {
     width: 100%; padding: 10px; font-size: 15px;
-    border: 1px solid #bbb; border-radius: 8px;
-    background: #fff; color: #222;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--input-bg); color: var(--ink);
   }
-  input::placeholder { color: #999; }
+  input:focus, select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+  input::placeholder { color: var(--faint); }
   .gauge {
-    border: 1px solid #ddd; border-radius: 8px;
-    padding: 14px; margin: 8px 0; background: #fafafa;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; margin: 8px 0; background: var(--thead-bg);
   }
-  .gauge .gid { font-size: 13px; color: #888; }
+  .gauge .gid { font-size: 13px; color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .chk { display: flex; gap: 16px; margin-top: 8px; font-size: 15px; }
-  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #222; }
+  .chk label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--ink); }
   .chk input { width: 20px; height: 20px; }
   .warn {
-    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
-    padding: 10px; font-size: 13px; margin-bottom: 12px; color: #7a5c00;
+    background: var(--amber-bg); border: 1px solid var(--amber); border-radius: var(--radius);
+    padding: 10px; font-size: 13px; margin-bottom: 12px; color: var(--ink);
   }
   .sys {
-    font-size: 14px; font-weight: 700; color: #1976d2;
-    margin: 20px 4px 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;
+    font-size: 14px; font-weight: 600; color: var(--brand);
+    margin: 20px 4px 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line);
   }
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #333; color: #fff;
-    padding: 12px 20px; border-radius: 8px; display: none;
+    background: var(--ink); color: var(--bg);
+    padding: 12px 20px; border-radius: var(--radius); display: none;
     font-size: 15px; z-index: 50;
   }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .gtoggle { cursor: pointer; user-select: none; -webkit-user-select: none; }
-  .muted { color: #666; }
-  a.back { color: #1976d2; text-decoration: none; font-size: 15px; }
+  .muted { color: var(--muted); }
+  a.back { color: var(--brand); text-decoration: none; font-size: 15px; }
 </style>
 </head>
 <body>
-<header><h1>⚙️ Settings</h1><p>Equipment, gauges &amp; calibration</p></header>
+<header><h1>Settings</h1><p>Equipment, gauges &amp; calibration</p></header>
 <main>
   <div id="login" class="card">
     <h2>Admin login</h2>
@@ -92,7 +125,7 @@
   <div id="panel" style="display:none">
     <div class="warn">Settings save to the server immediately. After making changes, tap <b>Download backup</b> and send the file to Muse so it is stored permanently (the free server can lose files when it restarts).</div>
     <div class="card">
-      <h2>🏷️ Tag Setting</h2>
+      <h2>Tag Setting</h2>
       <p class="muted" style="font-size:13px">Controls photo tag editing. <b>On</b> = photo pages open in Edit mode (pins can be placed). <b>Off</b> = photo pages open in View mode (no editing).</p>
       <div class="row">
         <button class="btn btn-save" id="tagOnBtn" onclick="setTagSetting(true)">Tag Setting On (Edit)</button>
@@ -101,7 +134,7 @@
       <div id="tagSettingStatus" class="muted" style="margin-top:8px"></div>
     </div>
     <div class="row" style="margin-bottom:12px">
-      <button class="btn btn-save" onclick="saveAll()">💾 Save all</button>
+      <button class="btn btn-save" onclick="saveAll()">Save all</button>
     </div>
     <div id="systems"></div>
     <div class="card">
@@ -119,10 +152,10 @@
       <button class="btn btn-add" onclick="addEquipment()">+ Add equipment</button>
     </div>
     <div class="row">
-      <button class="btn btn-save" onclick="saveAll()">💾 Save all</button>
+      <button class="btn btn-save" onclick="saveAll()">Save all</button>
     </div>
     <div class="row">
-      <button class="btn btn-sec" onclick="backup()">📥 Download backup</button>
+      <button class="btn btn-sec" onclick="backup()">Download backup</button>
       <button class="btn btn-sec" onclick="doLogout()">Log out</button>
     </div>
     <div style="text-align:center;margin:16px 0"><a href="/Hanseong/gauge/" class="back">‹ Back to home</a></div>
@@ -130,15 +163,15 @@
 </main>
 <div id="calModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto">
   <div class="card" style="margin:16px auto;max-width:560px">
-    <h3 style="margin:0 0 8px">📷 Calibrate from photo <span id="calGid" style="color:#1976d2"></span></h3>
-    <div class="muted" style="font-size:13px;margin-bottom:10px">Take a straight-on photo of the gauge face, then click the <b style="color:#8bc34a">0 (min) mark</b> and the <b style="color:#ef9a9a">max scale mark</b> on the photo. The blue dot marks the assumed dial center.</div>
+    <h3 style="margin:0 0 8px">Calibrate from photo <span id="calGid" style="color:var(--brand)"></span></h3>
+    <div class="muted" style="font-size:13px;margin-bottom:10px">Take a straight-on photo of the gauge face, then click the <b style="color:var(--green)">0 (min) mark</b> and the <b style="color:var(--red)">max scale mark</b> on the photo. The blue dot marks the assumed dial center.</div>
     <label>Gauge face photo</label>
     <input type="file" id="calFile" accept="image/*" capture="environment">
     <div id="calWrap" style="display:none;position:relative;margin-top:10px">
       <img id="calImg" style="width:100%;border-radius:10px;cursor:crosshair;touch-action:manipulation;display:block">
-      <div id="calCenterDot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:#1976d2;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
-      <div id="calMinDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#2e7d32;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
-      <div id="calMaxDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:#c62828;border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calCenterDot" style="position:absolute;width:10px;height:10px;border-radius:50%;background:var(--brand);transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calMinDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
+      <div id="calMaxDot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:var(--red);border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none;display:none"></div>
     </div>
     <div id="calStep" class="muted" style="font-size:14px;margin:10px 0"></div>
     <div class="grid2">
@@ -261,7 +294,7 @@ function gaugeHtml(sysName, grp, dev, g) {
         <option value="psi_100">psi 0–100 (standard)</option>
         <option value="psi_300">psi 0–300 (standard)</option>
       </select>
-      <div style="font-size:12px;color:#888;margin-top:4px">Standard 270° gauges: 0 at 225°, max at 135°</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Standard 270° gauges: 0 at 225°, max at 135°</div>
     </div>
     <div class="grid2">
       <div><label>Angle at min scale (°)</label><input type="number" step="any" data-c="angle_min" value="${num(cal.angle_min)}"></div>
@@ -269,9 +302,9 @@ function gaugeHtml(sysName, grp, dev, g) {
       <div><label>Angle at max scale (°)</label><input type="number" step="any" data-c="angle_max" value="${num(cal.angle_max)}"></div>
       <div><label>Value at max</label><input type="number" step="any" data-c="value_max" value="${num(cal.value_max)}"></div>
     </div>
-    <button class="btn btn-sec" onclick="openCalModal('${esc(g.id)}')">📷 Calibrate from photo</button>
+    <button class="btn btn-sec" onclick="openCalModal('${esc(g.id)}')">Calibrate from photo</button>
     <button class="btn btn-del" onclick="delGauge('${esc(sysName)}','${grp}','${esc(dev.id)}','${esc(g.id)}')">Delete gauge</button>
-    <button class="btn btn-sec" onclick="gaugeQR('${esc(dev.id)}','${esc(g.id)}','${esc(g.name)}')">📷 QR code for this gauge</button>
+    <button class="btn btn-sec" onclick="gaugeQR('${esc(dev.id)}','${esc(g.id)}','${esc(g.name)}')">QR code for this gauge</button>
   </div>`;
 }
 
@@ -295,7 +328,7 @@ function render() {
         const gOpen = openDevs.has(dev.id);
         let gauges = (dev.gauges || []).map(g => gaugeHtml(sys.name, grp, dev, g)).join("");
         card.innerHTML = `
-          <h2>${grp === "boilers" ? "🔥" : "💧"} ${esc(dev.id)}</h2>
+          <h2>${grp === "boilers" ? "Burner" : "Pump"} · ${esc(dev.id)}</h2>
           <label>Equipment name</label>
           <input type="text" data-dev="name" value="${esc(dev.name)}">
           ${grp === "pumps" ? `<label>Connected boilers (comma separated)</label><input type="text" data-dev="boilers" value="${esc((dev.boilers || []).join(","))}">` : ""}
@@ -408,7 +441,7 @@ async function saveAll() {
   try {
     const r = await api("/Hanseong/gauge/api/admin/save", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(CFG) });
     const d = await r.json();
-    if (d.ok) toast("Saved ✓");
+    if (d.ok) toast("Saved");
     else toast("Save failed: " + (d.error || "?"));
   } catch (e) { toast("Save failed"); }
 }
