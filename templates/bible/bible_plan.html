@@ -1,32 +1,53 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>성경일독 — 1년 계획</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
-  .topbar { background: #6b4f2a; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-  .topbar a { color: #fff; text-decoration: none; font-size: 1.3rem; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--ink); }
+  .topbar { background: var(--card); color: var(--ink); border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .topbar a { color: var(--ink); text-decoration: none; font-size: 1.3rem; }
   .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
-  .card { background: #fff; border-radius: 14px; padding: 20px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-  .day-hero { text-align: center; padding: 10px 0; }
-  .day-hero .d { font-size: 2.2rem; font-weight: 800; color: #6b4f2a; }
-  .day-hero .s { color: #8a7a5c; margin-top: 4px; }
-  .item { display: flex; justify-content: space-between; align-items: center; padding: 13px 4px; border-bottom: 1px solid #f0e9d6; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin: 12px 0; }
+  .day-hero { text-align: center; padding: 8px 0; }
+  .day-hero .d { font-size: 2.2rem; font-weight: 600; color: var(--brand); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .day-hero .s { color: var(--muted); margin-top: 4px; }
+  .item { display: flex; justify-content: space-between; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
   .item:last-child { border: none; }
-  .item a { color: #2c2c2c; font-weight: 700; text-decoration: none; font-size: 1.05rem; }
-  .item .go { color: #6b4f2a; font-weight: 700; }
+  .item a { color: var(--ink); font-weight: 600; text-decoration: none; font-size: 1.05rem; }
+  .item .go { color: var(--brand); font-weight: 600; }
   .item.read { opacity: .55; }
-  .item.read .go { color: #5a8a4a; }
-  .muted { color: #8a7a5c; font-size: .9rem; }
-  .nav { display: flex; gap: 8px; margin-top: 14px; }
-  .nav button { flex: 1; padding: 12px; border: 1px solid #e0d6ba; background: #fff; border-radius: 10px; font-weight: 700; color: #6b4f2a; cursor: pointer; }
+  .item.read .go { color: var(--green); }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .nav { display: flex; gap: 8px; margin-top: 12px; }
+  .nav button { flex: 1; padding: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; font-weight: 600; color: var(--brand); cursor: pointer; }
+  .nav button:hover { background: var(--hover-bg); }
 </style>
 </head>
 <body>
-<div class="topbar"><a href="/bible/">‹</a><h2 style="font-size:1.1rem;">1년 일독 계획</h2></div>
+<div class="topbar"><a href="/bible/">‹</a><h2 style="font-size:1.1rem; font-weight:600;">1년 일독 계획</h2></div>
 <div class="wrap">
   <div class="card">
     <div class="day-hero">
@@ -76,7 +97,7 @@ function render() {
     const read = (READ[String(it.book)]||[]).includes(it.chapter);
     return `<div class="item ${read?'read':''}">
       <a href="/bible/read/${it.book}/${it.chapter}">${it.name} ${it.chapter}장</a>
-      <span class="go">${read ? '✓ 읽음' : '읽기 →'}</span></div>`;
+      <span class="go">${read ? '읽음' : '읽기 →'}</span></div>`;
   }).join('');
 }
 document.getElementById('prevDay').onclick = () => { offset--; render(); };
