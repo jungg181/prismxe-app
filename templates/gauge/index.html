@@ -5,60 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Hanseong Check List</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    background: #f5f5f5;
-    color: #222;
+    background: var(--bg);
+    color: var(--ink);
     min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
   }
   header {
-    background: #1976d2;
-    color: #fff;
-    padding: 18px 20px;
+    background: var(--card);
+    color: var(--ink);
+    padding: 16px 20px;
     text-align: center;
+    border-bottom: 1px solid var(--line);
   }
   header h1 { margin: 0; font-size: 22px; font-weight: 600; }
-  header .subtitle { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+  header .subtitle { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
   main { padding: 16px; max-width: 640px; margin: 0 auto; }
   .card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     padding: 16px;
     margin-bottom: 12px;
   }
-  .card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; color: #222; }
-  .card p { margin: 0 0 12px; font-size: 14px; color: #666; line-height: 1.5; }
+  .card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; color: var(--ink); }
+  .card p { margin: 0 0 12px; font-size: 14px; color: var(--muted); line-height: 1.5; }
   .cat {
     font-size: 15px;
-    font-weight: 700;
-    color: #1976d2;
+    font-weight: 600;
+    color: var(--brand);
     margin: 16px 0 8px;
     padding-bottom: 6px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--line);
   }
   .cat:first-of-type { margin-top: 8px; }
-  .grp-label { font-size: 13px; font-weight: 600; color: #666; margin: 12px 0 6px; }
+  .grp-label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
   .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
   .toggles button {
     flex: 1 1 28%;
     padding: 14px 8px;
     font-size: 16px;
     font-weight: 600;
-    border: 1px solid #bbb;
-    border-radius: 8px;
-    background: #fff;
-    color: #222;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--ink);
     cursor: pointer;
   }
-  .toggles button.on { background: #1976d2; border-color: #1976d2; color: #fff; }
+  .toggles button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .toggles button.on { color: #0a0a0b; }
   #burners-FAN button { flex: 1 1 45%; font-size: 14px; }
-  .toggles.pump button.on { background: #2e7d32; border-color: #2e7d32; color: #fff; }
   .empty-note {
     font-size: 14px;
-    color: #999;
+    color: var(--faint);
     font-style: italic;
     margin: 8px 0;
     text-align: center;
@@ -70,15 +99,18 @@
     padding: 16px;
     font-size: 16px;
     font-weight: 600;
-    border: none;
-    border-radius: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     cursor: pointer;
     margin-top: 16px;
+    background: var(--card);
+    color: var(--ink);
   }
-  .btn-go { background: #1976d2; color: #fff; }
+  .btn-go { background: var(--brand); border-color: var(--brand); color: #fff; }
+  [data-theme="dark"] .btn-go { color: #0a0a0b; }
   .btn:disabled { opacity: 0.4; }
   .foot { text-align: center; margin: 20px 0; display: flex; flex-direction: column; gap: 10px; }
-  .foot a { color: #1976d2; font-size: 15px; text-decoration: none; }
+  .foot a { color: var(--brand); font-size: 15px; text-decoration: none; }
 </style>
 </head>
 <body>
@@ -88,21 +120,21 @@
 </header>
 <main>
   <div class="card">
-    <h2>📤 Upload Photos</h2>
+    <h2>Upload Photos</h2>
     <p>Upload saved photos to Google Drive — no inspection needed.</p>
-    <button class="btn" style="background:#2e7d32" onclick="location.href='/Hanseong/gauge/upload'">Open Upload Page</button>
+    <button class="btn btn-go" onclick="location.href='/Hanseong/gauge/upload'">Open Upload Page</button>
   </div>
   <div class="card">
-    <h2>🏷️ Photo Tags</h2>
+    <h2>Photo Tags</h2>
     <p>Open a photo, zoom in, and pin Tag names on it. The same photo keeps its Tags every time you open it.</p>
-    <button class="btn" style="background:#6a1b9a" onclick="location.href='/Hanseong/gauge/photos'">Open Photos</button>
+    <button class="btn btn-go" onclick="location.href='/Hanseong/gauge/photos'">Open Photos</button>
   </div>
   <div class="card">
-    <h2>🕐 Patrol Time</h2>
+    <h2>Patrol Time</h2>
     <p>Which patrol round is this? Pick the system and round time first — every reading in this round is saved under that time.</p>
     <div class="toggles" id="slotSystems"></div>
     <div class="toggles" id="slotTimes" style="margin-top:8px"></div>
-    <p id="slotSummary" style="margin:10px 0 0;font-weight:600;color:#1976d2"></p>
+    <p id="slotSummary" style="margin:10px 0 0;font-weight:600;color:var(--brand)"></p>
   </div>
   <div class="card">
     <h2>Start Inspection</h2>
@@ -135,8 +167,8 @@
   </div>
 
   <div class="foot">
-    <a href="/Hanseong/gauge/api/export">📥 Download Readings CSV</a>
-    <a href="/Hanseong/gauge/admin">⚙️ Settings</a>
+    <a href="/Hanseong/gauge/api/export">Download Readings CSV</a>
+    <a href="/Hanseong/gauge/admin">Settings</a>
   </div>
 </main>
 <script>
