@@ -5,42 +5,71 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Upload Photos — Hanseong Check List</title>
 <style>
-  body { font-family: -apple-system, sans-serif; margin: 0; background: #f5f5f5; }
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; }
   .wrap { max-width: 600px; margin: 0 auto; padding: 16px; }
-  .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-  h2 { margin: 0 0 8px; font-size: 20px; }
-  .muted { color: #666; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+  .muted { color: var(--muted); font-size: 13px; }
   .btn { display: block; width: 100%; padding: 14px; margin-top: 10px; font-size: 16px;
-         border: none; border-radius: 10px; background: #1976d2; color: #fff; cursor: pointer; }
+         border: 1px solid var(--brand); border-radius: var(--radius); background: var(--brand); color: #fff; cursor: pointer; font-weight: 600; }
+  [data-theme="dark"] .btn { color: #0a0a0b; }
   .btn:disabled { opacity: .5; }
-  .btn-edit { background: #eee; color: #333; width: auto; display: inline-block; padding: 8px 14px; font-size: 14px; }
-  .pitem { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .btn-sec { background: var(--card); color: var(--ink); border-color: var(--line); }
+  .btn-edit { background: var(--card); color: var(--ink); border: 1px solid var(--line); width: auto; display: inline-block; padding: 8px 14px; font-size: 14px; }
+  .pitem { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
   #driveStatus { white-space: pre-line; margin-top: 10px; font-size: 13px; }
   .nav { display: flex; gap: 8px; margin-bottom: 12px; }
-  .nav a { flex: 1; text-align: center; padding: 12px; background: #fff; border: 1px solid #ddd;
-           border-radius: 10px; text-decoration: none; color: #1976d2; font-weight: 600; }
+  .nav a { flex: 1; text-align: center; padding: 12px; background: var(--card); border: 1px solid var(--line);
+           border-radius: var(--radius); text-decoration: none; color: var(--brand); font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="nav">
-    <a href="/Hanseong/gauge/">🏠 Home</a>
-    <a href="/Hanseong/gauge/inspect">📋 Inspection</a>
+    <a href="/Hanseong/gauge/">Home</a>
+    <a href="/Hanseong/gauge/inspect">Inspection</a>
   </div>
   <div class="card">
-    <h2>📤 Upload Photos</h2>
+    <h2>Upload Photos</h2>
     <div class="muted">Photos saved on this phone. Upload sends them to Google Drive — no sign-in needed.</div>
     <div class="muted" style="margin-top:4px"><span id="pendingCount">0</span> photos pending</div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn" id="cameraBtn" style="flex:1">📷 Camera</button>
-      <button class="btn" id="galleryBtn" style="flex:1;background:#43a047">🖼️ Choose Photos</button>
+      <button class="btn" id="cameraBtn" style="flex:1">Camera</button>
+      <button class="btn btn-sec" id="galleryBtn" style="flex:1">Choose Photos</button>
     </div>
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="galleryInput" accept="image/*" multiple style="display:none">
   </div>
   <div class="card">
     <div id="pendingList"></div>
-    <button class="btn" id="driveUploadBtn">⬆ Upload all to Google Drive</button>
+    <button class="btn" id="driveUploadBtn">Upload all to Google Drive</button>
     <div id="driveStatus" class="muted"></div>
   </div>
 </div>
@@ -90,7 +119,7 @@ async function renderPending() {
     <div class="pitem">
       <img src="${URL.createObjectURL(r.blob)}" style="width:72px;height:72px;object-fit:cover;border-radius:6px">
       <div style="flex:1;font-size:12px;min-width:0">
-        <div style="font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.filename)}</div>
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.filename)}</div>
         <div class="muted">${esc(r.gaugeName || "")} · ${esc((r.ts || "").replace("T", " ").slice(0, 19))}</div>
       </div>
       <button class="btn btn-edit" onclick="hcDeletePending(${r.id})">✕</button>
@@ -127,11 +156,11 @@ document.getElementById("driveUploadBtn").onclick = async () => {
   }
   btn.disabled = false;
   if (failed.length) {
-    driveStatus("Finished: " + done + " uploaded ✓, " + failed.length + " failed (kept on phone):\n" + failed.join("\n"));
+    driveStatus("Finished: " + done + " uploaded, " + failed.length + " failed (kept on phone):\n" + failed.join("\n"));
     toast("Some uploads failed — kept on phone");
   } else {
-    driveStatus("✓ All " + done + " photos uploaded to Google Drive. Phone copies deleted.");
-    toast("All uploaded ✓ — phone cleared");
+    driveStatus("All " + done + " photos uploaded to Google Drive. Phone copies deleted.");
+    toast("All uploaded — phone cleared");
   }
   renderPending();
 };
