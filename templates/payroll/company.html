@@ -125,7 +125,7 @@
     </table>
   </div>
   {% if result.totals.no_rate_count %}
-  <p class="small" style="margin-top:10px"><span class="badge">No rate</span> {{ result.totals.no_rate_count }} employee(s) have hours but no rate for {{ company.name }} — their pay and billing are left blank, never $0. Add the rate under <a href="{{ url_for('.rates') }}">Rates</a>.</p>
+  <p class="small" style="margin-top:10px"><span class="badge">No rate</span> {{ result.totals.no_rate_count }} employee(s) have hours but no rate for {{ company.name }} — their pay and billing are left blank, never $0. Add the rate under <a href="{{ url_for('.company_rates', company=company.slug) }}">Rates</a>.</p>
   {% endif %}
 </div>
 
