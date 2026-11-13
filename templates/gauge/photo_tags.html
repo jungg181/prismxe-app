@@ -5,17 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Photo Tags — Hanseong Check List</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --orange:#ea580c; --orange-bg:#ffedd5;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --blue:#2563eb; --blue-bg:#dbeafe;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --orange:#fb923c; --orange-bg:#2a1a0e;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+    --blue:#60a5fa; --blue-bg:#101c2e;
+  }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, sans-serif; margin: 0; background: #f5f5f5; }
+  body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; }
   .top { max-width: 720px; margin: 0 auto; padding: 12px 16px 0; }
   .nav { display: flex; gap: 8px; margin-bottom: 10px; }
-  .nav a { flex: 1; text-align: center; padding: 10px; background: #fff; border: 1px solid #ddd;
-           border-radius: 10px; text-decoration: none; color: #1976d2; font-weight: 600; font-size: 14px; }
-  h2 { margin: 0 0 4px; font-size: 18px; word-break: break-all; }
-  .muted { color: #666; font-size: 13px; }
-  .badge { display: inline-block; background: #1976d2; color: #fff; border-radius: 20px;
-           padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
-  .badge.view { background: #666; }
+  .nav a { flex: 1; text-align: center; padding: 10px; background: var(--card); border: 1px solid var(--line);
+           border-radius: var(--radius); text-decoration: none; color: var(--brand); font-weight: 600; font-size: 14px; }
+  h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; word-break: break-all; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; background: var(--brand); color: #fff; border-radius: 20px;
+           padding: 2px 10px; font-size: 12px; font-weight: 600; margin-left: 6px; vertical-align: middle; }
+  [data-theme="dark"] .badge { color: #0a0a0b; }
+  .badge.view { background: var(--muted); color: #fff; }
   #stage { position: relative; overflow: hidden; background: #111; height: 70vh;
            margin: 12px auto 0; max-width: 720px; touch-action: none; }
   #viewport { position: absolute; left: 0; top: 0; will-change: transform; }
@@ -23,7 +50,7 @@
   #pins { position: absolute; inset: 0; }
   .pin { position: absolute; pointer-events: auto; cursor: pointer; text-align: center; }
   .pin .lbl { display: inline-block; background: rgba(211, 47, 47, 0.95); color: #fff;
-              font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 12px;
+              font-size: 13px; font-weight: 600; padding: 3px 8px; border-radius: 12px;
               white-space: nowrap; margin-bottom: 2px; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
   .pin .dot { width: 20px; height: 20px; margin: 0 auto; border-radius: 50%;
               background: #d32f2f; border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.6); }
@@ -31,33 +58,36 @@
   .pin.sel .dot { background: #f9a825; }
   .view .pin { pointer-events: none; }
   .toolbar { max-width: 720px; margin: 10px auto 0; padding: 0 16px; display: flex; gap: 8px; }
-  .toolbar button { flex: 1; padding: 13px; font-size: 16px; border: 1px solid #ddd; border-radius: 10px;
-                    background: #fff; cursor: pointer; font-weight: 600; }
-  .toolbar button.save { background: #1976d2; color: #fff; border-color: #1976d2; }
+  .toolbar button { flex: 1; padding: 13px; font-size: 16px; border: 1px solid var(--line); border-radius: var(--radius);
+                    background: var(--card); color: var(--ink); cursor: pointer; font-weight: 600; }
+  .toolbar button.save { background: var(--brand); color: #fff; border-color: var(--brand); }
+  [data-theme="dark"] .toolbar button.save { color: #0a0a0b; }
   .hint { max-width: 720px; margin: 8px auto 0; padding: 0 16px 16px; }
-  #editor { display: none; position: fixed; z-index: 50; background: #fff; border: 1px solid #ccc;
+  #editor { display: none; position: fixed; z-index: 50; background: var(--card); border: 1px solid var(--line);
             border-radius: 12px; padding: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.35); width: 230px; }
-  #editor input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #bbb; border-radius: 8px; }
+  #editor input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--input-bg); color: var(--ink); }
+  #editor input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
   #editor .row { display: flex; gap: 8px; margin-top: 8px; }
-  #editor button { flex: 1; padding: 10px; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-  #editor .ok { background: #1976d2; color: #fff; }
-  #editor .del { background: #fdecea; color: #d32f2f; }
+  #editor button { flex: 1; padding: 10px; font-size: 14px; border: none; border-radius: var(--radius); cursor: pointer; font-weight: 600; }
+  #editor .ok { background: var(--brand); color: #fff; }
+  [data-theme="dark"] #editor .ok { color: #0a0a0b; }
+  #editor .del { background: var(--red-bg); color: var(--red); }
   #toast { display: none; position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-           background: #222; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 60; }
+           background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 60; }
 </style>
 </head>
 <body>
 <div class="top">
   <div class="nav">
-    <a href="/Hanseong/gauge/">🏠 Home</a>
-    <a href="/Hanseong/gauge/photos">📷 Photos</a>
+    <a href="/Hanseong/gauge/">Home</a>
+    <a href="/Hanseong/gauge/photos">Photos</a>
     {% if mode == 'edit' %}
-    <a href="/Hanseong/gauge/photo/{{ photo_key }}">👁️ View mode</a>
+    <a href="/Hanseong/gauge/photo/{{ photo_key }}">View mode</a>
     {% elif tag_editing %}
-    <a href="/Hanseong/gauge/photo/{{ photo_key }}/edit">✏️ Edit mode</a>
+    <a href="/Hanseong/gauge/photo/{{ photo_key }}/edit">Edit mode</a>
     {% endif %}
   </div>
-  <h2>🏷️ {{ label }}<span class="badge {{ mode }}">{{ 'EDIT' if mode == 'edit' else 'VIEW' }}</span></h2>
+  <h2>{{ label }}<span class="badge {{ mode }}">{{ 'EDIT' if mode == 'edit' else 'VIEW' }}</span></h2>
   <div class="muted" id="tagCount"></div>
 </div>
 <div id="stage" class="{{ mode }}">
@@ -71,7 +101,7 @@
   <button id="btnReset">100%</button>
   <button id="btnIn">+</button>
   {% if mode == 'edit' %}
-  <button id="btnSave" class="save">💾 Save tags</button>
+  <button id="btnSave" class="save">Save tags</button>
   {% endif %}
 </div>
 <div class="hint muted">
@@ -294,7 +324,7 @@ if (btnSave) btnSave.onclick = async () => {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'save failed');
     dirty = false;
-    toast('Saved ✓ ' + j.count + ' tag(s)');
+    toast('Saved ' + j.count + ' tag(s)');
   } catch (e) {
     toast('Save failed: ' + e.message);
   }
