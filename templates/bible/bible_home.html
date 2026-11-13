@@ -1,48 +1,77 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>성경일독</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --thead-bg:#fafafa; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --amber:#d97706; --amber-bg:#fef3c7;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --thead-bg:#131316; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+    --amber:#fbbf24; --amber-bg:#2a2210;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--ink); }
   .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
-  header { text-align: center; padding: 28px 0 18px; }
-  header h1 { font-size: 2rem; letter-spacing: 2px; }
-  header p { color: #8a7a5c; margin-top: 6px; font-size: .95rem; }
-  .card { background: #fff; border-radius: 14px; padding: 20px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; }
-  .btn-primary { background: #6b4f2a; color: #fff; }
-  .btn-primary:active { background: #543d20; }
-  .btn-ghost { background: #efe8d8; color: #6b4f2a; margin-top: 10px; }
-  .progress-ring { text-align: center; padding: 10px 0; }
-  .progress-ring .pct { font-size: 2.6rem; font-weight: 800; color: #6b4f2a; }
-  .progress-ring .sub { color: #8a7a5c; margin-top: 4px; }
-  .bar { height: 12px; background: #e8dfc9; border-radius: 6px; overflow: hidden; margin-top: 12px; }
-  .bar > div { height: 100%; background: linear-gradient(90deg, #a8844c, #6b4f2a); border-radius: 6px; transition: width .5s; }
-  .row { display: flex; gap: 10px; }
+  header { text-align: center; padding: 28px 0 16px; }
+  header h1 { font-size: 2rem; letter-spacing: 2px; font-weight: 600; }
+  header p { color: var(--muted); margin-top: 8px; font-size: .95rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin: 12px 0; }
+  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn-primary { background: var(--brand); color: #0a0a0b; }
+  .btn-primary:hover { background: var(--brand-strong); }
+  .btn-ghost { background: var(--tile-bg); color: var(--ink-2); margin-top: 8px; border: 1px solid var(--line); }
+  .btn-ghost:hover { background: var(--hover-bg); }
+  .progress-ring { text-align: center; padding: 8px 0; }
+  .progress-ring .pct { font-family: var(--mono); font-size: 2.6rem; font-weight: 600; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .progress-ring .sub { color: var(--muted); margin-top: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .bar { height: 12px; background: var(--tile-bg); border-radius: 8px; overflow: hidden; margin-top: 12px; }
+  .bar > div { height: 100%; background: var(--brand); border-radius: 8px; }
+  .row { display: flex; gap: 8px; }
   .row .btn { margin-top: 0; }
-  .book-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-  .book-cell { background: #faf7ef; border: 1px solid #e5dcc3; border-radius: 10px; padding: 10px 6px; text-align: center; font-size: .85rem; cursor: pointer; }
-  .book-cell .n { font-weight: 700; }
-  .book-cell .c { color: #8a7a5c; font-size: .75rem; margin-top: 2px; }
-  .book-cell.done { background: #e6f0e0; border-color: #9dc08b; }
-  .book-cell.partial { background: #fdf3df; border-color: #e0c77e; }
-  .sec-title { font-size: 1.15rem; font-weight: 800; margin: 22px 0 4px; }
-  .muted { color: #8a7a5c; font-size: .9rem; }
+  .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: .85rem; table-layout: fixed; }
+  .tbl th, .tbl td { padding: 12px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: middle; }
+  .tbl th { background: var(--thead-bg); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl td.num, .tbl th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .tbl tbody tr { cursor: pointer; }
+  .tbl tbody tr:hover { background: var(--hover-bg); }
+  .tbl tbody tr.done { background: var(--green-bg); }
+  .tbl tbody tr.partial { background: var(--amber-bg); }
+  .tbl .n { font-weight: 600; }
+  .tbl .c { color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .sec-title { font-size: 1.15rem; font-weight: 600; margin: 20px 0 4px; }
+  .muted { color: var(--muted); font-size: .9rem; }
   #userBox { text-align: center; }
   .hidden { display: none !important; }
-  .plan-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid #f0e9d6; }
+  .plan-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
   .plan-item:last-child { border-bottom: none; }
-  .plan-item a { color: #6b4f2a; font-weight: 700; text-decoration: none; }
-  .badge { display: inline-block; background: #6b4f2a; color: #fff; font-size: .72rem; padding: 3px 10px; border-radius: 20px; }
+  .plan-item a { color: var(--brand); font-weight: 600; text-decoration: none; }
+  .badge { display: inline-block; background: var(--brand); color: #0a0a0b; font-size: .72rem; padding: 4px 12px; border-radius: 8px; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>📖 성경일독</h1>
+    <h1>성경일독</h1>
     <p>매일 읽고, 듣고, 따라 읽어요</p>
   </header>
 
@@ -53,7 +82,7 @@
     </div>
     <div id="loggedIn" class="hidden">
       <p><span class="badge">로그인 중</span></p>
-      <p style="margin:8px 0 4px; font-size:1.15rem; font-weight:700;" id="userName"></p>
+      <p style="margin:8px 0 4px; font-size:1.15rem; font-weight:600;" id="userName"></p>
       <p class="muted" id="userEmail"></p>
       <div class="row" style="margin-top:12px;">
         <a class="btn btn-ghost" href="/bible/plan" style="text-decoration:none; text-align:center;">오늘의 계획</a>
@@ -68,7 +97,7 @@
       <div class="sub" id="pctSub">0 / 1189 장 읽음</div>
       <div class="bar"><div id="barFill" style="width:0%"></div></div>
     </div>
-    <a class="btn btn-primary" id="continueBtn" href="/bible/read/1/1">📖 이어 읽기</a>
+    <a class="btn btn-primary" id="continueBtn" href="/bible/read/1/1">이어 읽기</a>
     <div class="row">
       <a class="btn btn-ghost" href="/bible/plan" style="text-decoration:none; text-align:center;">1년 계획</a>
       <a class="btn btn-ghost" href="/bible/read/1/1" style="text-decoration:none; text-align:center;">창세기부터</a>
@@ -79,13 +108,17 @@
   <div class="card" id="todayPlan"><p class="muted">불러오는 중...</p></div>
 
   <div class="sec-title">성경 66권</div>
-  <div class="card">
-    <div class="book-grid" id="bookGrid"></div>
+  <div class="table-wrap">
+    <table class="tbl">
+      <colgroup><col><col style="width:120px"></colgroup>
+      <thead><tr><th>책</th><th class="num">읽음</th></tr></thead>
+      <tbody id="bookGrid"></tbody>
+    </table>
   </div>
 
   <p class="muted" style="text-align:center; margin-top:24px; font-size:.8rem;">
     본문: Open Korean Bible (CC BY 4.0) · 개역한글 계열<br>
-    <a href="/bible/data/backup" style="color:#8a7a5c;">데이터 백업</a>
+    <a href="/bible/data/backup" style="color:var(--muted);">데이터 백업</a>
   </p>
 </div>
 
@@ -110,7 +143,7 @@ async function init() {
     if (last) {
       const bn = BOOKS.find(b=>b.n===last.book);
       document.getElementById('continueBtn').href = `/bible/read/${last.book}/${last.chapter}`;
-      document.getElementById('continueBtn').textContent = `📖 이어 읽기 — ${bn?bn.name:''} ${last.chapter}장`;
+      document.getElementById('continueBtn').textContent = `이어 읽기 — ${bn?bn.name:''} ${last.chapter}장`;
     }
   }
   renderProgress();
@@ -136,9 +169,9 @@ function renderBooks() {
   BOOKS.forEach(b => {
     const read = (PROGRESS.read||{})[String(b.n)] || [];
     const cls = read.length >= b.chapters ? 'done' : (read.length>0 ? 'partial' : '');
-    const d = document.createElement('div');
-    d.className = 'book-cell ' + cls;
-    d.innerHTML = `<div class="n">${b.name}</div><div class="c">${read.length}/${b.chapters}장</div>`;
+    const d = document.createElement('tr');
+    d.className = cls;
+    d.innerHTML = `<td class="n">${b.name}</td><td class="c num">${read.length}/${b.chapters}장</td>`;
     d.onclick = () => {
       // go to first unread chapter, or chapter 1
       let ch = 1;
@@ -154,7 +187,7 @@ async function renderTodayPlan() {
   try {
     const p = await fetch('/bible/api/plan/today').then(r=>r.json());
     document.getElementById('planDay').textContent = `Day ${p.day} / 365`;
-    if (!p.items.length) { box.innerHTML = '<p class="muted">계획을 모두 마쳤어요! 🎉</p>'; return; }
+    if (!p.items.length) { box.innerHTML = '<p class="muted">계획을 모두 마쳤어요</p>'; return; }
     box.innerHTML = p.items.map(it =>
       `<div class="plan-item"><a href="/bible/read/${it.book}/${it.chapter}">${it.book_name} ${it.chapter}장</a><span class="muted">읽기 →</span></div>`
     ).join('');
