@@ -1,58 +1,52 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d1310">
+<meta name="theme-color" content="#0a0a0b">
 <title>COA · Cleaners of America</title>
 <link rel="manifest" href="/static/coa/manifest.json">
 <link rel="apple-touch-icon" href="/static/coa/icon-180.png">
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
 *{box-sizing:border-box}
-body{background:#0d1310;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#e9f2ec}
-.coa-head{padding:30px 20px 18px;text-align:center}
-.coa-head img{display:block;max-width:150px;width:55%;height:auto;margin:0 auto 14px;border-radius:12px}
-.coa-head h1{margin:0;font-size:1.4rem;font-weight:800;letter-spacing:.3px}
-.coa-head p{margin:8px 0 0;color:#8fa89c;font-size:.88rem}
-.coa-head #head-worker{color:#4ade80;font-weight:700}
+body{background:var(--bg);margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+.coa-head{padding:28px 20px 16px;text-align:center}
+.coa-head img{display:block;max-width:150px;width:55%;height:auto;margin:0 auto 12px;border-radius:8px}
+.coa-head h1{margin:0;font-size:1.4rem;font-weight:600;letter-spacing:-.01em}
+.coa-head p{margin:8px 0 0;color:var(--muted);font-size:.88rem}
+.coa-head #head-worker{color:var(--brand);font-weight:600}
 .container.narrow{max-width:480px;margin:0 auto;padding:0 16px 40px}
-.card{background:#16211c;border:1px solid #24362c;border-radius:20px;margin-top:14px}
-.card-body{padding:20px}
-.scan-btn{width:100%;padding:17px;font-size:1.12rem;font-weight:800;border-radius:16px;margin:12px 0 4px;border:none;cursor:pointer;transition:transform .1s,filter .15s}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;margin-top:12px}
+.card-body{padding:16px}
+.scan-btn{width:100%;padding:16px;font-size:1.12rem;font-weight:600;border-radius:8px;margin:12px 0 4px;border:none;cursor:pointer;transition:transform .1s}
 .scan-btn:active{transform:scale(.98)}
 .scan-btn:disabled{opacity:.6}
-.btn.primary.scan-btn{background:linear-gradient(135deg,#22c07e,#0d7a4e);color:#fff}
-#dc-out-btn.scan-btn{background:linear-gradient(135deg,#ef4444,#c81e1e)!important;color:#fff!important}
-input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:12px!important;border:1.5px solid #2c4036;padding:13px!important;font-size:1rem;background:#0d1512;color:#e9f2ec;width:100%}
-input::placeholder{color:#5f7a6d}
-input:focus,select:focus{outline:none;border-color:#25c07f;box-shadow:0 0 0 3px rgba(37,192,127,.18)}
-select option{background:#16211c}
+.btn.primary.scan-btn{background:var(--brand);color:#0a0a0b}
+#dc-out-btn.scan-btn{background:#dc2626!important;color:#fff!important}
+input[type="text"],input[type="email"],input[type="tel"],input[type="number"],select{border-radius:8px!important;border:1px solid var(--line);padding:12px!important;font-size:1rem;background:var(--input-bg);color:var(--ink);width:100%}
+input::placeholder{color:var(--faint)}
+input:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+select option{background:var(--card)}
 label{display:block;margin:12px 0}
-label b{display:block;margin-bottom:6px;font-size:.88rem;color:#b9cec3}
-h3{font-size:1.05rem;font-weight:700;margin-top:0}
-.muted{color:#8fa89c}
-.small{font-size:.82rem}
-.status-big{font-size:1.25rem;font-weight:800}
-.tc-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #24362c;font-size:.9rem;align-items:center}
+label b{display:block;margin-bottom:4px;font-size:.88rem;font-weight:600;color:var(--ink-2)}
+h3{font-size:1.05rem;font-weight:600;margin-top:0}
+.status-big{font-size:1.25rem;font-weight:600}
+.tc-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft);font-size:.9rem;align-items:center}
 .tc-row:last-child{border-bottom:none}
-.msg{padding:12px 14px;border-radius:12px;margin:8px 0;font-size:.9rem}
-.msg.ok{background:#123524;color:#7be0a8}
-.msg.err{background:#3a1414;color:#fca5a5}
-.msg.info{background:#12263a;color:#93c5fd}
+.msg{padding:12px 16px;border-radius:8px;margin:8px 0;font-size:.9rem;font-weight:500}
+.msg.ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green)}
+.msg.err{background:var(--red-bg);color:var(--red);border:1px solid var(--red)}
+.msg.info{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue)}
 .hidden{display:none!important}
-#install-card,#ios-install-hint{background:#16211c!important;border:1.5px solid #25c07f!important;border-radius:16px!important}
-#offline-bar{border-radius:16px!important}
-#hours-modal .card{border-radius:22px}
-#hours-input{border:2px solid #25c07f!important;font-weight:700;text-align:center}
-.pill{border-radius:20px;padding:3px 10px;font-size:.75rem;font-weight:700}
-.pill-active{background:#123524;color:#7be0a8}
-.pill-low{background:#3a1414;color:#fca5a5}
-.btn{border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer;border:1.5px solid #2c4036;background:#1e2d25;color:#e9f2ec}
-.btn.primary{background:linear-gradient(135deg,#22c07e,#0d7a4e);color:#fff;border:none}
-.btn.small{padding:6px 12px;font-size:.82rem}
-.btn.big{padding:14px 24px;font-size:1rem}
-.row-actions{display:flex;gap:10px;margin-top:14px}
+#install-card,#ios-install-hint{background:var(--card)!important;border:1px solid var(--brand)!important;border-radius:8px!important}
+#offline-bar{border-radius:8px!important;background:var(--amber-bg)!important;color:var(--amber)!important;border:1px solid var(--amber)!important}
+#hours-input{border:2px solid var(--brand)!important;font-weight:600;text-align:center}
+.btn{border-radius:8px;padding:12px 20px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.btn.primary{background:var(--brand);color:#0a0a0b;border:none}
+.btn.small{padding:8px 12px;font-size:.82rem}
+.btn.big{padding:12px 24px;font-size:1rem}
+.row-actions{display:flex;gap:8px;margin-top:12px}
 </style>
 </head>
 <body>
@@ -60,19 +54,19 @@ h3{font-size:1.05rem;font-weight:700;margin-top:0}
   <img src="/static/coa/logo.jpg" alt="Prism Multiple Entertainment LLC">
   <h1>COA Time Clock</h1>
   <p>Cleaners of America</p>
-  <p id="head-worker" class="hidden" style="margin:10px 0 0;font-size:.9rem">👷 <b id="head-worker-name"></b></p>
+  <p id="head-worker" class="hidden" style="margin:8px 0 0;font-size:.9rem"><b id="head-worker-name"></b></p>
 </div>
 
 <main class="container narrow">
   <div id="flash"></div>
-  <div id="install-card" class="hidden" style="background:#16211c;border:1px solid #25c07f;border-radius:16px;padding:10px 12px;margin:10px 0;font-size:.88rem">
-    📲 <b>Install the COA app</b> — add it to your home screen for one-tap clock in/out.
+  <div id="install-card" class="hidden" style="background:var(--card);border:1px solid var(--brand);border-radius:8px;padding:12px;margin:8px 0;font-size:.88rem">
+    <b>Install the COA app</b> — add it to your home screen for one-tap clock in/out.
     <button class="btn primary small" id="install-btn" style="margin-top:8px">Install</button>
   </div>
-  <div id="ios-install-hint" class="hidden" style="background:#16211c;border:1px solid #25c07f;border-radius:16px;padding:10px 12px;margin:10px 0;font-size:.85rem">
-    📲 <b>iPhone:</b> tap <b>Share</b> <span style="font-size:1rem">⎙</span> in Safari, then <b>Add to Home Screen</b> to install the COA app.
+  <div id="ios-install-hint" class="hidden" style="background:var(--card);border:1px solid var(--brand);border-radius:8px;padding:12px;margin:8px 0;font-size:.85rem">
+    <b>iPhone:</b> tap <b>Share</b> in Safari, then <b>Add to Home Screen</b> to install the COA app.
   </div>
-  <div id="offline-bar" class="hidden" style="background:#2a2110;color:#fcd34d;border:1px solid #92400e;border-radius:16px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">📡 Offline — records will sync automatically when reconnected.</div>
+  <div id="offline-bar" class="hidden" style="background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:.85rem;font-weight:600">Offline — records will sync automatically when reconnected.</div>
 
   <div class="card" id="who-card" style="margin-top:12px"><div class="card-body">
     <h3 style="margin-top:0">Worker Registration</h3>
@@ -109,7 +103,7 @@ h3{font-size:1.05rem;font-weight:700;margin-top:0}
       <p class="muted small" style="margin-top:0">Tap below when you arrive at the jobsite. Your location is captured automatically.</p>
       <div id="dc-in-ui">
         {% if fixed_site %}
-        <p style="margin-top:0">📍 <b>Jobsite:</b> {{ fixed_site.name }} <span class="pill pill-active small">QR verified</span></p>
+        <p style="margin-top:0"><b>Jobsite:</b> {{ fixed_site.name }} <span class="pill pill-active small">QR verified</span></p>
         <input type="hidden" id="dc-site" value="{{ fixed_site.id }}">
         {% else %}
         <label><b>Jobsite</b>
@@ -128,7 +122,7 @@ h3{font-size:1.05rem;font-weight:700;margin-top:0}
       <p class="muted small" id="dc-geo"></p>
     </div></div>
 
-    <div class="card" style="margin-top:10px"><div class="card-body">
+    <div class="card" style="margin-top:12px"><div class="card-body">
       <h3 style="margin-top:0">My timecards <span class="muted small">(last 7 days)</span></h3>
       <div id="tc-list"><div class="muted">Loading...</div></div>
     </div></div>
@@ -137,17 +131,16 @@ h3{font-size:1.05rem;font-weight:700;margin-top:0}
 
 <div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
   <div class="card" style="width:100%;max-width:400px;margin:0"><div class="card-body" style="text-align:center">
-    <div style="font-size:40px">⏱️</div>
     <h3 style="margin:8px 0 4px">Clock Out</h3>
     <p style="margin:4px 0"><b>Enter the hours you worked today</b></p>
-    <p class="muted small" style="margin:0 0 10px">(excluding Meal Break)</p>
+    <p class="muted small" style="margin:0 0 8px">(excluding Meal Break)</p>
     <input type="number" id="hours-input" step="0.1" min="0" max="24" inputmode="decimal"
-           placeholder="e.g. 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:12px">
+           placeholder="e.g. 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:8px">
     <div class="row-actions" style="margin-top:12px;justify-content:center">
       <button class="btn primary big" id="hours-confirm-btn" onclick="confirmCoaClockOut()">Confirm Clock Out</button>
       <button class="btn big" onclick="closeHoursModal()">Cancel</button>
     </div>
-    <p class="muted small" style="margin:10px 0 0">Leave empty to clock out without entering hours.</p>
+    <p class="muted small" style="margin:8px 0 0">Leave empty to clock out without entering hours.</p>
   </div></div>
 </div>
 
@@ -214,7 +207,7 @@ async function flushQueue(){
     } catch(e) { remaining.push(item); }
   }
   saveQueue(remaining);
-  if (synced) { msg(`✓ Synced ${synced} offline record${synced > 1 ? 's' : ''}.`, 'ok'); refreshAll(); }
+  if (synced) { msg(`Synced ${synced} offline record${synced > 1 ? 's' : ''}.`, 'ok'); refreshAll(); }
 }
 
 function msg(html, kind){
@@ -246,7 +239,7 @@ function identify(){
   if (sel) {
     const name = $('who-select').selectedOptions[0].textContent.split(' ·')[0];
     enterMain(sel, name);
-    msg('Welcome, ' + name + '!', 'ok');
+    msg('Welcome, ' + name, 'ok');
     return;
   }
   const name = $('who-name').value.trim();
@@ -256,7 +249,7 @@ function identify(){
   if (!name) { $('who-msg').innerHTML = '<div class="msg err">Enter your name or select from the list.</div>'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('who-msg').innerHTML = '<div class="msg err">Enter a valid email address.</div>'; return; }
   enterMain('new:' + encodeURIComponent(JSON.stringify({name: name, email: email, phone: phone, position: position})), name);
-  msg('Registered! Tap Clock In to start.', 'ok');
+  msg('Registered. Tap Clock In to start.', 'ok');
 }
 
 function capturePosition(){
@@ -292,7 +285,7 @@ function updateClockUI(d){
 }
 async function refreshStatus(){
   if (!curWorker || curWorker.startsWith('new:')) {
-    $('status-card').innerHTML = `<div class="status-big">⚪ Not clocked in</div><div class="muted small">Tap Clock In — registration completes automatically.</div>`;
+    $('status-card').innerHTML = `<div class="status-big"><span class="dot" style="width:12px;height:12px;background:var(--faint)"></span> Not clocked in</div><div class="muted small">Tap Clock In — registration completes automatically.</div>`;
     updateClockUI(null);
     return;
   }
@@ -302,8 +295,8 @@ async function refreshStatus(){
     const d = await r.json();
     updateClockUI(d);
     $('status-card').innerHTML = d.clocked_in
-      ? `<div class="status-big">🟢 On shift</div><div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>`
-      : `<div class="status-big">⚪ Not clocked in</div><div class="muted small">Tap Clock In to start.</div>`;
+      ? `<div class="status-big"><span class="dot green" style="width:12px;height:12px"></span> On shift</div><div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>`
+      : `<div class="status-big"><span class="dot" style="width:12px;height:12px;background:var(--faint)"></span> Not clocked in</div><div class="muted small">Tap Clock In to start.</div>`;
   } catch(e) { /* offline — keep last state */ }
 }
 async function refreshTimecards(){
@@ -330,7 +323,7 @@ async function coaClockIn(){
   btn.disabled = true;
   $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking in anyway.';
+  $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking in anyway.';
   const nw = newWorkerPayload();
   const payload = {worker_id: nw ? null : curWorker,
                    name: nw ? nw.name : undefined,
@@ -344,7 +337,7 @@ async function coaClockIn(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(q);
     btn.disabled = false;
-    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
+    msg('Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
@@ -358,7 +351,7 @@ async function coaClockIn(){
         localStorage.setItem(NAME_KEY, d.worker_name);
         $('head-worker-name').textContent = d.worker_name;
       }
-      msg(`✓ ${d.worker_name} clocked in at ${d.site_name}`, 'ok');
+      msg(`${d.worker_name} clocked in at ${d.site_name}`, 'ok');
     } else msg(d.error || 'Clock in failed.', 'err');
   } catch(e) { msg('Network error — try again.', 'err'); }
   btn.disabled = false;
@@ -378,7 +371,7 @@ async function confirmCoaClockOut(){
   closeHoursModal();
   $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
-  $('dc-geo').textContent = pos ? '✓ Location captured' : 'Location unavailable — clocking out anyway.';
+  $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking out anyway.';
   const nw = newWorkerPayload();
   const payload = {worker_id: nw ? null : curWorker,
                    name: nw ? nw.name : undefined,
@@ -393,14 +386,14 @@ async function confirmCoaClockOut(){
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
     saveQueue(q);
     btn.disabled = false;
-    msg('✓ Saved offline — will sync automatically when reconnected.', 'ok');
+    msg('Saved offline — will sync automatically when reconnected.', 'ok');
     return;
   }
   try {
     const r = await fetch('/coa/api/clock', {method:'POST',
       headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const d = await r.json();
-    if (d.ok) msg(`✓ Clocked out — ${d.hours}h` + (d.reported_hours ? ` (you entered ${d.reported_hours}h)` : ''), 'ok');
+    if (d.ok) msg(`Clocked out — ${d.hours}h` + (d.reported_hours ? ` (you entered ${d.reported_hours}h)` : ''), 'ok');
     else msg(d.error || 'Clock out failed.', 'err');
   } catch(e) { msg('Network error — try again.', 'err'); }
   btn.disabled = false;
