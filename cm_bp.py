@@ -1366,127 +1366,22 @@ def _payroll_calendar_html(start, end, data):
 
 @bp.route('/timecards/payroll')
 def payroll():
-    # Step 1: set a date range, step 2: pick a worker -> that range as a calendar.
-    start_arg = request.args.get('start') or (today() - timedelta(days=13)).isoformat()
-    end_arg = request.args.get('end') or today().isoformat()
-    try:
-        start = date.fromisoformat(start_arg)
-    except ValueError:
-        start = today() - timedelta(days=13)
-    try:
-        end = date.fromisoformat(end_arg)
-    except ValueError:
-        end = today()
-    if start > end:
-        start, end = end, start
-    workers = [{'id': w['id'], 'name': worker_name(w['id'])}
-               for w in sorted(DB['workers'], key=lambda w: worker_name(w['id']))]
-    wid = request.args.get('worker') or ''
-    if wid and not find('workers', wid):
-        wid = ''
-    data = (_payroll_range_data(wid, start.isoformat(), end.isoformat())
-            if wid else None)
-    cal = data['cal'] if data else {}
-    day_io = data['day_io'] if data else {}
-    open_in = data['open_in'] if data else {}
-    open_days = data['open_days'] if data else set()
-    total_hours = data['total_hours'] if data else '0'
-    days_worked = data['days_worked'] if data else 0
-    worker_email = ''
-    email_subject = ''
-    email_body = ''
-    if wid and data:
-        w = find('workers', wid)
-        worker_email = (w or {}).get('email') or ''
-        email_subject = (f"Payroll summary {start.strftime('%b')} {start.day}, "
-                         f"{start.year} – {end.strftime('%b')} {end.day}, "
-                         f"{end.year}")
-        email_body = _payroll_email_body(worker_name(wid), start, end, data)
-    first_monday = start - timedelta(days=start.weekday())
-    last_sunday = end + timedelta(days=6 - end.weekday())
-    weeks = []
-    cur = first_monday
-    while cur <= last_sunday:
-        weeks.append([(cur + timedelta(days=i)).isoformat() for i in range(7)])
-        cur += timedelta(days=7)
-    return render_template('cm/payroll.html', workers=workers, worker=wid,
-                           start=start.isoformat(), end=end.isoformat(),
-                           weeks=weeks, cal=cal, open_days=open_days,
-                           day_io=day_io, open_in=open_in,
-                           total_hours=total_hours, days_worked=days_worked,
-                           monday=_week_monday_cm(start.isoformat()).isoformat(),
-                           today_iso=today().isoformat(),
-                           worker_email=worker_email,
-                           email_subject=email_subject,
-                           email_body=email_body)
+    """Retired 2026-11-13 (Part 1): the CM payroll calendar is now
+    /payroll/ — one payroll source (data_payroll.json). The
+    per-employee calendar lives on each employee page there.
+    Bookmarks and QRs land here and are forwarded, not 404'd."""
+    flash('Payroll moved to /payroll/ — the per-employee calendar now '
+          'lives on each employee page there.')
+    return redirect("/payroll/")  # hardcoded: stable public URL, works even if the payroll blueprint is not mounted
 
 
 @bp.route('/timecards/payroll/email', methods=['POST'])
 def payroll_email():
-    """Send the selected worker's payroll summary by email.
-
-    The form shows the exact draft (to / subject / body) and the user
-    taps Send once — nothing is sent without that tap. The HTML email
-    also carries the calendar table, generated from the same records
-    as the screen. Sent through the same Apps Script sendEmail action
-    the COA confirmations use.
-    """
-    wid = request.form.get('worker') or ''
-    start = request.form.get('start') or ''
-    end = request.form.get('end') or ''
-    to = (request.form.get('to') or '').strip()
-    subject = (request.form.get('subject') or '').strip()
-    body = request.form.get('body') or ''
-    if wid and not find('workers', wid):
-        wid = ''
-    if not to or '@' not in to:
-        flash('Enter a valid email address.')
-        return redirect(url_for('cm.payroll', start=start, end=end,
-                                worker=wid))
-    if not subject:
-        subject = f"Payroll summary {start} – {end}"
-    import html as _html
-    send_body = body
-    html_body = _html.escape(body).replace('\n', '<br>')
-    review_url = None
-    if wid:
-        try:
-            s_d = date.fromisoformat(start)
-            e_d = date.fromisoformat(end)
-        except ValueError:
-            s_d = e_d = None
-        if s_d and e_d:
-            if s_d > e_d:
-                s_d, e_d = e_d, s_d
-            start, end = s_d.isoformat(), e_d.isoformat()
-            html_body += ('<br><br>' + _payroll_calendar_html(
-                s_d, e_d, _payroll_range_data(wid, start, end)))
-            tokens = DB.setdefault('payroll_review_tokens', [])
-            tok = next((t for t in tokens
-                        if t.get('worker_id') == wid
-                        and t.get('start') == start
-                        and t.get('end') == end), None)
-            if not tok:
-                tok = {'id': uuid.uuid4().hex[:12],
-                       'token': secrets.token_urlsafe(32),
-                       'worker_id': wid, 'start': start, 'end': end,
-                       'created_at': now_iso()}
-                tokens.append(tok)
-                save_db()
-            review_url = (BASE_URL.rstrip('/') + '/staffing/payroll/review/'
-                          + tok['token'])
-            send_body += f"\n\nReview or correct this payroll: {review_url}"
-            html_body += (f'<br><br><a href="{review_url}" '
-                          f'style="display:inline-block;padding:10px 18px;'
-                          f'background:#2563eb;color:#fff;text-decoration:none;'
-                          f'border-radius:6px">Review or correct this payroll</a>')
-    res = sheets_post({'action': 'sendEmail', 'to': to, 'subject': subject,
-                       'body': send_body, 'html': html_body}, timeout=30)
-    if res and res.get('ok'):
-        flash(f'Email sent to {to}.')
-    else:
-        flash('Email could not be sent. Please try again.')
-    return redirect(url_for('cm.payroll', start=start, end=end, worker=wid))
+    """Retired 2026-11-13 (Part 1): email-this-payroll now lives on
+    the per-employee calendar in /payroll/. Nothing is sent here."""
+    flash('Payroll moved to /payroll/ — email this payroll from the '
+          'per-employee calendar there.')
+    return redirect("/payroll/")  # hardcoded: stable public URL, works even if the payroll blueprint is not mounted
 
 
 def _t12(hhmm):
@@ -1654,72 +1549,11 @@ def _fmt_num(v):
 
 @bp.route('/timecards/payroll/export')
 def payroll_export():
-    start = request.args.get('start') or (today() - timedelta(days=13)).isoformat()
-    end = request.args.get('end') or today().isoformat()
-    wid = request.args.get('worker') or ''
-    if wid and not find('workers', wid):
-        wid = ''
-    detail = []
-    for t in DB['timecards']:
-        if wid and t.get('worker_id') != wid:
-            continue
-        if not t.get('clock_out'):
-            continue
-        d = (t.get('clock_in') or '')[:10]
-        if not (start <= d <= end):
-            continue
-        ci = parse_iso(t.get('clock_in'))
-        co = parse_iso(t.get('clock_out'))
-        # Payroll hours = stored hours, exactly as the calendar screen shows.
-        pay_hours = t.get('hours')
-        if pay_hours is None:
-            if not ci or not co:
-                continue
-            pay_hours = compute_hours(t.get('clock_in'), t.get('clock_out'))
-        gross = (round((co - ci).total_seconds() / 3600.0, 2)
-                 if ci and co else None)
-        meal = round(gross - pay_hours, 2) if gross is not None else None
-        status = t.get('status', '')
-        approved = status == 'approved'
-        detail.append({
-            'employee': worker_name(t.get('worker_id')),
-            'site': site_name(t.get('site_id')),
-            'ci': ci, 'co': co,
-            'gross': gross, 'meal': meal, 'pay_hours': pay_hours,
-            'payroll_status': 'Approved' if approved else 'Needs Approval',
-            'timecard_status': ('Approved' if approved
-                                else 'Clocked Out' if status == 'clocked_out'
-                                else 'Clocked In'),
-            'notes': t.get('notes', '') or '',
-        })
-    detail.sort(key=lambda r: (r['employee'].lower(),
-                               r['ci'].isoformat() if r['ci'] else ''))
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(['Employee', 'Site', 'Clock-In Date', 'Clock-In Time',
-                'Clock-Out Date', 'Clock-Out Time', 'Gross Hours',
-                'Meal Break Deduction', 'Payroll Hours', 'Payroll Status',
-                'Timecard Status', 'Notes'])
-
-    def _d(dt):
-        return (f"{dt.day}-{dt.strftime('%b')}-{dt.strftime('%y')}"
-                if dt else '')
-
-    def _t(dt):
-        return dt.strftime('%-I:%M %p') if dt else ''
-
-    for r in detail:
-        w.writerow([
-            r['employee'], r['site'],
-            _d(r['ci']), _t(r['ci']), _d(r['co']), _t(r['co']),
-            _fmt_num(r['gross']) if r['gross'] is not None else '',
-            _fmt_num(r['meal']) if r['meal'] is not None else '',
-            _fmt_num(r['pay_hours']),
-            r['payroll_status'], r['timecard_status'], r['notes'],
-        ])
-    data = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
-    return send_file(data, mimetype='text/csv', as_attachment=True,
-                     download_name=f'payroll-report-{start}-to-{end}.csv')
+    """Retired 2026-11-13 (Part 1): the CM payroll CSV came from
+    data_cm.json timecards. Exports now live in /payroll/."""
+    flash('Payroll moved to /payroll/ — exports now come from the '
+          'payroll module.')
+    return redirect("/payroll/")  # hardcoded: stable public URL, works even if the payroll blueprint is not mounted
 
 
 def _week_monday_cm(arg):
@@ -1979,43 +1813,11 @@ def _range_payroll_xlsx_cm(blocks, start, end):
 
 @bp.route('/timecards/payroll/export.xlsx')
 def payroll_export_xlsx():
-    start_arg = request.args.get('start')
-    end_arg = request.args.get('end')
-    if not start_arg and not end_arg and request.args.get('monday'):
-        monday = _week_monday_cm(request.args.get('monday'))
-        start_arg = monday.isoformat()
-        end_arg = (monday + timedelta(days=6)).isoformat()
-    start_arg = start_arg or (today() - timedelta(days=13)).isoformat()
-    end_arg = end_arg or today().isoformat()
-    try:
-        start_d = date.fromisoformat(start_arg)
-    except ValueError:
-        start_d = today() - timedelta(days=13)
-    try:
-        end_d = date.fromisoformat(end_arg)
-    except ValueError:
-        end_d = today()
-    if start_d > end_d:
-        start_d, end_d = end_d, start_d
-    start, end = start_d.isoformat(), end_d.isoformat()
-    wid = request.args.get('worker') or ''
-    if wid and not find('workers', wid):
-        wid = ''
-    if wid:
-        blocks = [_range_payroll_data_cm(wid, start, end)]
-        who = blocks[0]['name'].replace(' ', '_')
-    else:
-        blocks = [_range_payroll_data_cm(w['id'], start, end)
-                  for w in sorted(DB['workers'],
-                                  key=lambda w: worker_name(w['id']))]
-        who = 'All'
-    data = _range_payroll_xlsx_cm(blocks, start, end)
-    fn = f'Payroll_{who}_{start}_to_{end}.xlsx'
-    return send_file(
-        io.BytesIO(data),
-        mimetype='application/vnd.openxmlformats-officedocument.'
-                 'spreadsheetml.sheet',
-        as_attachment=True, download_name=fn)
+    """Retired 2026-11-13 (Part 1): the CM payroll XLSX came from
+    data_cm.json timecards. Exports now live in /payroll/."""
+    flash('Payroll moved to /payroll/ — exports now come from the '
+          'payroll module.')
+    return redirect("/payroll/")  # hardcoded: stable public URL, works even if the payroll blueprint is not mounted
 
 
 # ================= DATA & RESTORE =================
