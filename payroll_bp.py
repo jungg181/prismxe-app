@@ -56,7 +56,8 @@ bp = Blueprint("payroll", __name__, url_prefix="/payroll",
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data_payroll.json")
 COLLECTIONS = ["companies", "rates", "entries", "expenses", "settings",
-               "aliases", "variances", "jobsites", "jobsite_costs"]
+               "aliases", "variances", "jobsites", "jobsite_costs",
+               "invoices"]
 
 # Bank details shown on invoices — from the KB Link / Hanseong invoice
 # templates (PrismXe Info Bank tab / invoice sheets, read 2026-11-05).
@@ -738,6 +739,42 @@ def export_xlsx(company):
 
 
 # ----------------------------------------------------------------- invoice
+def _save_invoice(co, start, end, number, inv):
+    """Save a frozen snapshot of a generated invoice so it can be viewed
+    again later without recomputing from live payroll data (which may
+    change). Upsert by (company name, number): re-downloading the same
+    invoice number refreshes the snapshot instead of duplicating it.
+    Returns the saved record."""
+    now = datetime.now(PHOENIX).isoformat(timespec="seconds")
+    recs = DB.setdefault("invoices", [])
+    rec = next((r for r in recs
+                if r.get("company") == co["name"]
+                and r.get("number") == number), None)
+    if rec is None:
+        rec = {"id": uuid.uuid4().hex[:12], "company": co["name"],
+               "number": number, "created": now}
+        recs.append(rec)
+    rec.update({"start": start.isoformat(), "end": end.isoformat(),
+                "updated": now, "total": inv["total"],
+                "labour_total": inv["labour_total"],
+                "expense_total": inv["expense_total"],
+                "sub_total": inv["sub_total"],
+                "lines": inv["lines"], "expenses": inv["expenses"],
+                "excluded": inv["excluded"]})
+    save_db()
+    return rec
+
+
+def _company_invoices(co):
+    """Saved invoices for one company, newest first (by created time,
+    then invoice number)."""
+    recs = [r for r in DB.get("invoices", [])
+            if r.get("company") == co["name"]]
+    recs.sort(key=lambda r: (r.get("created") or "",
+                             r.get("number") or ""), reverse=True)
+    return recs
+
+
 @bp.get("/<company>/invoice")
 def invoice(company):
     co = find_company(company)
@@ -753,7 +790,63 @@ def invoice(company):
     return render_template(
         "payroll/invoice.html", company=co, start=start.isoformat(),
         end=end.isoformat(), number=number, inv=inv, bank=_company_bank(co),
-        approved_by=APPROVED_BY, money=_money)
+        approved_by=APPROVED_BY, money=_money,
+        saved=_company_invoices(co)[:10])
+
+
+@bp.get("/<company>/invoices")
+def invoices_list(company):
+    """Saved invoices for one company, newest first — one row per
+    invoice, with View and PDF actions."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    return render_template("payroll/invoices.html", company=co,
+                           saved=_company_invoices(co), money=_money)
+
+
+@bp.get("/<company>/invoices/<inv_id>")
+def invoice_saved(company, inv_id):
+    """View one saved invoice (frozen snapshot, read-only)."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    rec = next((r for r in DB.get("invoices", [])
+                if r.get("id") == inv_id
+                and r.get("company") == co["name"]), None)
+    if rec is None:
+        return "Unknown invoice", 404
+    return render_template("payroll/invoice_saved.html", company=co,
+                           rec=rec, money=_money)
+
+
+@bp.get("/<company>/invoices/<inv_id>/pdf")
+def invoice_saved_pdf(company, inv_id):
+    """Download the PDF of a saved invoice, regenerated from its frozen
+    snapshot (live payroll edits do not change it)."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    rec = next((r for r in DB.get("invoices", [])
+                if r.get("id") == inv_id
+                and r.get("company") == co["name"]), None)
+    if rec is None:
+        return "Unknown invoice", 404
+    start = _parse_date(rec.get("start"), datetime.now(PHOENIX).date())
+    end = _parse_date(rec.get("end"), start)
+    inv = {"lines": rec.get("lines") or [],
+           "expenses": rec.get("expenses") or [],
+           "excluded": rec.get("excluded") or [],
+           "labour_total": rec.get("labour_total") or 0,
+           "expense_total": rec.get("expense_total") or 0,
+           "sub_total": rec.get("sub_total") or 0,
+           "total": rec.get("total") or 0}
+    data = _invoice_pdf_bytes(co, start, end, rec["number"], inv,
+                              _company_bank(co))
+    filename = f"{co['name']}_{rec['number']}.pdf"
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition":
+                             f'attachment; filename="{filename}"'})
 
 
 def _invoice_pdf_bytes(co, start, end, number, inv, bank):
@@ -1646,6 +1739,9 @@ def invoice_pdf(company):
     bottom = (request.args.get("bottom") or "").strip()
     if bottom:
         co["pdf_bottom_margin"] = bottom
+    # Downloading also saves the invoice to the list, so it can be
+    # viewed again later without recomputing from live payroll data.
+    _save_invoice(co, start, end, number, inv)
     data = _invoice_pdf_bytes(co, start, end, number, inv,
                               _company_bank(co))
     filename = f"{co['name']}_{number}.pdf"
