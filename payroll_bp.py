@@ -1914,14 +1914,20 @@ def _timesheets_pdf_bytes(co, start, end, result):
                                  align="R", size=13, bold=True,
                                  color=ORANGE)
             y += CELL_H
-        # Summary: Regular / Overtime / Total.
+        # Summary: Regular / Overtime / Total / Gross Pay.
         y += 6
         pdf.set_xy(LEFT, y)
         pdf.set_font("helvetica", "B", 10)
         pdf.set_text_color(0, 0, 0)
+        # gross_pay is None when the worker has no staffing rate; use
+        # a plain hyphen (not an em dash) because fpdf2 Helvetica is
+        # latin-1 only and the em dash crashes it.
+        gross = r.get("gross_pay")
+        gross_txt = "-" if gross is None else f"${gross:,.2f}"
         summary = (f"Regular (R/T): {hrs(r['reg_hours'])}h    "
                    f"Overtime (O/T): {hrs(r['ot_hours'])}h    "
-                   f"Total: {hrs(r['total_hours'])}h")
+                   f"Total: {hrs(r['total_hours'])}h    "
+                   f"Gross Pay: {gross_txt}")
         pdf.cell(0, 6, summary, new_x="LMARGIN", new_y="NEXT")
         y += 10
         # Signature block, pinned to the page bottom: the Date line is
@@ -1967,6 +1973,7 @@ def _timesheets_pdf_bytes(co, start, end, result):
         draw_employee_page(r)
 
     return bytes(pdf.output())
+
 
 
 @bp.get("/<company>/invoice/pdf")
