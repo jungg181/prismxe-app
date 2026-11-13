@@ -6,25 +6,32 @@
 <div class="toolbar">
   <a class="btn primary" href="{{ url_for('coa.site_new') }}">+ Add Jobsite</a>
 </div>
-<div class="cards">
-{% for s in sites %}
-<div class="card"><div class="card-body">
-  <div><b>{{ s.name }}</b>
-    <span class="pill {{ 'pill-active' if s.status=='active' else 'pill-inactive' }}">{{ s.status }}</span>
-  </div>
-  {% if s.address %}<div class="muted small">{{ s.address }}</div>{% endif %}
-  {% if s.lat and s.lng %}<div class="muted small">📍 {{ s.lat }}, {{ s.lng }}</div>{% endif %}
-  <div class="row-actions" style="margin-top:8px">
-    <a class="btn small primary" href="{{ url_for('coa.qr_image', site_id=s.id) }}" target="_blank">📷 Print QR</a>
-    <a class="btn small" href="{{ url_for('coa.clock_page', site=s.id) }}" target="_blank">Clock Page</a>
-    <a class="btn small" href="{{ url_for('coa.site_edit', sid=s.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('coa.site_delete', sid=s.id) }}" onsubmit="return confirm('Delete this site?')">
-      <button class="btn small danger">Delete</button>
-    </form>
-  </div>
-</div></div>
-{% else %}
-<p class="muted">No jobsites yet.</p>
-{% endfor %}
-</div>
+<div class="table-wrap"><table class="tbl" style="table-layout:fixed">
+  <colgroup>
+    <col style="width:180px">
+    <col>
+    <col style="width:160px">
+    <col style="width:100px">
+    <col style="width:320px">
+  </colgroup>
+  <tr><th>Jobsite</th><th>Address</th><th>Location</th><th>Status</th><th>Actions</th></tr>
+  {% for s in sites %}
+  <tr>
+    <td><b>{{ s.name }}</b></td>
+    <td>{% if s.address %}{{ s.address }}{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{% if s.lat and s.lng %}<span class="num">{{ s.lat }}, {{ s.lng }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td><span class="pill {{ 'pill-active' if s.status=='active' else 'pill-inactive' }}">{{ s.status }}</span></td>
+    <td class="nowrap">
+      <a class="btn small primary" href="{{ url_for('coa.qr_image', site_id=s.id) }}" target="_blank">Print QR</a>
+      <a class="btn small" href="{{ url_for('coa.clock_page', site=s.id) }}" target="_blank">Clock Page</a>
+      <a class="btn small" href="{{ url_for('coa.site_edit', sid=s.id) }}">Edit</a>
+      <form method="post" action="{{ url_for('coa.site_delete', sid=s.id) }}" style="display:inline" onsubmit="return confirm('Delete this site?')">
+        <button class="btn small danger">Delete</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="muted">No jobsites yet.</td></tr>
+  {% endfor %}
+</table></div>
 {% endblock %}
