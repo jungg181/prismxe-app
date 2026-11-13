@@ -1,46 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manage Folders — PrismXE</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-         background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px 16px; }
+         background: var(--bg); color: var(--ink); min-height: 100vh; padding: 24px 16px; }
   .wrap { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin-bottom: 4px; }
-  p.sub { color: #94a3b8; margin-bottom: 24px; font-size: .9rem; }
-  .company { background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-bottom: 24px; font-size: .9rem; }
+  .company { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
              padding: 16px; margin-bottom: 16px; }
   .company-head { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
   .company-head input[type=text] { flex: 1; }
-  input[type=text] { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+  input[type=text] { background: var(--input-bg); border: 1px solid var(--line); color: var(--ink);
                      border-radius: 8px; padding: 10px 12px; font-size: .95rem; width: 100%; }
-  input[type=text]:focus { outline: none; border-color: #3b82f6; }
+  input[type=text]:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
   .icon-input { width: 52px !important; flex: none !important; text-align: center; font-size: 1.2rem; }
   .app-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
-             background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 8px; }
+             background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
   .app-row .fields { flex: 1; display: grid; gap: 6px; }
   .app-row input[type=text] { padding: 8px 10px; font-size: .88rem; }
-  .btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px;
-         padding: 8px 14px; font-size: .88rem; cursor: pointer; }
-  .btn:hover { background: #475569; }
-  .btn-danger { background: #7f1d1d; }
-  .btn-danger:hover { background: #991b1b; }
-  .btn-primary { background: #1d4ed8; padding: 12px 24px; font-size: 1rem; }
-  .btn-primary:hover { background: #2563eb; }
+  .btn { background: var(--tile-bg); color: var(--ink-2); border: 1px solid var(--line); border-radius: 8px;
+         padding: 8px 14px; font-size: .88rem; font-weight: 600; cursor: pointer; }
+  .btn:hover { background: var(--hover-bg); }
+  .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-danger:hover { background: var(--red); opacity: .85; }
+  .btn-primary { background: var(--brand); border-color: var(--brand); color: #0a0a0b; padding: 12px 24px; font-size: 1rem; }
+  .btn-primary:hover { background: var(--brand-strong); }
   .btn-small { padding: 6px 10px; font-size: .8rem; }
-  .row-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-  .move-select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
-                 border-radius: 8px; padding: 6px 8px; font-size: .8rem; }
+  .row-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .move-select { background: var(--input-bg); border: 1px solid var(--line); color: var(--ink);
+                 border-radius: 8px; padding: 6px 8px; font-size: .8rem; width: 120px; }
   .bottom-bar { display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-wrap: wrap; }
   .pw-input { max-width: 200px; }
-  .back { color: #64748b; text-decoration: none; font-size: .9rem; }
-  .back:hover { color: #94a3b8; }
+  .back { color: var(--muted); text-decoration: none; font-size: .9rem; }
+  .back:hover { color: var(--ink); }
   .msg { margin-top: 12px; font-size: .9rem; min-height: 1.2em; }
-  .msg.ok { color: #4ade80; } .msg.err { color: #f87171; }
-  h3.apps-label { font-size: .85rem; color: #94a3b8; margin: 8px 0; font-weight: normal; }
+  .msg.ok { color: var(--green); } .msg.err { color: var(--red); }
+  h3.apps-label { font-size: .85rem; color: var(--muted); margin: 8px 0; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -49,25 +69,25 @@
   <h1 style="margin-top:12px">Manage Folders</h1>
   <p class="sub">Rename companies, move apps between folders, add or remove. Like computer folders.</p>
 
-  <h3 class="apps-label" style="font-size:1rem;color:#e2e8f0">📋 All apps (automatic list)</h3>
+  <h3 class="apps-label" style="font-size:1rem;color:var(--ink)">All apps (automatic list)</h3>
   <p class="sub" style="margin-bottom:12px">This is everything the portal shows. Apps built into the server
   appear here by themselves — there is nothing to add or update. The editor below is only for extra custom links.</p>
   {% for co in catalog %}
   <div class="company">
-    <div class="company-head"><span style="font-size:1.3rem">{{ co.icon }}</span><b>{{ co.name }}</b></div>
+    <div class="company-head"><b>{{ co.name }}</b></div>
     {% for a in co.apps %}
     <div class="app-row">
-      <span style="font-size:1.2rem">{{ a.icon }}</span>
+      
       <div class="fields">
-        <div><b>{{ a.name }}</b>{% if a.url %} <span style="color:#94a3b8">— {{ a.url }}</span>{% endif %}</div>
-        <div style="color:#94a3b8;font-size:.85rem">{{ a.desc }}</div>
+        <div><b>{{ a.name }}</b>{% if a.url %} <span style="color:var(--muted)">— {{ a.url }}</span>{% endif %}</div>
+        <div style="color:var(--muted);font-size:.85rem">{{ a.desc }}</div>
       </div>
     </div>
     {% endfor %}
   </div>
   {% endfor %}
 
-  <h3 class="apps-label" style="font-size:1rem;color:#e2e8f0;margin-top:24px">🔗 Custom links (editor)</h3>
+  <h3 class="apps-label" style="font-size:1rem;color:var(--ink);margin-top:24px">Custom links (editor)</h3>
   <p class="sub" style="margin-bottom:12px">Extra links you add by hand. A link whose address matches a built-in app
   is shown once, in the automatic list above.</p>
   <div id="companies"></div>
@@ -94,7 +114,7 @@ function render(){
     d.className = 'company';
     d.innerHTML = `
       <div class="company-head">
-        <input type="text" class="icon-input" value="${esc(co.icon)}" data-ci="${ci}" data-f="icon" title="Folder icon (emoji)">
+        <input type="text" class="icon-input" value="${esc(co.icon)}" data-ci="${ci}" data-f="icon" title="Folder icon">
         <input type="text" value="${esc(co.name)}" data-ci="${ci}" data-f="name" placeholder="Company name">
         <button class="btn btn-danger btn-small" onclick="delCompany(${ci})">Delete</button>
       </div>
@@ -111,7 +131,7 @@ function render(){
       const moveOpts = data.map((c2, cj) =>
         `<option value="${cj}"${cj===ci?' disabled':''}>→ ${esc(c2.name)}</option>`).join('');
       r.innerHTML = `
-        <input type="text" class="icon-input" value="${esc(a.icon)}" data-ci="${ci}" data-ai="${ai}" data-f="icon" title="App icon (emoji)">
+        <input type="text" class="icon-input" value="${esc(a.icon)}" data-ci="${ci}" data-ai="${ai}" data-f="icon" title="App icon">
         <div class="fields">
           <input type="text" value="${esc(a.name)}" data-ci="${ci}" data-ai="${ai}" data-f="name" placeholder="App name">
           <input type="text" value="${esc(a.desc)}" data-ci="${ci}" data-ai="${ai}" data-f="desc" placeholder="Description">
@@ -121,7 +141,7 @@ function render(){
           <select class="move-select" onchange="moveApp(${ci},${ai},this.value);this.value=''">
             <option value="">Move to…</option>${moveOpts}
           </select>
-          <button class="btn btn-danger btn-small" onclick="delApp(${ci},${ai})">✕</button>
+          <button class="btn btn-danger btn-small" onclick="delApp(${ci},${ai})">Remove</button>
         </div>`;
       appsEl.appendChild(r);
     });
@@ -137,9 +157,9 @@ function render(){
   });
 }
 
-function addCompany(){ data.push({name:'New Company', icon:'📁', apps:[]}); render(); scheduleAutosave(); }
+function addCompany(){ data.push({name:'New Company', icon:'', apps:[]}); render(); scheduleAutosave(); }
 function delCompany(ci){ if(confirm('Delete "'+data[ci].name+'" and all its apps?')){ data.splice(ci,1); render(); scheduleAutosave(); } }
-function addApp(ci){ data[ci].apps.push({name:'New App', icon:'📱', desc:'', url:'/'}); render(); scheduleAutosave(); }
+function addApp(ci){ data[ci].apps.push({name:'New App', icon:'', desc:'', url:'/'}); render(); scheduleAutosave(); }
 function delApp(ci,ai){ data[ci].apps.splice(ai,1); render(); scheduleAutosave(); }
 function moveApp(fromCi, ai, toCi){
   if(toCi===''||+toCi===fromCi) return;
@@ -155,7 +175,7 @@ function setAutostatus(txt, cls){
   el.className = 'msg' + (cls ? ' ' + cls : '');
 }
 function scheduleAutosave(){
-  setAutostatus('● Unsaved changes', '');
+  setAutostatus('Unsaved changes', '');
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(autoSave, 900);
 }
@@ -166,7 +186,7 @@ async function autoSave(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({companies: data})});
     const j = await r.json();
-    if(j.ok){ setAutostatus('Saved ✓', 'ok'); }
+    if(j.ok){ setAutostatus('Saved', 'ok'); }
     else if(r.status === 401 || r.status === 403){ setAutostatus('Save failed — please log in again', 'err'); }
     else { setAutostatus('Save failed: '+(j.error||'error'), 'err'); }
   }catch(e){ setAutostatus('Save failed: '+e.message, 'err'); }
@@ -180,7 +200,7 @@ async function save(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({companies: data})});
     const j = await r.json();
-    if(j.ok){ msg.className='msg ok'; msg.textContent='Saved!'; }
+    if(j.ok){ msg.className='msg ok'; msg.textContent='Saved'; }
     else { msg.className='msg err'; msg.textContent='Error: '+(j.error||'failed'); }
   }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
 }
