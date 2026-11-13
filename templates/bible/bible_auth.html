@@ -1,33 +1,55 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>성경일독 — 시작하기</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: #f7f3ea; color: #2c2c2c; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--ink); }
   .wrap { max-width: 420px; margin: 0 auto; padding: 40px 20px; }
   header { text-align: center; margin-bottom: 24px; }
-  header h1 { font-size: 1.8rem; }
-  header p { color: #8a7a5c; margin-top: 6px; font-size: .9rem; }
-  .tabs { display: flex; background: #efe8d8; border-radius: 12px; padding: 4px; margin-bottom: 16px; }
-  .tabs button { flex: 1; padding: 12px; border: none; background: none; border-radius: 9px; font-size: 1rem; font-weight: 700; color: #8a7a5c; cursor: pointer; }
-  .tabs button.on { background: #fff; color: #6b4f2a; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-  .card { background: #fff; border-radius: 14px; padding: 24px 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-  label { display: block; font-size: .85rem; color: #8a7a5c; margin: 12px 0 6px; font-weight: 700; }
-  input { width: 100%; padding: 13px; border: 1px solid #e0d6ba; border-radius: 10px; font-size: 1rem; }
-  input:focus { outline: none; border-color: #6b4f2a; }
-  .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 700; cursor: pointer; background: #6b4f2a; color: #fff; margin-top: 20px; }
-  #err { color: #c0392b; font-size: .9rem; margin-top: 12px; text-align: center; min-height: 1.3em; }
-  .back { display: block; text-align: center; margin-top: 18px; color: #8a7a5c; text-decoration: none; font-size: .9rem; }
+  header h1 { font-size: 1.8rem; font-weight: 600; }
+  header p { color: var(--muted); margin-top: 8px; font-size: .9rem; }
+  .tabs { display: flex; background: var(--tile-bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px; margin-bottom: 16px; }
+  .tabs button { flex: 1; padding: 12px; border: none; background: none; border-radius: 8px; font-size: 1rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .tabs button.on { background: var(--card); color: var(--brand); border: 1px solid var(--line); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 24px 20px; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin: 12px 0 8px; font-weight: 600; }
+  input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; background: var(--input-bg); color: var(--ink); }
+  input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+  input::placeholder { color: var(--faint); }
+  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; background: var(--brand); color: #0a0a0b; margin-top: 20px; }
+  .btn:hover { background: var(--brand-strong); }
+  #err { color: var(--red); font-size: .9rem; margin-top: 12px; text-align: center; min-height: 1.3em; }
+  .back { display: block; text-align: center; margin-top: 16px; color: var(--muted); text-decoration: none; font-size: .9rem; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>📖 성경일독</h1>
+    <h1>성경일독</h1>
     <p>이메일로 등록하면 읽던 곳을 이어서 볼 수 있어요</p>
   </header>
   <div class="tabs">
