@@ -6,16 +6,26 @@
 <title>{% block title %}COA{% endblock %} · Cleaners of America</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
-.coa-nav{background:#0d4f3c;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.coa-nav .brand{font-weight:800;font-size:1.05rem}
-.coa-nav .brand small{font-weight:400;color:#a7e3c9;font-size:.75rem;display:block}
-.coa-nav a{color:#d1f0e0;text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
-.coa-nav a:hover,.coa-nav a.on{background:rgba(255,255,255,.15);color:#fff}
+/* COA shared helpers on the control-room tokens from cm/style.css */
+.coa-nav{background:var(--card);color:var(--ink);padding:10px 16px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.coa-nav .brand{font-weight:600;font-size:1rem;margin-right:8px}
+.coa-nav .brand small{font-weight:500;color:var(--muted);font-size:.75rem;display:block}
+.coa-nav a{color:var(--muted);text-decoration:none;font-size:.88rem;font-weight:500;padding:8px 12px;border-radius:8px}
+.coa-nav a:hover{color:var(--ink);background:var(--hover-bg)}
+.coa-nav a.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.msg{padding:12px 16px;border-radius:8px;margin:12px 0;font-size:.9rem;font-weight:500}
+.msg.ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green)}
+.msg.err{background:var(--red-bg);color:var(--red);border:1px solid var(--red)}
+.msg.info{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue)}
+.tc-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:.85rem;align-items:flex-start}
+.tc-row:last-child{border-bottom:none}
+.pill-pending{background:var(--amber-bg);color:var(--amber)}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
 <nav class="coa-nav">
-  <div class="brand">🧹 COA<small>Cleaners of America</small></div>
+  <div class="brand">COA<small>Cleaners of America</small></div>
   <a href="{{ url_for('coa.dashboard') }}" class="{{ 'on' if request.endpoint=='coa.dashboard' else '' }}">Dashboard</a>
   <a href="{{ url_for('coa.timecards') }}" class="{{ 'on' if request.endpoint=='coa.timecards' else '' }}">Timecards</a>
   <a href="{{ url_for('coa.confirmations') }}" class="{{ 'on' if request.endpoint=='coa.confirmations' else '' }}">Confirmations</a>
@@ -23,7 +33,7 @@
   <a href="{{ url_for('coa.backup_page') }}" class="{{ 'on' if request.endpoint=='coa.backup_page' else '' }}">Backup</a>
   <a href="{{ url_for('coa.workers') }}" class="{{ 'on' if request.endpoint=='coa.workers' else '' }}">Workers</a>
   <a href="{{ url_for('coa.sites') }}" class="{{ 'on' if request.endpoint in ['coa.sites','coa.site_new','coa.site_edit'] else '' }}">Sites</a>
-  <a href="{{ url_for('coa.clock_page') }}" target="_blank">📱 Clock Page</a>
+  <a href="{{ url_for('coa.clock_page') }}" target="_blank">Clock Page</a>
 </nav>
 <main class="container" style="padding-top:16px">
 {% block content %}{% endblock %}
