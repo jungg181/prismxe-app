@@ -162,7 +162,7 @@
       <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num"><span class="day-wd">{{ result.weekdays[d] }}</span><span class="day-dt">{{ d[5:] }}</span></th>{% endfor %}<th class="num">Total</th><th class="num">Gross Pay</th></tr></thead>
       <tbody>
         {% for r in result.rows %}
-        <tr><td>{{ r.employee }}</td>{% for d in result.days %}{% set tot = r.days[d] %}{% set ot = r.days_ot[d] %}{% set reg = tot - ot %}<td class="num">{% if tot %}{% if ot %}<span class="day-split"><span class="day-reg">{{ fmt_hours(reg) }}</span><span class="day-ot">{{ fmt_hours(ot) }}</span></span>{% else %}{{ fmt_hours(tot) }}{% endif %}{% else %}·{% endif %}</td>{% endfor %}<td class="num">{{ fmt_hours(r.total_hours) }}</td><td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td></tr>
+        <tr><td>{{ r.employee }}</td>{% for d in result.days %}{% set tot = r.days[d] %}{% set ot = r.days_ot[d] %}{% set reg = tot - ot %}<td class="num">{% if tot %}{% if ot %}<span class="day-split"><span class="day-reg">{{ fmt_hours(reg) }}</span><span class="day-ot">{{ fmt_hours(ot) }}</span></span>{% else %}{{ fmt_hours(tot) }}{% endif %}{% else %}·{% endif %}</td>{% endfor %}<td class="num">{% if r.ot_hours %}<span class="day-split"><span class="day-reg">{{ fmt_hours(r.reg_hours) }}</span><span class="day-ot">{{ fmt_hours(r.ot_hours) }}</span></span>{% else %}{{ fmt_hours(r.total_hours) }}{% endif %}</td><td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
