@@ -15,6 +15,7 @@
       <a class="btn secondary" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">Time Entries</a>
       <a class="btn secondary" href="{{ url_for('.import_app', company=company.slug, **{'from': start, 'to': end}) }}">Import from App</a>
       <a class="btn secondary" href="{{ url_for('.invoice', company=company.slug, **{'from': start, 'to': end}) }}">Invoice</a>
+      <a class="btn secondary" href="{{ url_for('.invoices_list', company=company.slug) }}">Invoices</a>
       <a class="btn secondary" href="{{ url_for('.export_csv', company=company.slug, **{'from': start, 'to': end}) }}">Export CSV</a>
       <a class="btn secondary" href="{{ url_for('.export_xlsx', company=company.slug, **{'from': start, 'to': end}) }}">Export XLSX</a>
     </div>
