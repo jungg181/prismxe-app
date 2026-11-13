@@ -36,6 +36,8 @@ import io
 import json
 import os
 import re
+import secrets
+import urllib.request
 import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -57,7 +59,28 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data_payroll.json")
 COLLECTIONS = ["companies", "rates", "entries", "expenses", "settings",
                "aliases", "variances", "jobsites", "jobsite_costs",
-               "invoices"]
+               "invoices", "payroll_review_tokens", "payroll_corrections"]
+
+# Email goes through the same Apps Script sendEmail action the CM
+# payroll emails used (sender info@prismxe.com) — the URL lives in
+# CM_SHEETS_URL; there is no separate payroll Apps Script project.
+PAYROLL_SHEETS_URL = os.environ.get("CM_SHEETS_URL", "")
+BASE_URL = os.environ.get("BASE_URL", "https://app.prismxe.com")
+
+
+def sheets_post(payload, timeout=30):
+    """Best-effort POST to the Apps Script webhook. Never raises."""
+    if not PAYROLL_SHEETS_URL:
+        return None
+    try:
+        req = urllib.request.Request(
+            PAYROLL_SHEETS_URL, data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print(f"payroll sheets_post failed: {e}", flush=True)
+        return None
 
 # Bank details shown on invoices — from the KB Link / Hanseong invoice
 # templates (PrismXe Info Bank tab / invoice sheets, read 2026-11-05).
@@ -249,6 +272,197 @@ def _fmt_hours(value):
     if value is None:
         return "—"
     return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+# ------------------------------------------------------- per-employee calendar
+# Part 1 (2026-11-13): the CM payroll calendar retired into /payroll/.
+# The calendar below reads ONLY data_payroll.json entries, so it can
+# never diverge from the payroll company page again. Clock times in
+# entries are display strings ("7:02 AM"); these helpers parse and
+# format them without touching the stored values.
+def _parse_time12(value):
+    """'7:02 AM' / '07:02' / '7:02' -> minutes after midnight, else None."""
+    s = (value or "").strip()
+    if not s:
+        return None
+    m = re.match(r"^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$", s)
+    if not m:
+        return None
+    h, mi, ap = int(m.group(1)), int(m.group(2)), (m.group(3) or "").upper()
+    if ap == "PM" and h != 12:
+        h += 12
+    if ap == "AM" and h == 12:
+        h = 0
+    if h > 23 or mi > 59:
+        return None
+    return h * 60 + mi
+
+
+def _fmt_time12(minutes):
+    """Minutes after midnight -> '6:51 PM'."""
+    minutes = int(minutes) % (24 * 60)
+    h, mi = divmod(minutes, 60)
+    ap = "AM" if h < 12 else "PM"
+    return f"{h % 12 or 12}:{mi:02d} {ap}"
+
+
+def _to24(value):
+    """A display clock time -> 'HH:MM' (24h) for <input type=time>."""
+    mins = _parse_time12(value)
+    return f"{mins // 60:02d}:{mins % 60:02d}" if mins is not None else ""
+
+
+def _span_hours(in_m, out_m):
+    """Payroll hours for a clock-in/out pair (minutes after midnight).
+
+    Same rule as the CM timecards this replaces: 1h meal break
+    auto-deducted for shifts >= 5h (an out time at/before the in time
+    spans midnight). This is what makes a corrected 7:02 AM–6:51 PM
+    day 10.82h, matching the pending CM correction exactly."""
+    span = out_m - in_m
+    if span <= 0:
+        span += 24 * 60
+    h = span / 60.0
+    if h >= 5:
+        h -= 1.0
+    return round(max(h, 0.0), 2)
+
+
+def _t12(hhmm):
+    """'HH:MM' (24h) -> '7:00 AM'; '' -> '—'."""
+    if not hhmm:
+        return "—"
+    try:
+        return datetime.strptime(hhmm, "%H:%M").strftime("%-I:%M %p")
+    except ValueError:
+        return hhmm
+
+
+def _payroll_calendar_data(company_name, employee, start_iso, end_iso):
+    """One worker's calendar data for a date range, from payroll
+    entries only. Mirrors what the retired CM calendar showed:
+    per-day hours, first clock-in – last clock-out, open shifts."""
+    cal_days = {}
+    bounds = {}
+    open_days = set()
+    for e in DB.get("entries", []):
+        if e.get("company") != company_name:
+            continue
+        if (e.get("employee") or "") != employee:
+            continue
+        d = e.get("date") or ""
+        if not (start_iso <= d <= end_iso):
+            continue
+        cal_days[d] = cal_days.get(d, 0.0) + float(e.get("payroll_hours") or 0)
+        ci = _parse_time12(e.get("clock_in") or "")
+        co = _parse_time12(e.get("clock_out") or "")
+        b = bounds.setdefault(d, [None, None])
+        if ci is not None:
+            b[0] = ci if b[0] is None else min(b[0], ci)
+        if co is not None:
+            b[1] = co if b[1] is None else max(b[1], co)
+        if ci is not None and co is None:
+            open_days.add(d)
+    day_io = {d: f"{_fmt_time12(b[0])} – {_fmt_time12(b[1])}"
+              for d, b in bounds.items()
+              if b[0] is not None and b[1] is not None}
+    open_in = {d: _fmt_time12(bounds[d][0]) for d in open_days
+               if bounds.get(d, [None, None])[0] is not None}
+    in24 = {d: f"{b[0] // 60:02d}:{b[0] % 60:02d}"
+            for d, b in bounds.items() if b[0] is not None}
+    out24 = {d: f"{b[1] // 60:02d}:{b[1] % 60:02d}"
+             for d, b in bounds.items() if b[1] is not None}
+    cal = {d: _fmt_hours(h) for d, h in cal_days.items()}
+    total_hours = _fmt_hours(sum(cal_days.values()))
+    days_worked = len([d for d in set(list(cal_days) + list(open_days))
+                       if cal_days.get(d, 0) > 0 or d in open_days])
+    return {"cal": cal, "day_io": day_io, "open_in": open_in,
+            "open_days": open_days, "total_hours": total_hours,
+            "days_worked": days_worked, "in24": in24, "out24": out24}
+
+
+def _payroll_review_days(company_name, employee, start_iso, end_iso):
+    """Per-day rows for the worker review page (from payroll entries)."""
+    data = _payroll_calendar_data(company_name, employee, start_iso, end_iso)
+    days = []
+    for iso in sorted(set(list(data["cal"]) + list(data["open_days"]))):
+        days.append({"date": iso,
+                     "md": f"{int(iso[5:7])}/{int(iso[8:10])}",
+                     "io": data["day_io"].get(iso, ""),
+                     "hours": data["cal"].get(iso, ""),
+                     "in24": data["in24"].get(iso, ""),
+                     "out24": data["out24"].get(iso, ""),
+                     "open": iso in data["open_days"]})
+    return days, data
+
+
+def _payroll_email_body(name, start, end, data):
+    """Plain-text payroll summary for one worker + range."""
+    def _md(iso):
+        d = date.fromisoformat(iso)
+        return f"{d.month}/{d.day}"
+
+    period = (f"{start.strftime('%b')} {start.day}, {start.year} – "
+              f"{end.strftime('%b')} {end.day}, {end.year}")
+    lines = [f"Hi {name},", "",
+             f"Here is your payroll summary for {period}:", ""]
+    for iso in sorted(set(list(data["cal"]) + list(data["open_days"]))):
+        if data["cal"].get(iso):
+            if data["day_io"].get(iso):
+                line = f"{_md(iso)}: {data['day_io'][iso]}, {data['cal'][iso]}h"
+            else:
+                line = f"{_md(iso)}: {data['cal'][iso]}h"
+            if iso in data["open_days"]:
+                if data["open_in"].get(iso):
+                    line += f" (On shift since {data['open_in'][iso]})"
+                else:
+                    line += " (On shift)"
+        else:
+            line = f"{_md(iso)}: {data['open_in'].get(iso, '')} – On shift"
+        lines.append(line)
+    lines += ["", f"Total hours: {data['total_hours']}h",
+              f"Days worked: {data['days_worked']}"]
+    return "\n".join(lines)
+
+
+def _payroll_calendar_html(start, end, data):
+    """Calendar-grid HTML table mirroring the screen (for the email)."""
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    first_monday = start - timedelta(days=start.weekday())
+    last_sunday = end + timedelta(days=6 - end.weekday())
+    parts = ['<table cellpadding="6" cellspacing="0" '
+             'style="border-collapse:collapse;font-family:sans-serif">']
+    parts.append("<tr>" + "".join(
+        f'<th style="border:1px solid #ccc;padding:6px;background:#eee">{d}</th>'
+        for d in day_names) + "</tr>")
+    cur = first_monday
+    while cur <= last_sunday:
+        cells = []
+        for i in range(7):
+            d = cur + timedelta(days=i)
+            iso = d.isoformat()
+            if not (start.isoformat() <= iso <= end.isoformat()):
+                cells.append('<td style="border:1px solid #ccc;padding:6px"></td>')
+                continue
+            inner = f"<b>{d.month}/{d.day}</b>"
+            if data["day_io"].get(iso):
+                inner += f'<br>{data["day_io"][iso]}'
+            elif data["open_in"].get(iso):
+                inner += f'<br>{data["open_in"][iso]} – On shift'
+            if data["cal"].get(iso):
+                inner += f'<br><b>{data["cal"][iso]}h</b>'
+            if iso in data["open_days"] and data["cal"].get(iso):
+                inner += "<br>On shift"
+                if data["open_in"].get(iso):
+                    inner += f' · {data["open_in"][iso]}'
+            cells.append('<td style="border:1px solid #ccc;padding:6px;'
+                         f'vertical-align:top">{inner}</td>')
+        parts.append("<tr>" + "".join(cells) + "</tr>")
+        cur += timedelta(days=7)
+    parts.append("</table>")
+    parts.append(f'<p>Total hours: {data["total_hours"]}h<br>'
+                 f'Days worked: {data["days_worked"]}</p>')
+    return "".join(parts)
 
 
 def _period_expenses(company, start, end):
@@ -2552,12 +2766,283 @@ def employee_page(company):
                     or (a.get("canonical") or "") == name)]
     total_hours = round(sum(float(e.get("payroll_hours") or 0)
                             for e in entries), 2)
+    # Per-employee calendar (Part 1): Monday-first grid from payroll
+    # entries. ?from/&to narrow it; with no range it covers the
+    # employee's whole entry span so the calendar is never empty.
+    cal_start = _parse_date(request.args.get("from"), None)
+    cal_end = _parse_date(request.args.get("to"), None)
+    if cal_start is None or cal_end is None:
+        entry_dates = sorted(e.get("date") or "" for e in entries
+                             if e.get("date"))
+        if entry_dates:
+            cal_start = date.fromisoformat(entry_dates[0])
+            cal_end = date.fromisoformat(entry_dates[-1])
+        else:
+            _today = datetime.now(PHOENIX).date()
+            cal_start = _today - timedelta(days=_today.weekday())
+            cal_end = cal_start + timedelta(days=6)
+    if cal_start > cal_end:
+        cal_start, cal_end = cal_end, cal_start
+    cal_data = _payroll_calendar_data(
+        co["name"], name, cal_start.isoformat(), cal_end.isoformat())
+    first_monday = cal_start - timedelta(days=cal_start.weekday())
+    last_sunday = cal_end + timedelta(days=6 - cal_end.weekday())
+    cal_weeks = []
+    _cur = first_monday
+    while _cur <= last_sunday:
+        cal_weeks.append([(_cur + timedelta(days=i)).isoformat()
+                          for i in range(7)])
+        _cur += timedelta(days=7)
+    email_subject = (f"Payroll summary {cal_start.strftime('%b')} "
+                     f"{cal_start.day}, {cal_start.year} – "
+                     f"{cal_end.strftime('%b')} {cal_end.day}, "
+                     f"{cal_end.year}")
+    email_body = _payroll_email_body(name, cal_start, cal_end, cal_data)
     return render_template(
         "payroll/employee.html", company=co, name=name, rate=rate,
         entries=entries, aliases=aliases, total_hours=total_hours,
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
-        money=_money, fmt_hours=_fmt_hours)
+        money=_money, fmt_hours=_fmt_hours,
+        cal_start=cal_start.isoformat(), cal_end=cal_end.isoformat(),
+        cal_weeks=cal_weeks, cal_data=cal_data,
+        today_iso=datetime.now(PHOENIX).date().isoformat(),
+        email_subject=email_subject, email_body=email_body)
+
+
+# ------------------------------------------------- calendar email + review
+# Part 1 (2026-11-13): the CM calendar's "Email this payroll" +
+# worker-review/corrections flow, rebuilt on data_payroll.json entries.
+# The old CM flow (data_cm.json, /staffing/payroll/review/<token>,
+# /staffing/timecards/payroll/corrections) is LEFT INTACT — its one
+# pending correction (Adrian zamora, Oct 3) still lives there and keeps
+# working exactly as before. This is a parallel payroll-native flow:
+# tokens + corrections live in data_payroll.json and Apply updates
+# payroll entries, never CM timecards.
+@bp.post("/<company>/employee/calendar/email")
+def calendar_email(company):
+    """Send the employee's calendar payroll by email.
+
+    The form shows the exact draft (to / subject / body) and the user
+    taps Send once — nothing is sent without that tap. The HTML email
+    carries the calendar table plus a token review link, like the
+    retired CM email did. Sent via the Apps Script sendEmail action
+    as info@prismxe.com."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    name = (request.form.get("name") or "").strip()
+    start = (request.form.get("start") or "").strip()
+    end = (request.form.get("end") or "").strip()
+    to = (request.form.get("to") or "").strip()
+    subject = (request.form.get("subject") or "").strip()
+    body = request.form.get("body") or ""
+    back = url_for(".employee_page", company=co["slug"], name=name,
+                   **{"from": start, "to": end})
+    if not name:
+        flash("Unknown employee.")
+        return redirect(url_for(".company_payroll", company=co["slug"]))
+    if not to or "@" not in to:
+        flash("Enter a valid email address.")
+        return redirect(back)
+    if not subject:
+        subject = f"Payroll summary {start} – {end}"
+    try:
+        s_d = date.fromisoformat(start)
+        e_d = date.fromisoformat(end)
+    except ValueError:
+        flash("Invalid date range.")
+        return redirect(back)
+    if s_d > e_d:
+        s_d, e_d = e_d, s_d
+        start, end = s_d.isoformat(), e_d.isoformat()
+    data = _payroll_calendar_data(co["name"], name, start, end)
+    import html as _html
+    send_body = body
+    html_body = _html.escape(body).replace("\n", "<br>")
+    html_body += "<br><br>" + _payroll_calendar_html(s_d, e_d, data)
+    tokens = DB.setdefault("payroll_review_tokens", [])
+    tok = next((t for t in tokens
+                if t.get("company") == co["name"]
+                and (t.get("employee") or "") == name
+                and t.get("start") == start and t.get("end") == end), None)
+    if not tok:
+        tok = {"id": uuid.uuid4().hex[:12],
+               "token": secrets.token_urlsafe(32),
+               "company": co["name"], "employee": name,
+               "start": start, "end": end,
+               "created_at": datetime.now(PHOENIX).isoformat()}
+        tokens.append(tok)
+        save_db()
+    review_url = (BASE_URL.rstrip("/") + "/payroll/review/"
+                  + tok["token"])
+    send_body += f"\n\nReview or correct this payroll: {review_url}"
+    html_body += (f'<br><br><a href="{review_url}" '
+                  f'style="display:inline-block;padding:10px 18px;'
+                  f'background:#2563eb;color:#fff;text-decoration:none;'
+                  f'border-radius:6px">Review or correct this payroll</a>')
+    res = sheets_post({"action": "sendEmail", "to": to, "subject": subject,
+                       "body": send_body, "html": html_body}, timeout=30)
+    if res and res.get("ok"):
+        flash(f"Email sent to {to}.")
+    else:
+        flash("Email could not be sent. Please try again.")
+    return redirect(back)
+
+
+@bp.route("/review/<token>", methods=["GET", "POST"])
+def payroll_review(token):
+    """Public worker page: review the emailed payroll, confirm or
+    correct it. Token link only, no login (same pattern as the COA
+    confirmations and the old CM review page). Corrections are stored
+    as requests — original payroll entries never change here; the
+    admin reviews and applies them from /payroll/corrections."""
+    tokens = DB.setdefault("payroll_review_tokens", [])
+    tok = next((t for t in tokens if t.get("token") == token), None)
+    if not tok:
+        return render_template("payroll/payroll_review.html", tok=None), 404
+    co_name = tok.get("company") or ""
+    name = tok.get("employee") or ""
+    start, end = tok["start"], tok["end"]
+    days, data = _payroll_review_days(co_name, name, start, end)
+    msg = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        note = (request.form.get("note") or "").strip()[:1000]
+        if action == "confirm":
+            DB.setdefault("payroll_corrections", []).append({
+                "id": uuid.uuid4().hex[:12], "token": token,
+                "company": co_name, "employee": name,
+                "worker_name": name,
+                "start": start, "end": end, "status": "confirmed",
+                "note": note, "days": [], "submitted_at": now_iso(),
+                "applied_at": None})
+            save_db()
+            msg = "confirmed"
+        elif action == "correct":
+            changed = []
+            for d in days:
+                iso = d["date"]
+                nin = (request.form.get(f"in_{iso}") or "").strip()
+                nout = (request.form.get(f"out_{iso}") or "").strip()
+                oin, oout = d["in24"], d["out24"]
+                if (not nin or nin == oin) and (not nout or nout == oout):
+                    continue
+                fin, fout = nin or oin, nout or oout
+                if fin and fout:
+                    _in_m = _parse_time12(fin)
+                    _out_m = _parse_time12(fout)
+                    if _in_m is not None and _out_m is not None:
+                        nh = _fmt_hours(_span_hours(_in_m, _out_m))
+                    else:
+                        nh = d["hours"]
+                else:
+                    nh = d["hours"]
+                changed.append({"date": iso, "orig_in": oin,
+                                "orig_out": oout, "orig_hours": d["hours"],
+                                "new_in": fin, "new_out": fout,
+                                "new_hours": nh})
+            if not changed:
+                msg = "nochange"
+            else:
+                DB.setdefault("payroll_corrections", []).append({
+                    "id": uuid.uuid4().hex[:12], "token": token,
+                    "company": co_name, "employee": name,
+                    "worker_name": name,
+                    "start": start, "end": end, "status": "correction",
+                    "note": note, "days": changed,
+                    "submitted_at": now_iso(), "applied_at": None})
+                save_db()
+                diff_lines = []
+                for cd in changed:
+                    o_out = _t12(cd["orig_out"]) if cd["orig_out"] else "On shift"
+                    diff_lines.append(
+                        f"{cd['date']}: {_t12(cd['orig_in'])} – {o_out} "
+                        f"({cd['orig_hours']}h) → {_t12(cd['new_in'])} – "
+                        f"{_t12(cd['new_out'])} ({cd['new_hours']}h)")
+                import html as _html
+                body = ("\n".join([
+                    f"Payroll correction from {name} ({co_name})",
+                    f"Period: {start} – {end}",
+                    f"Note: {note or '(no note)'}", ""] + diff_lines + [
+                    "",
+                    "Review: " + BASE_URL.rstrip("/")
+                    + "/payroll/corrections"]))
+                sheets_post({"action": "sendEmail", "to": "info@prismxe.com",
+                             "subject": f"Payroll correction: {name} "
+                                        f"{start} – {end}",
+                             "body": body,
+                             "html": _html.escape(body).replace("\n", "<br>")},
+                            timeout=30)
+                msg = "corrected"
+    return render_template("payroll/payroll_review.html", tok=tok,
+                           name=name, company=co_name, start=start, end=end,
+                           days=days, data=data, msg=msg)
+
+
+@bp.route("/corrections")
+def payroll_corrections():
+    recs = sorted(DB.setdefault("payroll_corrections", []),
+                  key=lambda r: r.get("submitted_at") or "", reverse=True)
+    return render_template("payroll/payroll_corrections.html", recs=recs,
+                           t12=_t12)
+
+
+@bp.post("/corrections/<cid>/apply")
+def payroll_correction_apply(cid):
+    """Apply one payroll correction: update the day's payroll entry
+    clock-in / clock-out and recompute its hours. Original values
+    stay in the correction record as the audit trail. An overnight
+    span (out <= in) sets clock_out_date to the next day."""
+    DB.setdefault("payroll_corrections", [])
+    rec = next((r for r in DB["payroll_corrections"]
+                if r.get("id") == cid), None)
+    if not rec or rec.get("status") != "correction":
+        flash("Nothing to apply.")
+        return redirect(url_for(".payroll_corrections"))
+    co_name = rec.get("company") or ""
+    employee = rec.get("employee") or rec.get("worker_name") or ""
+    for cd in rec["days"]:
+        d = cd["date"]
+        rows = sorted(
+            [e for e in DB.get("entries", [])
+             if e.get("company") == co_name
+             and (e.get("employee") or "") == employee
+             and (e.get("date") or "") == d],
+            key=lambda e: _parse_time12(e.get("clock_in") or "")
+            if _parse_time12(e.get("clock_in") or "") is not None
+            else 24 * 60)
+        if not rows:
+            continue
+        first, last = rows[0], rows[-1]
+        touched = set()
+        if cd.get("new_in") and cd["new_in"] != cd.get("orig_in"):
+            first["clock_in"] = _fmt_time12(_parse_time12(cd["new_in"]))
+            touched.add(first.get("id"))
+        if cd.get("new_out") and cd["new_out"] != cd.get("orig_out"):
+            last["clock_out"] = _fmt_time12(_parse_time12(cd["new_out"]))
+            touched.add(last.get("id"))
+        for t in rows:
+            if t.get("id") in touched:
+                in_m = _parse_time12(t.get("clock_in") or "")
+                out_m = _parse_time12(t.get("clock_out") or "")
+                if in_m is not None and out_m is not None:
+                    if out_m <= in_m:
+                        t["clock_out_date"] = (
+                            date.fromisoformat(d)
+                            + timedelta(days=1)).isoformat()
+                    else:
+                        t["clock_out_date"] = None
+                    t["payroll_hours"] = _span_hours(in_m, out_m)
+    rec["status"] = "applied"
+    rec["applied_at"] = now_iso()
+    save_db()
+    flash(f"Applied corrections from {rec.get('worker_name', '—')}.")
+    return redirect(url_for(".payroll_corrections"))
+
+
+def now_iso():
+    return datetime.now(PHOENIX).isoformat(timespec="seconds")
 
 
 def _group_employees():
