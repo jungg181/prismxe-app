@@ -6,41 +6,49 @@
   <h2>2-Week Schedule</h2>
   <p class="muted small" style="margin-top:0">Who works which hours for the next two weeks. To change it, open <b>Settings → Time Slots &amp; Shifts</b>, pick a day, and put names on the hours. The Dashboard shows the crew of the current hour from this plan.</p>
   {% for d in days %}
-  <div style="border:1px solid {{ '#2563eb' if d.today else '#e2e8f0' }};border-radius:10px;padding:8px 12px;margin:8px 0;{{ 'background:#eff6ff' if d.today else '' }}">
-    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
-      <b style="font-size:1.02rem">{{ d.label }}</b>{% if d.today %}<span class="badge" style="background:#2563eb;color:#fff">TODAY</span>{% endif %}
-      {% if not d.planned %}<span class="muted small">not planned yet</span>{% endif %}
-    </div>
-    {% if d.entries %}
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-      {% for e in d.entries %}
-      <span style="display:inline-flex;gap:6px;align-items:center;border:1px solid #e2e8f0;border-radius:99px;padding:4px 12px;background:#fff">
-        <b>{{ e.worker.name }}</b>{% if e.worker.role %}<span class="muted small">{{ e.worker.role }}</span>{% endif %}
-        <span class="small" style="color:#1d4ed8;font-weight:700">{% for r in e.ranges %}{{ r[0] }}–{{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</span>
-      </span>
-      {% endfor %}
-    </div>
-    {% elif d.planned %}
-    <div class="muted small" style="margin-top:4px">No one assigned.</div>
-    {% endif %}
-  </div>
+  <table class="fixed" style="margin:8px 0">
+    <colgroup><col style="width:200px"><col></colgroup>
+    <tr {{ 'style="background:var(--brand-soft)"' if d.today }}>
+      <td><b style="font-size:1.02rem">{{ d.label }}</b>{% if d.today %} <span class="badge">TODAY</span>{% endif %}
+        {% if not d.planned %}<br><span class="muted small">not planned yet</span>{% endif %}</td>
+      <td>
+        {% if d.entries %}
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          {% for e in d.entries %}
+          <span style="display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--card)">
+            <b>{{ e.worker.name }}</b>{% if e.worker.role %}<span class="muted small">{{ e.worker.role }}</span>{% endif %}
+            <span class="small" style="color:var(--brand-strong);font-weight:600">{% for r in e.ranges %}{{ r[0] }}–{{ r[1] }}{{ ', ' if not loop.last else '' }}{% endfor %}</span>
+          </span>
+          {% endfor %}
+        </div>
+        {% elif d.planned %}
+        <span class="muted small">No one assigned.</span>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
   {% endfor %}
 </div>
 
 <div class="card">
-  <h3>Change Requests {% if pending %}<span class="badge" style="background:#dc2626;color:#fff">{{ pending|length }} pending</span>{% endif %}</h3>
+  <h3>Change Requests {% if pending %}<span class="badge" style="background:var(--red)">{{ pending|length }} pending</span>{% endif %}</h3>
   {% if pending %}
+    <table class="fixed">
+      <colgroup><col><col style="width:220px"></colgroup>
     {% for r in pending %}
-    <div class="rowline" style="align-items:flex-start;gap:10px;flex-wrap:wrap">
-      <div class="grow">
+    <tr>
+      <td>
         <b>{{ r.name }}</b>{% if r.to_shift %} — {{ r.from_shift if r.from_shift else 'not assigned' }} → <b>{{ 'OFF (no shift)' if r.to_shift=='OFF' else 'Shift ' + r.to_shift }}</b>{% endif %}
         {% if r.note %}<div>“{{ r.note }}”</div>{% endif %}
         <div class="muted small">requested {{ (r.created or '')[:16].replace('T',' ') }}</div>
-      </div>
-      <button type="button" class="btn small" style="background:#16a34a;color:#fff" onclick="decide('{{ r.id }}','approved')">Done ✓</button>
-      <button type="button" class="btn small" style="background:#f1f5f9;color:#991b1b" onclick="decide('{{ r.id }}','rejected')">Reject</button>
-    </div>
+      </td>
+      <td style="white-space:nowrap;text-align:right">
+        <button type="button" class="btn small primary" onclick="decide('{{ r.id }}','approved')">Done</button>
+        <button type="button" class="btn small danger" onclick="decide('{{ r.id }}','rejected')">Reject</button>
+      </td>
+    </tr>
     {% endfor %}
+    </table>
     <p class="muted small">Approving marks the request done — apply the actual change in Settings → Time Slots &amp; Shifts.</p>
   {% else %}
     <p class="muted">No pending requests.</p>
@@ -48,9 +56,9 @@
   {% if history %}
   <h4 style="margin:14px 0 6px">Recent decisions</h4>
     {% for r in history %}
-    <div class="small" style="padding:3px 0;border-bottom:1px solid #f1f5f9">
+    <div class="small" style="padding:3px 0;border-bottom:1px solid var(--line-soft)">
       <b>{{ r.name }}</b>{% if r.note %} — “{{ r.note }}”{% endif %} —
-      {% if r.status=='approved' %}<span style="color:#16a34a;font-weight:700">done</span>{% else %}<span style="color:#991b1b;font-weight:700">rejected</span>{% endif %}
+      {% if r.status=='approved' %}<span style="color:var(--green);font-weight:600">done</span>{% else %}<span style="color:var(--red);font-weight:600">rejected</span>{% endif %}
       <span class="muted">{{ (r.decided_at or '')[:16].replace('T',' ') }}</span>
     </div>
     {% endfor %}
