@@ -7,7 +7,6 @@
 .company-row:hover{border-color:var(--brand)}
 .company-row a.company-info{display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:var(--ink)}
 .company-row a.company-info:hover{text-decoration:none}
-.company-row .icon{font-size:1.5rem;flex:0 0 auto}
 .company-row .company-text{display:flex;flex-direction:column;min-width:0}
 .company-row .company-text strong{font-size:1.05rem}
 .company-row .company-text span{color:var(--muted);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -37,7 +36,6 @@
   {% for c in companies %}
   <div class="company-row">
     <a class="company-info" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
-      <span class="icon">💵</span>
       <span class="company-text">
         <strong>{{ c.name }}</strong>
         <span>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</span>
@@ -101,7 +99,7 @@ function toggleAddCompany() {
   var b = document.getElementById('add-company-toggle');
   if (f.style.display === 'none') {
     f.style.display = 'block';
-    b.textContent = '✕ Close';
+    b.textContent = 'Close';
   } else {
     f.style.display = 'none';
     b.textContent = '＋ Add a company';
