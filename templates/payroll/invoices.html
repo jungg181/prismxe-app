@@ -1,0 +1,34 @@
+{% extends "payroll/base.html" %}
+{% block title %}Saved Invoices · {{ company.name }}{% endblock %}
+{% block content %}
+<h1>Saved Invoices — {{ company.name }}</h1>
+<p class="sub">Invoices saved when their PDF was downloaded. Each one is a frozen snapshot — later payroll edits do not change it.</p>
+<div class="btn-row" style="margin-bottom:14px">
+  <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug) }}">Back to Payroll</a>
+</div>
+<div class="card">
+  {% if saved %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Invoice</th><th>Period</th><th>Saved</th><th class="num">Total</th><th></th></tr></thead>
+      <tbody>
+        {% for r in saved %}
+        <tr>
+          <td>{{ r.number }}</td>
+          <td>{{ r.start }} → {{ r.end }}</td>
+          <td>{{ (r.created or '')[:10] }}{% if r.updated and (r.updated or '')[:10] != (r.created or '')[:10] %} (updated {{ (r.updated or '')[:10] }}){% endif %}</td>
+          <td class="num">{{ money(r.total) }}</td>
+          <td>
+            <a class="btn secondary small" href="{{ url_for('.invoice_saved', company=company.slug, inv_id=r.id) }}">View</a>
+            <a class="btn secondary small" href="{{ url_for('.invoice_saved_pdf', company=company.slug, inv_id=r.id) }}">PDF</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="small muted">No invoices saved yet. Open an invoice and download its PDF — it will be saved here automatically.</p>
+  {% endif %}
+</div>
+{% endblock %}
