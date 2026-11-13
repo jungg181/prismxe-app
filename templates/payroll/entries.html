@@ -67,7 +67,7 @@
 
 {% if unmatched %}
 <div class="card">
-  <h2 style="margin-top:0">⚠️ Unmatched Names — Map to a Rate</h2>
+  <h2 style="margin-top:0">Unmatched Names — Map to a Rate</h2>
   <p class="small muted">These names appear in time entries but have no rate row for {{ company.name }}. Their hours are kept as entered, but pay and billing stay blank until mapped. Pick the matching rate row — nothing is guessed. Once mapped, future imports map the name automatically.</p>
   {% for name in unmatched %}
   <form method="post" action="{{ url_for('.save_alias', company=company.slug, **{'from': start, 'to': end}) }}">
