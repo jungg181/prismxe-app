@@ -32,6 +32,7 @@
   <div class="btn-row" style="margin-top:12px">
     <a class="btn secondary" href="{{ url_for('.invoices_list', company=company.slug) }}">Saved Invoices</a>
     <a class="btn" href="{{ url_for('.invoice_saved_pdf', company=company.slug, inv_id=rec.id) }}">Download PDF</a>
+    <form class="inline-form" method="post" action="{{ url_for('.delete_invoice', company=company.slug, inv_id=rec.id) }}" onsubmit="return confirm('Delete invoice {{ rec.number }}?')"><button class="btn danger" type="submit">Delete</button></form>
   </div>
 </div>
 {% endblock %}
