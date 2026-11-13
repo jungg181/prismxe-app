@@ -1,0 +1,37 @@
+{% extends "payroll/base.html" %}
+{% block title %}Invoice {{ rec.number }}{% endblock %}
+{% block content %}
+<h1>Invoice {{ rec.number }}</h1>
+<p class="sub">{{ company.vendor }} · {{ rec.start }} → {{ rec.end }} · Saved {{ (rec.created or '')[:10] }}{% if rec.updated and (rec.updated or '')[:10] != (rec.created or '')[:10] %} · Updated {{ (rec.updated or '')[:10] }}{% endif %}</p>
+
+<div class="card">
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Employee</th><th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for line in rec.lines %}
+        <tr{% if line.qty == 0 %} class="zero"{% endif %}>
+          <td>{{ line.employee }}</td><td>{{ line.type }}</td>
+          <td class="num">{{ line.qty }}</td><td class="num">{{ money(line.unit) }}</td>
+          <td class="num">{{ money(line.total) }}</td>
+        </tr>
+        {% endfor %}
+        {% for ex in rec.expenses %}
+        <tr><td>{{ ex.description }}</td><td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td colspan="4">Labour Total</td><td class="num">{{ money(rec.labour_total) }}</td></tr>
+        <tr><td colspan="4">Expenses Total</td><td class="num">{{ money(rec.expense_total) }}</td></tr>
+        <tr class="total"><td colspan="4">TOTAL</td><td class="num">{{ money(rec.total) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% if rec.excluded %}
+  <p class="small" style="margin-top:10px"><span class="badge">Not billed</span> {{ rec.excluded | join(', ') }} — no rate for {{ company.name }}, so no invoice line was created.</p>
+  {% endif %}
+  <p class="small muted">This is a saved snapshot. Later payroll edits do not change it.</p>
+  <div class="btn-row" style="margin-top:12px">
+    <a class="btn secondary" href="{{ url_for('.invoices_list', company=company.slug) }}">Saved Invoices</a>
+    <a class="btn" href="{{ url_for('.invoice_saved_pdf', company=company.slug, inv_id=rec.id) }}">Download PDF</a>
+  </div>
+</div>
+{% endblock %}
