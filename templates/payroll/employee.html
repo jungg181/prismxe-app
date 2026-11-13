@@ -1,8 +1,70 @@
 {% extends "payroll/base.html" %}
 {% block title %}{{ name }} — {{ company.name }}{% endblock %}
+{% block head %}
+<style>
+.cal-wrap{overflow-x:auto}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:540px}
+.cal-dow{font-weight:600;text-align:center;color:var(--muted);padding:4px 0;font-size:.85rem}
+.cal-cell{border:1px solid var(--line);border-radius:10px;min-height:64px;padding:6px}
+.cal-cell.blank{border-color:transparent}
+.cal-cell .d{font-weight:600}
+.cal-cell .io{font-size:.85em;color:var(--ink-2);margin-top:2px}
+.cal-cell .h{font-size:1.15em;font-weight:700;margin-top:6px}
+.cal-cell.worked{background:var(--tile-bg)}
+.cal-cell.today{border-width:2px;border-color:var(--brand)}
+.cal-cell .open{font-size:.85em;color:var(--amber)}
+@media (max-width:640px){.cal{min-width:0}.cal-cell{min-height:56px;padding:4px}}
+.email-form label{display:block;margin:10px 0}
+.email-form input[type=email],.email-form input[type=text],.email-form textarea{width:100%;box-sizing:border-box;margin-top:4px}
+</style>
+{% endblock %}
 {% block content %}
 <h1>{{ name }}</h1>
 <p class="sub">{{ company.name }}{% if rate and rate.employee_id %} · ID {{ rate.employee_id }}{% endif %} · {{ entries | length }} time entries · {{ fmt_hours(total_hours) }}h total{% if rate %} · Staffing {{ rate.staffing if rate.staffing is not none else '—' }} / Billing {{ rate.billing if rate.billing is not none else '—' }}{% else %} · <span class="badge">No rate</span>{% endif %}</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Payroll calendar</h2>
+  <p class="small muted">Per-day hours from payroll entries ({{ cal_start }} – {{ cal_end }}). Monday-first, same source as the payroll table — the two can never diverge.</p>
+  <form class="filters row-form" method="get" action="{{ url_for('.employee_page', company=company.slug, name=name) }}">
+    <label>From <input type="date" name="from" value="{{ cal_start }}"></label>
+    <label>To <input type="date" name="to" value="{{ cal_end }}"></label>
+    <button class="btn primary small" type="submit">Show</button>
+  </form>
+  <div class="stat-row">
+    <div class="stat"><div class="k">Total hours</div><div class="v">{{ cal_data.total_hours }}h</div></div>
+    <div class="stat"><div class="k">Days worked</div><div class="v">{{ cal_data.days_worked }}</div></div>
+  </div>
+  <div class="cal-wrap"><div class="cal">
+    <div class="cal-dow">Mon</div><div class="cal-dow">Tue</div><div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div><div class="cal-dow">Sun</div>
+    {% for week in cal_weeks %}
+    {% for iso in week %}
+    {% if iso < cal_start or iso > cal_end %}
+    <div class="cal-cell blank"></div>
+    {% else %}
+    <div class="cal-cell {% if cal_data.cal.get(iso) %}worked{% endif %} {% if iso == today_iso %}today{% endif %}">
+      <div class="d">{{ iso[5:7]|int }}/{{ iso[8:10]|int }}</div>
+      {% if cal_data.day_io.get(iso) %}<div class="io">{{ cal_data.day_io[iso] }}</div>
+      {% elif cal_data.open_in.get(iso) %}<div class="io">{{ cal_data.open_in[iso] }} – On shift</div>{% endif %}
+      {% if cal_data.cal.get(iso) %}<div class="h">{{ cal_data.cal[iso] }}h</div>{% endif %}
+      {% if iso in cal_data.open_days and cal_data.day_io.get(iso) %}<div class="open">On shift{% if cal_data.open_in.get(iso) %} · {{ cal_data.open_in[iso] }}{% endif %}</div>{% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+  </div></div>
+  <form class="email-form" method="post" action="{{ url_for('.calendar_email', company=company.slug) }}" style="margin-top:20px">
+    <input type="hidden" name="name" value="{{ name }}">
+    <input type="hidden" name="start" value="{{ cal_start }}">
+    <input type="hidden" name="end" value="{{ cal_end }}">
+    <h3>Email this payroll</h3>
+    <p class="small muted">Sends this calendar summary to the worker, with a link to review or correct it. Nothing is sent until you tap Send.</p>
+    <label>To <input type="email" name="to" value="" placeholder="worker email" required></label>
+    <label>Subject <input type="text" name="subject" value="{{ email_subject }}"></label>
+    <label>Message <textarea name="body" rows="10">{{ email_body }}</textarea></label>
+    <button class="btn primary small" type="submit">Send email</button>
+  </form>
+  <p style="margin-top:16px"><a href="{{ url_for('.payroll_corrections') }}">View payroll corrections</a></p>
+</div>
 
 <div class="card">
   <h2 style="margin-top:0">Edit employee</h2>
