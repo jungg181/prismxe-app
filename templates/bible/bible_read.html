@@ -1,51 +1,70 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>성경일독 — 읽기</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", serif; background: #faf7ef; color: #2c2c2c; }
-  .topbar { position: sticky; top: 0; z-index: 10; background: #6b4f2a; color: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-  .topbar a { color: #fff; text-decoration: none; font-size: 1.3rem; }
-  .topbar h2 { font-size: 1.1rem; }
+  body { font-family: -apple-system, "Noto Sans KR", "Malgun Gothic", serif; background: var(--bg); color: var(--ink); }
+  .topbar { position: sticky; top: 0; z-index: 10; background: var(--card); color: var(--ink); border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar a { color: var(--ink); text-decoration: none; font-size: 1.3rem; }
+  .topbar h2 { font-size: 1.1rem; font-weight: 600; }
   .wrap { max-width: 680px; margin: 0 auto; padding: 16px 16px 120px; }
-  .verse { padding: 12px 10px; border-radius: 10px; line-height: 2; font-size: 1.15rem; margin-bottom: 4px; }
-  .verse .vn { display: inline-block; min-width: 2em; font-size: .8em; color: #a08c5f; font-weight: 700; vertical-align: top; margin-right: 6px; }
-  .verse.tts-active { background: #fff3d6; box-shadow: inset 4px 0 0 #d4a017; }
-  .verse.voice-done { background: #e8f5e0; }
-  .verse.voice-done .vn { color: #5a8a4a; }
-  .verse.voice-current { background: #fff3d6; box-shadow: inset 4px 0 0 #d4a017; }
-  .controls { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5dcc3; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); z-index: 20; }
+  .verse { padding: 12px 10px; border-radius: 8px; line-height: 2; font-size: 1.15rem; margin-bottom: 4px; }
+  .verse .vn { display: inline-block; min-width: 2em; font-size: .8em; color: var(--muted); font-weight: 600; vertical-align: top; margin-right: 6px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .verse.tts-active { background: var(--brand-soft); box-shadow: inset 4px 0 0 var(--brand); }
+  .verse.voice-done { background: var(--green-bg); }
+  .verse.voice-done .vn { color: var(--green); }
+  .verse.voice-current { background: var(--brand-soft); box-shadow: inset 4px 0 0 var(--brand); }
+  .controls { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); z-index: 20; }
   .controls .row { display: flex; gap: 8px; align-items: center; justify-content: center; max-width: 680px; margin: 0 auto; }
-  .cbtn { flex: 1; padding: 12px 6px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; background: #efe8d8; color: #6b4f2a; }
-  .cbtn.on { background: #6b4f2a; color: #fff; }
+  .cbtn { flex: 1; padding: 12px 6px; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: var(--tile-bg); color: var(--ink-2); }
+  .cbtn.on { background: var(--brand); border-color: var(--brand); color: #0a0a0b; }
   .cbtn:disabled { opacity: .4; }
-  .cbtn.mic-on { background: #c0392b; color: #fff; animation: pulse 1.2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
-  .nav-row { display: flex; gap: 8px; margin: 18px 0; }
-  .nav-row a { flex: 1; text-align: center; padding: 13px; background: #fff; border: 1px solid #e5dcc3; border-radius: 10px; color: #6b4f2a; font-weight: 700; text-decoration: none; }
+  .cbtn.mic-on { background: var(--red); border-color: var(--red); color: #fff; }
+  .nav-row { display: flex; gap: 8px; margin: 16px 0; }
+  .nav-row a { flex: 1; text-align: center; padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; color: var(--brand); font-weight: 600; text-decoration: none; }
   .mark-row { margin: 8px 0 20px; }
-  #markBtn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: #5a8a4a; color: #fff; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
-  #markBtn.done { background: #9dc08b; }
-  .speed { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: #8a7a5c; }
-  .speed select { padding: 8px; border-radius: 8px; border: 1px solid #e5dcc3; font-size: .9rem; }
+  #markBtn { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--brand); color: #0a0a0b; font-size: 1.05rem; font-weight: 600; cursor: pointer; }
+  #markBtn.done { background: var(--green); color: #0a0a0b; }
+  .speed { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+  .speed select { padding: 8px; border-radius: 8px; border: 1px solid var(--line); font-size: .9rem; background: var(--input-bg); color: var(--ink); }
   .voice-bar { margin-top: 8px; }
-  .voice-bar .track { height: 10px; background: #e8dfc9; border-radius: 5px; overflow: hidden; }
-  .voice-bar .fill { height: 100%; background: linear-gradient(90deg,#9dc08b,#5a8a4a); width: 0%; transition: width .4s; }
-  .voice-bar .lbl { font-size: .82rem; color: #8a7a5c; margin-top: 4px; text-align: center; }
-  #voiceStatus { font-size: .85rem; color: #8a7a5c; text-align: center; margin-top: 6px; min-height: 1.2em; }
+  .voice-bar .track { height: 10px; background: var(--tile-bg); border-radius: 8px; overflow: hidden; }
+  .voice-bar .fill { height: 100%; background: var(--brand); width: 0%; }
+  .voice-bar .lbl { font-size: .82rem; color: var(--muted); margin-top: 4px; text-align: center; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  #voiceStatus { font-size: .85rem; color: var(--muted); text-align: center; margin-top: 8px; min-height: 1.2em; }
   .hidden { display: none !important; }
-  .panel { background: #fff; border-radius: 12px; padding: 14px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-  .panel h3 { font-size: 1rem; margin-bottom: 8px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 8px; }
+  .panel h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
 </style>
 </head>
 <body data-book="{{ book }}" data-chapter="{{ chapter }}">
 <div class="topbar">
   <a href="/bible/">‹</a>
   <h2 id="chapTitle">불러오는 중...</h2>
-  <a href="/bible/" style="font-size:1rem;">🏠</a>
+  <a href="/bible/" style="font-size:1rem;">홈</a>
 </div>
 
 <div class="wrap">
@@ -55,20 +74,20 @@
     <a id="nextLink" href="#">다음 장 ›</a>
   </div>
   <div class="mark-row">
-    <button id="markBtn">✓ 이 장을 읽었어요</button>
+    <button id="markBtn">이 장을 읽었어요</button>
   </div>
 </div>
 
 <div class="controls">
   <div class="row">
-    <button class="cbtn" id="ttsBtn">🔊 읽어주기</button>
-    <button class="cbtn" id="micBtn">🎤 따라읽기</button>
+    <button class="cbtn" id="ttsBtn">읽어주기</button>
+    <button class="cbtn" id="micBtn">따라읽기</button>
   </div>
   <div class="panel hidden" id="ttsPanel">
-    <h3>🔊 읽어주기</h3>
+    <h3>읽어주기</h3>
     <div class="row">
-      <button class="cbtn" id="ttsPlay">▶ 재생</button>
-      <button class="cbtn" id="ttsStop">⏹ 정지</button>
+      <button class="cbtn" id="ttsPlay">재생</button>
+      <button class="cbtn" id="ttsStop">정지</button>
       <div class="speed">속도
         <select id="ttsRate">
           <option value="0.8">0.8x</option>
@@ -86,9 +105,9 @@
     <div id="voiceHint" class="hidden" style="font-size:.82rem;color:#a08c5f;margin-top:6px;line-height:1.5"></div>
   </div>
   <div class="panel hidden" id="voicePanel">
-    <h3>🎤 따라읽기 — 소리 내어 읽으면 색칠돼요</h3>
+    <h3>따라읽기 — 소리 내어 읽으면 색칠돼요</h3>
     <div class="row">
-      <button class="cbtn" id="micToggle">🎤 시작</button>
+      <button class="cbtn" id="micToggle">시작</button>
     </div>
     <div class="voice-bar">
       <div class="track"><div class="fill" id="voiceFill"></div></div>
@@ -138,13 +157,13 @@ async function updateMarkBtn() {
   const p = await fetch('/bible/api/progress').then(r=>r.json());
   const read = (p.read||{})[String(BOOK)] || [];
   const btn = document.getElementById('markBtn');
-  if (read.includes(CHAPTER)) { btn.textContent = '✓ 읽음 완료'; btn.classList.add('done'); }
+  if (read.includes(CHAPTER)) { btn.textContent = '읽음 완료'; btn.classList.add('done'); }
 }
 document.getElementById('markBtn').onclick = async () => {
   if (!ME) { alert('이메일로 로그인하면 읽은 기록이 저장돼요.'); location.href='/bible/auth'; return; }
   await saveProgress({mark_read:{book:BOOK, chapter:CHAPTER}});
   const btn = document.getElementById('markBtn');
-  btn.textContent = '✓ 읽음 완료'; btn.classList.add('done');
+  btn.textContent = '읽음 완료'; btn.classList.add('done');
 };
 
 // ---------- panel toggles ----------
@@ -202,7 +221,7 @@ function showVoiceHint(show) {
   if (!h) return;
   if (show) {
     h.classList.remove('hidden');
-    h.textContent = '💡 이 기기에는 기본 목소리만 있어요. 휴대폰에서 열면 더 자연스러운 한국어 목소리(Google 한국어 등)를 쓸 수 있어요.';
+    h.textContent = '이 기기에는 기본 목소리만 있어요. 휴대폰에서 열면 더 자연스러운 한국어 목소리(Google 한국어 등)를 쓸 수 있어요.';
   } else {
     h.classList.add('hidden');
   }
@@ -254,20 +273,20 @@ function startTTS() {
   if (!('speechSynthesis' in window)) { alert('이 브라우저는 읽어주기를 지원하지 않아요.'); return; }
   speechSynthesis.cancel();
   ttsPlaying = true;
-  document.getElementById('ttsPlay').textContent = '⏸ 일시정지';
+  document.getElementById('ttsPlay').textContent = '일시정지';
   speakVerse(0);
 }
 function stopTTS() {
   ttsPlaying = false;
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  document.getElementById('ttsPlay').textContent = '▶ 재생';
+  document.getElementById('ttsPlay').textContent = '재생';
   document.querySelectorAll('.verse').forEach(e=>e.classList.remove('tts-active'));
 }
 document.getElementById('ttsPlay').onclick = () => {
   if (ttsPlaying && speechSynthesis.speaking && !speechSynthesis.paused) {
-    speechSynthesis.pause(); document.getElementById('ttsPlay').textContent = '▶ 계속';
+    speechSynthesis.pause(); document.getElementById('ttsPlay').textContent = '계속';
   } else if (ttsPlaying && speechSynthesis.paused) {
-    speechSynthesis.resume(); document.getElementById('ttsPlay').textContent = '⏸ 일시정지';
+    speechSynthesis.resume(); document.getElementById('ttsPlay').textContent = '일시정지';
   } else startTTS();
 };
 document.getElementById('ttsStop').onclick = stopTTS;
@@ -313,7 +332,7 @@ function updateVoiceHighlight() {
   document.getElementById('voiceFill').style.width = pct + '%';
   document.getElementById('voiceLabel').textContent = `${doneCount} / ${VERSES.length} 절 (${pct}%)`;
   if (doneCount === VERSES.length) {
-    setStatus('다 읽었어요! 🎉');
+    setStatus('다 읽었어요');
     document.getElementById('markBtn').click();
   }
 }
@@ -349,7 +368,7 @@ function startVoice() {
   try {
     rec.start();
     recOn = true;
-    document.getElementById('micToggle').textContent = '⏹ 중지';
+    document.getElementById('micToggle').textContent = '중지';
     document.getElementById('micToggle').classList.add('mic-on');
     setStatus('듣고 있어요... 소리 내어 읽어보세요.');
   } catch(e) { setStatus('음성 인식을 시작할 수 없어요.'); }
@@ -359,7 +378,7 @@ function stopVoice() {
   recOn = false;
   if (rec) { try { rec.stop(); } catch(e){} rec = null; }
   const t = document.getElementById('micToggle');
-  if (t) { t.textContent = '🎤 시작'; t.classList.remove('mic-on'); }
+  if (t) { t.textContent = '시작'; t.classList.remove('mic-on'); }
 }
 document.getElementById('micToggle').onclick = () => { recOn ? stopVoice() : startVoice(); };
 
