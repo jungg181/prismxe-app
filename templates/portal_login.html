@@ -1,32 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PrismXE · Password</title>
 <style>
+  :root{
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --ink:#18181b; --ink-2:#3f3f46; --muted:#71717a; --faint:#a1a1aa;
+    --bg:#f4f4f5; --card:#ffffff; --line:#e4e4e7; --line-soft:#f4f4f5;
+    --input-bg:#ffffff; --hover-bg:#f4f4f5; --tile-bg:#f4f4f5;
+    --brand:#16a34a; --brand-strong:#15803d; --brand-soft:#dcfce7;
+    --brand-ring:rgba(22,163,74,.18);
+    --green:#16a34a; --green-bg:#dcfce7;
+    --red:#dc2626; --red-bg:#fee2e2;
+    --radius:8px;
+  }
+  [data-theme="dark"]{
+    --ink:#e8e8ea; --ink-2:#b0b0b5; --muted:#8a8a90; --faint:#5c5c62;
+    --bg:#0a0a0b; --card:#131316; --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --input-bg:#1a1a1d; --hover-bg:#1e1e21; --tile-bg:#1e1e21;
+    --brand:#4ade80; --brand-strong:#86efac; --brand-soft:#0f1f14;
+    --brand-ring:rgba(74,222,128,.28);
+    --green:#4ade80; --green-bg:#0f1f14;
+    --red:#f87171; --red-bg:#2a1214;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-         background: #0f172a; color: #e2e8f0; min-height: 100vh;
+         background: var(--bg); color: var(--ink); min-height: 100vh;
          display: flex; flex-direction: column; align-items: center;
          justify-content: center; padding: 24px 16px; }
-  h1 { font-size: 2rem; letter-spacing: 2px; margin-bottom: 8px; }
-  p.sub { color: #94a3b8; margin-bottom: 28px; }
-  .box { background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+  h1 { font-size: 2rem; letter-spacing: 2px; font-weight: 600; margin-bottom: 8px; }
+  p.sub { color: var(--muted); margin-bottom: 28px; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
          padding: 28px 24px; width: 100%; max-width: 360px; }
-  .box p { color: #94a3b8; margin-bottom: 14px; text-align: center; }
-  .err { color: #f87171; margin-bottom: 12px; text-align: center; }
-  input { width: 100%; padding: 12px 14px; font-size: 1.05rem; border-radius: 10px;
-          border: 1px solid #334155; background: #0f172a; color: #e2e8f0;
+  .box p { color: var(--muted); margin-bottom: 12px; text-align: center; }
+  .err { color: var(--red); margin-bottom: 12px; text-align: center; }
+  input { width: 100%; padding: 12px 14px; font-size: 1.05rem; border-radius: 8px;
+          border: 1px solid var(--line); background: var(--input-bg); color: var(--ink);
           margin-bottom: 12px; }
-  button { width: 100%; padding: 12px; font-size: 1.05rem; font-weight: 700;
-           border: none; border-radius: 10px; background: #3b82f6; color: #fff;
+  input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); }
+  input::placeholder { color: var(--faint); }
+  button { width: 100%; padding: 12px; font-size: 1.05rem; font-weight: 600;
+           border: none; border-radius: 8px; background: var(--brand); color: #0a0a0b;
            cursor: pointer; }
-  button:hover { background: #2563eb; }
+  button:hover { background: var(--brand-strong); }
 </style>
 </head>
 <body>
-  <h1>PRISM<span style="color:#3b82f6">XE</span></h1>
+  <h1>PRISM<span style="color:var(--brand)">XE</span></h1>
   <p class="sub">Company apps portal</p>
   <form class="box" method="post" action="/">
     <p>Enter the password to open the portal.</p>
