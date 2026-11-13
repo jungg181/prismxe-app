@@ -8,9 +8,9 @@
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="num">{{ open_incidents }}</div><div class="lbl">Open incidents</div></div>
-  <div class="stat"><div class="num">{{ open_defects }}</div><div class="lbl">Open defects</div></div>
-  <div class="stat"><div class="num">{{ low_stock }}</div><div class="lbl">Low stock items</div></div>
+  {% if open_incidents %}<div class="stat"><div class="num">{{ open_incidents }}</div><div class="lbl">Open incidents</div></div>{% endif %}
+  {% if open_defects %}<div class="stat"><div class="num">{{ open_defects }}</div><div class="lbl">Open defects</div></div>{% endif %}
+  {% if low_stock %}<div class="stat"><div class="num">{{ low_stock }}</div><div class="lbl">Low stock items</div></div>{% endif %}
   <div class="stat"><div class="num">{{ on_site }}</div><div class="lbl">On site today</div></div>
 </div>
 
@@ -34,20 +34,24 @@
 </table>
 </div>
 
-<div class="section-head"><h2>Recent incidents</h2><a href="{{ url_for('.incidents') }}">View all <span aria-hidden="true">→</span></a></div>
+{% if recent_incidents %}
+<div class="section-head"><h2>Recent incidents</h2></div>
 {% for i in recent_incidents %}
 <div class="card list-row">
   <span class="sev sev-{{ i.severity }}">{{ i.severity }}</span>
   <div><b>{{ site_name(i.site_id) }}</b><div class="muted small">{{ i.description[:90] }}</div></div>
   <span class="muted small nowrap">{{ fmt_dt(i.created_at) }}</span>
 </div>
-{% else %}<div class="card"><div class="card-body empty">No incidents reported.</div></div>{% endfor %}
+{% endfor %}
+{% endif %}
 
-<div class="section-head"><h2>Overdue defects</h2><a href="{{ url_for('.qa') }}">View all <span aria-hidden="true">→</span></a></div>
+{% if overdue %}
+<div class="section-head"><h2>Overdue defects</h2></div>
 {% for d in overdue %}
 <div class="card list-row">
   <span class="sev sev-{{ d.severity }}">{{ d.severity }}</span>
   <div><b>{{ d.category }}</b> — {{ site_name(d.site_id) }}<div class="muted small">Due {{ d.due_date }} · {{ d.location }}</div></div>
 </div>
-{% else %}<div class="card"><div class="card-body empty">No overdue defects.</div></div>{% endfor %}
+{% endfor %}
+{% endif %}
 {% endblock %}
