@@ -886,6 +886,67 @@ def add_day_hours(company):
                                "to": end.isoformat()}))
 
 
+@bp.post("/<company>/add-employee")
+def add_employee(company):
+    """Add an employee to a company from its payroll page: creates a
+    rate row (name + staffing/billing + optional shift, position,
+    employee ID). The new employee has no time entries yet, so they
+    do not appear in the main employee table until hours are added;
+    they can be seen under Rates. Refuses a name that already has a
+    rate row in this company, and an employee ID already used by
+    another worker anywhere (same rules as the employee page)."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    back = redirect(url_for(".company_payroll", company=co["slug"],
+                            **{"from": start.isoformat(),
+                               "to": end.isoformat()}))
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        flash("Employee name is required.")
+        return back
+    try:
+        staffing = float(request.form.get("staffing"))
+    except (TypeError, ValueError):
+        staffing = None
+    try:
+        billing = float(request.form.get("billing"))
+    except (TypeError, ValueError):
+        billing = None
+    if staffing is None or billing is None:
+        flash("Staffing and Billing rates are required.")
+        return back
+    shift = (request.form.get("shift") or "").strip() or None
+    position = (request.form.get("position") or "").strip() or None
+    employee_id = (request.form.get("employee_id") or "").strip()
+    # Refuse a name that already has a rate row in this company.
+    if any(r.get("company") == co["name"]
+           and (r.get("name") or "") == name
+           for r in DB.get("rates", [])):
+        flash(f"{name} already has a rate in {co['name']}.")
+        return back
+    # Refuse an employee ID already used by another worker anywhere
+    # (the ID identifies one person across companies).
+    if employee_id:
+        dup = next((r for r in DB.get("rates", [])
+                    if (r.get("employee_id") or "").strip() == employee_id
+                    and (r.get("name") or "") != name), None)
+        if dup is not None:
+            flash(f"Employee ID {employee_id} is already used by "
+                  f"{dup.get('name')} ({dup.get('company')}).")
+            return back
+    DB["rates"].append({
+        "id": "rate-" + uuid.uuid4().hex[:8], "name": name,
+        "company": co["name"], "staffing": staffing,
+        "billing": billing, "employee_id": employee_id or None,
+        "shift": shift, "position": position,
+    })
+    save_db()
+    flash(f"Added {name} to {co['name']}. See them under Rates.")
+    return back
+
+
 @bp.get("/<company>/export.csv")
 def export_csv(company):
     co = find_company(company)
