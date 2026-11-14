@@ -78,6 +78,57 @@
 </div>
 
 <div class="card">
+  <h2 style="margin-top:0">Monthly Add</h2>
+  <p class="small muted">One employee, one whole month at once. Pick the employee and the month, load the days, then fill in the hours for the days worked — blank days are skipped. Exact duplicates are skipped too.</p>
+  <form method="get" action="{{ url_for('.entries', company=company.slug) }}">
+    <input type="hidden" name="from" value="{{ start }}">
+    <input type="hidden" name="to" value="{{ end }}">
+    <div class="form-grid">
+      <div><label for="monthly_employee">Employee</label><input id="monthly_employee" name="monthly_employee" list="names" value="{{ monthly_employee }}" placeholder="Exact name" required></div>
+      <div><label for="monthly_month">Month</label><input id="monthly_month" name="monthly_month" type="month" value="{{ monthly_month or start[:7] }}" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn secondary" type="submit">Load Days</button>
+    </div>
+  </form>
+  {% if monthly_days %}
+  <p class="small" style="margin-top:16px"><strong>{{ monthly_employee }}</strong> · {{ monthly_month }}</p>
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="action" value="monthly_add">
+    <input type="hidden" name="employee" value="{{ monthly_employee }}">
+    <div class="table-scroll">
+      <table style="table-layout:fixed">
+        <colgroup>
+          <col style="width:140px">
+          <col style="width:90px">
+          <col style="width:110px">
+          <col style="width:110px">
+          <col style="width:120px">
+          <col style="width:140px">
+        </colgroup>
+        <thead><tr><th>Date</th><th>Payroll Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for iso, label in monthly_days %}
+          <tr>
+            <td>{{ label }}<input type="hidden" name="days[{{ loop.index0 }}][date]" value="{{ iso }}"></td>
+            <td><input type="number" name="days[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7"></td>
+            <td><input name="days[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM"></td>
+            <td><input name="days[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM"></td>
+            <td><input name="days[{{ loop.index0 }}][site]" placeholder="e.g. LGES"></td>
+            <td><input name="days[{{ loop.index0 }}][notes]" placeholder="e.g. KB"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add Entries</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2 style="margin-top:0">Import CSV</h2>
   <p class="small muted">Columns: Employee, Date, Payroll Hours, Notes + optional Clock-In, Clock-Out, Site. Re-importing the same file skips exact duplicates.</p>
   <p class="small"><a href="{{ url_for('.import_app', company=company.slug, **{'from': start, 'to': end}) }}">Or import from the app →</a> pull time records straight from CM, Hanseong Patrol, COA or Patrol COA (preview first).</p>
