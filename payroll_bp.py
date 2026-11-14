@@ -31,6 +31,7 @@ Computation lives in payroll_calc.py (pure functions). Rates are looked
 up by (employee name + company) exact match; a missing rate leaves pay
 and billing blank and flags the row — never $0. Sheets stay untouched.
 """
+import calendar
 import csv
 import io
 import json
@@ -527,6 +528,42 @@ def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
         "site": site, "notes": notes,
         "jobsite_id": jobsite_id or None,
     }
+
+
+def _insert_entries(co, candidates):
+    """Insert many entries at once (Bulk Add / Monthly Add).
+    candidates: (employee, day, hours, clock_in, clock_out, site, notes)
+    tuples, already parsed. Rows missing employee, day or hours are
+    skipped; exact duplicates (same _entry_key the CSV import uses)
+    are skipped too, so a double-submit adds nothing twice.
+    Returns (added, skipped)."""
+    existing = {_entry_key(e) for e in DB.get("entries", [])}
+    added = skipped = 0
+    for employee, day, hours, clock_in, clock_out, site, notes in candidates:
+        if not employee or not day or hours is None:
+            skipped += 1
+            continue
+        entry = _entry_from_values(
+            co, employee, day, hours, clock_in, clock_out, site, notes)
+        if _entry_key(entry) in existing:
+            skipped += 1
+            continue
+        entry["id"] = uuid.uuid4().hex[:12]
+        existing.add(_entry_key(entry))
+        DB["entries"].append(entry)
+        added += 1
+    return added, skipped
+
+
+def _flash_bulk_result(added, skipped):
+    if added and skipped:
+        flash(f"Added {added} entries ({skipped} skipped).")
+    elif added:
+        flash(f"Added {added} entries.")
+    elif skipped:
+        flash(f"No entries added ({skipped} skipped).")
+    else:
+        flash("No entries to add.")
 
 
 def _norm_header(name):
@@ -2571,8 +2608,7 @@ def entries(company):
             # no parseable date, or no parseable hours is skipped;
             # exact duplicates (same key the CSV import uses) are
             # skipped too, so a double-submit adds nothing twice.
-            existing = {_entry_key(e) for e in DB.get("entries", [])}
-            added = skipped = 0
+            candidates = []
             for i in range(10):
                 p = f"rows[{i}]"
                 employee = (request.form.get(p + "[employee]") or "").strip()
@@ -2590,29 +2626,45 @@ def entries(company):
                     hours = float(raw_hours) if raw_hours else None
                 except ValueError:
                     hours = None
-                if not employee or not day or hours is None:
-                    skipped += 1
-                    continue
-                entry = _entry_from_values(
-                    co, employee, day, hours, clock_in, clock_out,
-                    site, notes)
-                if _entry_key(entry) in existing:
-                    skipped += 1
-                    continue
-                entry["id"] = uuid.uuid4().hex[:12]
-                existing.add(_entry_key(entry))
-                DB["entries"].append(entry)
-                added += 1
+                candidates.append((employee, day, hours, clock_in,
+                                   clock_out, site, notes))
+            added, skipped = _insert_entries(co, candidates)
             if added:
                 save_db()
-            if added and skipped:
-                flash(f"Added {added} entries ({skipped} skipped).")
-            elif added:
-                flash(f"Added {added} entries.")
-            elif skipped:
-                flash(f"No entries added ({skipped} skipped).")
-            else:
-                flash("No entries to add.")
+            _flash_bulk_result(added, skipped)
+        elif action == "monthly_add":
+            # Monthly Add: one employee, one whole month. The employee
+            # is picked once; each day of the month is a row. Same
+            # skip/dedup rules as Bulk Add — blank days are ignored,
+            # days without parseable hours are skipped, exact
+            # duplicates are skipped.
+            employee = (request.form.get("employee") or "").strip()
+            candidates = []
+            for i in range(31):
+                p = f"days[{i}]"
+                raw_date = (request.form.get(p + "[date]") or "").strip()
+                raw_hours = (request.form.get(p + "[payroll_hours]") or "").strip()
+                clock_in = (request.form.get(p + "[clock_in]") or "").strip()
+                clock_out = (request.form.get(p + "[clock_out]") or "").strip()
+                site = (request.form.get(p + "[site]") or "").strip()
+                notes = (request.form.get(p + "[notes]") or "").strip()
+                # The date is always present (hidden field), so a day
+                # with no hours and nothing else is just a day off —
+                # ignore it, don't count it as skipped.
+                if not any([raw_hours, clock_in,
+                            clock_out, site, notes]):
+                    continue
+                day = _parse_entry_date(raw_date)
+                try:
+                    hours = float(raw_hours) if raw_hours else None
+                except ValueError:
+                    hours = None
+                candidates.append((employee, day, hours, clock_in,
+                                   clock_out, site, notes))
+            added, skipped = _insert_entries(co, candidates)
+            if added:
+                save_db()
+            _flash_bulk_result(added, skipped)
         else:
             employee = (request.form.get("employee") or "").strip()
             day = _parse_entry_date(request.form.get("date"))
@@ -2675,11 +2727,31 @@ def entries(company):
                           if e.get("company") == co["name"]
                           and (e.get("employee") or "") == _n)
         unmatched_notes[_n] = _notes.most_common(1)[0][0] if _notes else ""
+    # Monthly Add: if a month was picked, list every day of it so the
+    # template can render one row per day. The label shows the weekday
+    # ("Thu 10/01") so weekends are easy to spot and skip.
+    monthly_month = (request.args.get("monthly_month") or "").strip()
+    monthly_employee = (request.args.get("monthly_employee") or "").strip()
+    monthly_days = []
+    if monthly_month:
+        try:
+            _y, _m = int(monthly_month[:4]), int(monthly_month[5:7])
+            _ndays = calendar.monthrange(_y, _m)[1]
+            for _d in range(1, _ndays + 1):
+                _dt = date(_y, _m, _d)
+                monthly_days.append((_dt.isoformat(),
+                                     _dt.strftime("%a %m/%d")))
+        except (ValueError, IndexError):
+            monthly_month = ""
+            monthly_days = []
     return render_template(
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
         names=names, unmatched=unmatched,
         unmatched_notes=unmatched_notes,
+        monthly_days=monthly_days,
+        monthly_employee=monthly_employee,
+        monthly_month=monthly_month,
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
         jobsites=sorted(DB.get("jobsites", []),
