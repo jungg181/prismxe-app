@@ -32,7 +32,9 @@
 </div>
 
 <div class="card">
-  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+    <button class="btn secondary" type="button" id="add-employee-toggle" onclick="toggleAddEmployee('add-employee-form', 'add-employee-toggle')">＋ Add Employee</button>
+    <div style="display:flex;align-items:center;gap:8px">
     <label class="muted small" for="emp-sort">Sort</label>
     <select id="emp-sort" onchange="sortEmployees(this.value)">
       <option value="name">Name (A–Z)</option>
@@ -42,6 +44,37 @@
       <option value="gross-desc">Gross Pay (High → Low)</option>
       <option value="gross-asc">Gross Pay (Low → High)</option>
     </select>
+    </div>
+  </div>
+  <div id="add-employee-form" style="display:none;margin-bottom:12px">
+    <p class="small muted">Adds a rate row for {{ company.name }} — name, staffing (worker pay) and billing (client charge) rates, plus optional shift, position and employee ID. A new employee has no time entries yet, so they will not appear in the table below until hours are added; see them under <a href="{{ url_for('.company_rates', company=company.slug) }}">Rates</a>.</p>
+    <datalist id="shift-list">
+      <option value="4AM-12PM"></option>
+      <option value="12PM-8PM"></option>
+      <option value="8PM-4AM (Night)"></option>
+    </datalist>
+    <datalist id="position-list">
+      <option value="F"></option>
+      <option value="H"></option>
+      <option value="Foreman"></option>
+      <option value="Helper"></option>
+      <option value="Supervisor"></option>
+    </datalist>
+    <form method="post" action="{{ url_for('.add_employee', company=company.slug, **{'from': start, 'to': end}) }}">
+      <div class="form-grid">
+        <div><label for="emp-name">Employee name</label><input id="emp-name" name="name" placeholder="Exact name" required></div>
+        <div><label for="emp-staffing">Staffing Rate ($/h)</label><input id="emp-staffing" name="staffing" type="number" step="0.01" min="0" placeholder="e.g. 24" required></div>
+        <div><label for="emp-billing">Billing Rate ($/h)</label><input id="emp-billing" name="billing" type="number" step="0.01" min="0" placeholder="e.g. 39" required></div>
+        <div><label for="emp-shift">Shift</label><input id="emp-shift" name="shift" type="text" list="shift-list" placeholder="e.g. 7AM-7PM"></div>
+        <div><label for="emp-position">Position</label><input id="emp-position" name="position" type="text" list="position-list" placeholder="e.g. Helper"></div>
+        <div><label for="emp-eid">Employee ID</label><input id="emp-eid" name="employee_id" type="text" placeholder="e.g. E001 (optional)"></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn" type="submit">Add Employee</button>
+        <button class="btn secondary" type="button" onclick="toggleAddEmployee('add-employee-form', 'add-employee-toggle')">Cancel</button>
+        <a class="btn secondary" href="{{ url_for('.company_rates', company=company.slug) }}">View Rates</a>
+      </div>
+    </form>
   </div>
   <div class="table-scroll">
     <table id="emp-table">
@@ -173,6 +206,37 @@
   <p>No time entries for {{ company.name }} in this period.</p>
   <div class="btn-row">
     <a class="btn" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">Add Time Entries</a>
+    <button class="btn secondary" type="button" id="add-employee-toggle-empty" onclick="toggleAddEmployee('add-employee-form-empty', 'add-employee-toggle-empty')">＋ Add Employee</button>
+  </div>
+  <div id="add-employee-form-empty" style="display:none;margin-top:12px">
+    <p class="small muted">Adds a rate row for {{ company.name }} — name, staffing (worker pay) and billing (client charge) rates, plus optional shift, position and employee ID. A new employee has no time entries yet, so they will not appear in the table until hours are added; see them under <a href="{{ url_for('.company_rates', company=company.slug) }}">Rates</a>.</p>
+    <datalist id="shift-list">
+      <option value="4AM-12PM"></option>
+      <option value="12PM-8PM"></option>
+      <option value="8PM-4AM (Night)"></option>
+    </datalist>
+    <datalist id="position-list">
+      <option value="F"></option>
+      <option value="H"></option>
+      <option value="Foreman"></option>
+      <option value="Helper"></option>
+      <option value="Supervisor"></option>
+    </datalist>
+    <form method="post" action="{{ url_for('.add_employee', company=company.slug, **{'from': start, 'to': end}) }}">
+      <div class="form-grid">
+        <div><label for="emp-name-empty">Employee name</label><input id="emp-name-empty" name="name" placeholder="Exact name" required></div>
+        <div><label for="emp-staffing-empty">Staffing Rate ($/h)</label><input id="emp-staffing-empty" name="staffing" type="number" step="0.01" min="0" placeholder="e.g. 24" required></div>
+        <div><label for="emp-billing-empty">Billing Rate ($/h)</label><input id="emp-billing-empty" name="billing" type="number" step="0.01" min="0" placeholder="e.g. 39" required></div>
+        <div><label for="emp-shift-empty">Shift</label><input id="emp-shift-empty" name="shift" type="text" list="shift-list" placeholder="e.g. 7AM-7PM"></div>
+        <div><label for="emp-position-empty">Position</label><input id="emp-position-empty" name="position" type="text" list="position-list" placeholder="e.g. Helper"></div>
+        <div><label for="emp-eid-empty">Employee ID</label><input id="emp-eid-empty" name="employee_id" type="text" placeholder="e.g. E001 (optional)"></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn" type="submit">Add Employee</button>
+        <button class="btn secondary" type="button" onclick="toggleAddEmployee('add-employee-form-empty', 'add-employee-toggle-empty')">Cancel</button>
+        <a class="btn secondary" href="{{ url_for('.company_rates', company=company.slug) }}">View Rates</a>
+      </div>
+    </form>
   </div>
 </div>
 {% endif %}
@@ -206,6 +270,21 @@
     form.addEventListener('submit', function(ev){ ev.preventDefault(); saveForm(form); });
   });
 })();
+
+// Add Employee: reveal/hide the inline form (same pattern as the
+// "+ Add a company" button on the payroll index).
+function toggleAddEmployee(formId, btnId){
+  var f = document.getElementById(formId);
+  var b = document.getElementById(btnId);
+  if(!f) return;
+  if(f.style.display === 'none'){
+    f.style.display = 'block';
+    if(b) b.textContent = 'Close';
+  } else {
+    f.style.display = 'none';
+    if(b) b.textContent = '＋ Add Employee';
+  }
+}
 
 // Sort the employee table. Each employee's Days detail row moves with its
 // main row; the PAYROLL TOTAL row always stays last.
