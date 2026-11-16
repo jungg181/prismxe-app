@@ -821,6 +821,7 @@ def company_payroll(company):
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
         days_by_employee=days_by_employee,
+        companies=DB.get("companies", []),
         money=_money, fmt_hours=_fmt_hours)
 
 
