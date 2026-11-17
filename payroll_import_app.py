@@ -18,10 +18,13 @@ Hours rules (stated in the UI next to the preview):
   date. An in-punch with no matching out-punch is an open shift:
   skipped and listed as "still clocked in".
 
-Name matching: exact (employee name + company) against the rates
-first, then the stored alias map (same system as CSV import). Rows
-with no rate match are shown as such and are NOT imported until the
-user maps the name (or skips it). Nothing is ever auto-guessed.
+Name matching: employee name + company against the rates first,
+then the stored alias map (same system as CSV import). Matching is
+case-insensitive: source files spell some names with different
+capitalisation ("Argenis cabana" vs rate "Argenis Cabana") and a
+case difference is never a different person. Rows with no rate
+match are shown as such and are NOT imported until the user maps
+the name (or skips it). Nothing is ever auto-guessed.
 
 All functions here are pure (inputs in, preview rows out) so they
 can be unit-tested with synthetic fixture files.
@@ -50,6 +53,11 @@ HOURS_RULE_TEXT = (
     "rounded to the nearest 0.5h, capped at 12h per day. Dates use the "
     "clock-in date. Open shifts (still clocked in) are skipped."
 )
+
+
+def _fold(name):
+    """Case-insensitive name key: strip + casefold."""
+    return (name or "").strip().casefold()
 
 
 def parse_local(value):
@@ -264,13 +272,19 @@ def build_preview(app_dir, source, company, rates, aliases, start, end):
     alias_map = {(a.get("alias") or "").strip(): (a.get("canonical") or "").strip()
                  for a in aliases or []
                  if (a.get("company") or "").strip() == company}
+    # Case-insensitive lookup: source files spell some names with
+    # different capitalisation ("Argenis cabana" vs rate "Argenis
+    # Cabana"). A case difference is never a different person.
+    rate_by_fold = {_fold(n): n for n in rate_names}
+    alias_by_fold = {_fold(a): c for a, c in alias_map.items()}
     for row in rows:
         name = (row["employee"] or "").strip()
+        fold = _fold(name)
         canonical = None
-        if name in rate_names:
-            canonical = name
-        elif name in alias_map and alias_map[name] in rate_names:
-            canonical = alias_map[name]
+        if fold in rate_by_fold:
+            canonical = rate_by_fold[fold]
+        elif fold in alias_by_fold and alias_by_fold[fold] in rate_names:
+            canonical = alias_by_fold[fold]
         row["matched"] = canonical
         if canonical:
             rate = rate_names[canonical]
@@ -284,27 +298,39 @@ def build_preview(app_dir, source, company, rates, aliases, start, end):
 
 
 def import_rows(preview_rows, existing_entries, company, aliases,
-                source_label=""):
+                source_label="", use_canonical=False):
     """Decide what a confirmed app-import would add.
 
     Only rows with a matched rate row are imported (unmatched rows are
     returned separately so the summary can count them — they are never
     imported silently). Exact duplicates — same company + canonical
-    employee + date + hours — are skipped. Returns
+    employee + date + hours — are skipped; the employee comparison is
+    case-insensitive so a source spelling ("Argenis cabana") does not
+    re-add a row already stored as "Argenis Cabana". Returns
     (entries_to_add, n_duplicates, unmatched_rows). Entries keep the
-    RAW as-entered name; the alias system resolves it at payroll time.
-    The source label is kept in Notes so the origin stays traceable.
+    RAW as-entered name, unless use_canonical is set: the nightly
+    auto-sync stores the canonical rate-row name instead, so payroll
+    math matches it without needing a stored alias. The source label
+    is kept in Notes so the origin stays traceable.
     """
     alias_map = {(a.get("alias") or "").strip(): (a.get("canonical") or "").strip()
                  for a in aliases or []
                  if (a.get("company") or "").strip() == company}
+    alias_by_fold = {_fold(a): c for a, c in alias_map.items()}
+
+    def fold_canon(name):
+        """Canonical name for duplicate comparison: resolve the alias
+        (case-insensitively), then fold case."""
+        n = (name or "").strip()
+        return alias_by_fold.get(_fold(n), n).casefold()
+
     seen = set()
     for e in existing_entries or []:
         if (e.get("company") or "").strip() != company:
             continue
         name = (e.get("employee") or "").strip()
-        canonical = alias_map.get(name, name)
-        seen.add((company, canonical, (e.get("date") or "").strip(),
+        seen.add((company, fold_canon(name),
+                  (e.get("date") or "").strip(),
                   float(e.get("payroll_hours") or 0)))
     to_add, unmatched = [], []
     n_dupes = 0
@@ -312,15 +338,17 @@ def import_rows(preview_rows, existing_entries, company, aliases,
         if not row.get("matched"):
             unmatched.append(row)
             continue
-        key = (company, row["matched"], row["date"],
-               float(row["hours"] or 0))
+        key = (company, (row["matched"] or "").strip().casefold(),
+               row["date"], float(row["hours"] or 0))
         if key in seen:
             n_dupes += 1
             continue
         seen.add(key)
+        employee = ((row["matched"] if use_canonical else
+                     (row["employee"] or "").strip()))
         to_add.append({
             "company": company,
-            "employee": (row["employee"] or "").strip(),
+            "employee": employee,
             "date": row["date"],
             "payroll_hours": round(float(row["hours"] or 0), 2),
             "clock_in": row.get("clock_in") or "",
