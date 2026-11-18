@@ -4,6 +4,8 @@
 <h1>{{ job.code }}</h1>
 <p class="sub">{{ job.name }} · {{ job.company }}{% if job.site %} · {{ job.site }}{% endif %}{% if summary.parent %} · Location of <a href="{{ url_for('.jobsite_detail', job_id=summary.parent.id) }}">{{ summary.parent.code }}</a>{% endif %}</p>
 
+<p><a class="btn" href="{{ url_for('.edit_jobsite', job_id=job.id) }}">Edit Jobsite</a></p>
+
 <div class="stat-row">
   <div class="stat"><div class="k">Revenue (billed)</div><div class="v">${{ '%.2f' % summary.pnl.revenue }}</div></div>
   <div class="stat"><div class="k">Labor cost</div><div class="v">${{ '%.2f' % summary.pnl.labor_cost }}</div></div>
