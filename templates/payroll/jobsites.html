@@ -2,44 +2,46 @@
 {% block title %}Jobsites{% endblock %}
 {% block content %}
 <h1>Jobsites</h1>
-<p class="sub">One jobsite per job won. Each jobsite pulls its labor revenue + labor cost from the time entries tagged with it, and its other purchase costs from the list below. Profit = Revenue − Labor − Other costs. A big site like LGES can have locations under it — pick a parent below to add a location. A parent's numbers roll up its own entries plus every location under it.</p>
+<p class="sub">One jobsite per job won. Profit = revenue − labor − other costs; a parent rolls up its own entries plus every location.</p>
 
 <div class="card">
-  <h2 style="margin-top:0">Add a Jobsite</h2>
+  <h2>Add a Jobsite</h2>
   <form method="post" action="{{ url_for('.jobsites') }}">
     <div class="form-grid">
       <div><label for="code">Jobsite ID</label><input id="code" name="code" placeholder="e.g. LGES-1026" required></div>
       <div><label for="name">Name</label><input id="name" name="name" placeholder="e.g. Hanseong LGES staffing"></div>
       <div><label for="company">Company</label><select id="company" name="company" required><option value="">— pick —</option>{% for c in companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></div>
       <div><label for="site">Site (optional)</label><input id="site" name="site" placeholder="e.g. LGES"></div>
-      <div><label for="parent_id">Parent Jobsite (optional)</label><select id="parent_id" name="parent_id"><option value="">— Top-level jobsite —</option>{% for j in top_jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select><p class="small muted" style="margin:4px 0 0">Pick a parent to add this as a location under it (e.g. LGES → Building A). Leave blank for a top-level jobsite.</p></div>
+      <div><label for="parent_id">Parent Jobsite (optional)</label><select id="parent_id" name="parent_id"><option value="">— Top-level jobsite —</option>{% for j in top_jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select><p class="small muted field-help">Pick a parent to add this as a location under it (e.g. LGES → Building A). Leave blank for a top-level jobsite.</p></div>
     </div>
-    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Jobsite</button></div>
+    <div class="form-actions"><button class="btn" type="submit">Add Jobsite</button></div>
   </form>
 </div>
 
 {% if summaries %}
 <div class="card">
-  <h2 style="margin-top:0">All Jobsites ({{ total_count }})</h2>
+  <h2>All Jobsites ({{ total_count }})</h2>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Jobsite ID</th><th>Name</th><th>Company</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor Cost</th><th class="num">Other Costs</th><th class="num">Profit</th><th class="num">Margin</th><th></th></tr></thead>
+      <thead><tr><th>Jobsite ID</th><th>Name</th><th>Company</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor cost</th><th class="num">Other costs</th><th class="num">Profit</th><th class="num">Margin</th><th></th></tr></thead>
       <tbody>
         {% for s in summaries %}
         <tr>
-          <td><a href="{{ url_for('.jobsite_detail', job_id=s.job.id) }}"><strong>{{ s.job.code }}</strong></a></td>
+          <td><a href="{{ url_for('.jobsite_detail', job_id=s.job.id) }}">{{ s.job.code }}</a></td>
           <td>{{ s.job.name }}</td>
           <td>{{ s.job.company }}{% if s.job.site %} · {{ s.job.site }}{% endif %}</td>
-          <td class="num">{{ s.summary.pnl.total_hours }}</td>
+          <td class="num">{{ '%.1f' % s.summary.pnl.total_hours }}h{% if s.summary.pnl.total_hours %}<span class="hours-split">{{ '%.2f' % s.summary.pnl.reg_hours }} reg · {{ '%.2f' % s.summary.pnl.ot_hours }} OT</span>{% endif %}</td>
           <td class="num">${{ '%.2f' % s.summary.pnl.revenue }}</td>
           <td class="num">${{ '%.2f' % s.summary.pnl.labor_cost }}</td>
           <td class="num">${{ '%.2f' % s.summary.other_total }}</td>
-          <td class="num"><strong>${{ '%.2f' % s.summary.profit }}</strong></td>
+          <td class="num profit-fig">${{ '%.2f' % s.summary.profit }}</td>
           <td class="num">{% if s.summary.margin is not none %}{{ s.summary.margin }}%{% else %}—{% endif %}</td>
           <td>
-            <a class="btn small" href="{{ url_for('.edit_jobsite', job_id=s.job.id) }}">Edit</a>
+            <a class="btn secondary small" href="{{ url_for('.edit_jobsite', job_id=s.job.id) }}">Edit</a>
             {% if s.summary.children %}
             <span class="muted small">{{ s.summary.children | length }} location(s)</span>
+            {% elif s.summary.pnl.lines or s.summary.costs %}
+            <span class="muted small">In use</span>
             {% else %}
             <form class="inline-form" method="post" action="{{ url_for('.delete_jobsite', job_id=s.job.id) }}" onsubmit="return confirm('Remove jobsite {{ s.job.code }}? Only jobsites with no entries or costs can be removed.')">
               <button class="btn danger small" type="submit">Remove</button>
@@ -49,20 +51,24 @@
         </tr>
         {% for c in s.summary.children %}
         <tr>
-          <td style="padding-left:28px"><a href="{{ url_for('.jobsite_detail', job_id=c.job.id) }}">↳ <strong>{{ c.job.code }}</strong></a> <span class="badge">Location</span></td>
+          <td class="loc-indent"><a href="{{ url_for('.jobsite_detail', job_id=c.job.id) }}">↳ {{ c.job.code }}</a> <span class="loc-tag">Location</span></td>
           <td>{{ c.job.name }}</td>
           <td>{{ c.job.company }}{% if c.job.site %} · {{ c.job.site }}{% endif %}</td>
-          <td class="num">{{ c.summary.pnl.total_hours }}</td>
+          <td class="num">{{ '%.1f' % c.summary.pnl.total_hours }}h{% if c.summary.pnl.total_hours %}<span class="hours-split">{{ '%.2f' % c.summary.pnl.reg_hours }} reg · {{ '%.2f' % c.summary.pnl.ot_hours }} OT</span>{% endif %}</td>
           <td class="num">${{ '%.2f' % c.summary.pnl.revenue }}</td>
           <td class="num">${{ '%.2f' % c.summary.pnl.labor_cost }}</td>
           <td class="num">${{ '%.2f' % c.summary.other_total }}</td>
-          <td class="num"><strong>${{ '%.2f' % c.summary.profit }}</strong></td>
+          <td class="num profit-fig">${{ '%.2f' % c.summary.profit }}</td>
           <td class="num">{% if c.summary.margin is not none %}{{ c.summary.margin }}%{% else %}—{% endif %}</td>
           <td>
-            <a class="btn small" href="{{ url_for('.edit_jobsite', job_id=c.job.id) }}">Edit</a>
+            <a class="btn secondary small" href="{{ url_for('.edit_jobsite', job_id=c.job.id) }}">Edit</a>
+            {% if c.summary.pnl.lines or c.summary.costs %}
+            <span class="muted small">In use</span>
+            {% else %}
             <form class="inline-form" method="post" action="{{ url_for('.delete_jobsite', job_id=c.job.id) }}" onsubmit="return confirm('Remove location {{ c.job.code }}? Only locations with no entries or costs can be removed.')">
               <button class="btn danger small" type="submit">Remove</button>
             </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
