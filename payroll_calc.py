@@ -324,7 +324,7 @@ def compute_payroll(entries, rates, company, start, end,
 def compute_jobsite_pnl(entries, rates, jobsite_id,
                         ot_threshold=DEFAULT_OT_THRESHOLD,
                         ot_multiplier=DEFAULT_OT_MULTIPLIER,
-                        aliases=None):
+                        aliases=None, jobsite_ids=None):
     """Profit & loss for ONE jobsite, from the time entries tagged
     with that jobsite id.
 
@@ -337,14 +337,20 @@ def compute_jobsite_pnl(entries, rates, jobsite_id,
     as regular. That makes the per-jobsite revenue and labor cost
     add up exactly to the company payroll for the same entries.
 
+    jobsite_ids: optional set of ids to include (a parent jobsite
+    plus its sub-jobsites). Defaults to {jobsite_id}. The weekly OT
+    walk still runs over the worker's whole week, so a parent's
+    rollup and its sub-jobsites' numbers add up exactly.
+
     entries: iterable of dicts with keys company, employee, date
         (YYYY-MM-DD), payroll_hours, jobsite_id. Extra keys ignored.
     rates: iterable of dicts with keys name, company, staffing, billing.
     Returns {reg_hours, ot_hours, total_hours, revenue, labor_cost,
              no_rate (sorted employee names with hours but no rate),
              lines: [{employee, date, hours, reg_hours, ot_hours,
-                      revenue, labor_cost, no_rate}] — one per tagged
-             entry, in date order}. Money rounded to 2 decimals.
+                      revenue, labor_cost, no_rate, jobsite_id}] —
+             one per tagged entry, in date order}. Money rounded to
+             2 decimals.
     """
     entries = resolve_aliases(entries, aliases)
     rate_by_key = {}
@@ -353,6 +359,7 @@ def compute_jobsite_pnl(entries, rates, jobsite_id,
         comp = (r.get("company") or "").strip()
         if name and comp:
             rate_by_key[(name, comp)] = r
+    ids = set(jobsite_ids) if jobsite_ids is not None else {jobsite_id}
 
     # Group ALL entries (any jobsite) by (employee, week) so the
     # weekly 40h threshold is applied to the worker's whole week,
@@ -388,7 +395,7 @@ def compute_jobsite_pnl(entries, rates, jobsite_id,
             reg_h = max(0.0, min(h, ot_threshold - used))
             ot_h = max(0.0, h - reg_h)
             used += h
-            if (e.get("jobsite_id") or "") != jobsite_id:
+            if (e.get("jobsite_id") or "") not in ids:
                 continue
             if comp is None:
                 comp = (e.get("company") or "").strip()
@@ -404,6 +411,7 @@ def compute_jobsite_pnl(entries, rates, jobsite_id,
                     "hours": round(h, 2), "reg_hours": round(reg_h, 2),
                     "ot_hours": round(ot_h, 2),
                     "revenue": None, "labor_cost": None, "no_rate": True,
+                    "jobsite_id": e.get("jobsite_id"),
                 })
                 continue
             rev = reg_h * billing + ot_h * billing * ot_multiplier
@@ -418,6 +426,7 @@ def compute_jobsite_pnl(entries, rates, jobsite_id,
                 "ot_hours": round(ot_h, 2),
                 "revenue": _money(rev), "labor_cost": _money(lab),
                 "no_rate": False,
+                "jobsite_id": e.get("jobsite_id"),
             })
     lines.sort(key=lambda x: (x["date"], x["employee"].lower()))
     return {
