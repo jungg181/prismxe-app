@@ -2540,6 +2540,62 @@ def delete_jobsite(job_id):
     return redirect(url_for(".jobsites"))
 
 
+@bp.route("/jobsites/<job_id>/edit", methods=["GET", "POST"])
+def edit_jobsite(job_id):
+    """Edit a jobsite's ID, name, company, site, or parent. The
+    jobsite's id never changes, so tagged time entries and purchase
+    costs stay attached. Guards: the code stays globally unique; a
+    jobsite with locations under it cannot become a location itself
+    (two levels only); the parent must be a top-level jobsite and
+    never the jobsite itself."""
+    job = find_jobsite(job_id)
+    if job is None:
+        flash("Unknown jobsite.")
+        return redirect(url_for(".jobsites"))
+    top = sorted((j for j in DB.get("jobsites", [])
+                  if not (j.get("parent_id") or "") and j is not job),
+                 key=lambda x: (x.get("code") or "").lower())
+    if request.method == "GET":
+        return render_template("payroll/edit_jobsite.html", job=job,
+                               companies=DB.get("companies", []),
+                               top_jobsites=top)
+    code = (request.form.get("code") or "").strip()
+    name = (request.form.get("name") or "").strip()
+    company = (request.form.get("company") or "").strip()
+    site = (request.form.get("site") or "").strip()
+    parent = find_jobsite(request.form.get("parent_id") or "")
+    if not code:
+        flash("Jobsite ID is required.")
+    elif any((j.get("code") or "").strip().lower() == code.lower()
+             for j in DB.get("jobsites", []) if j is not job):
+        flash(f"A jobsite with ID {code} already exists.")
+    elif not company:
+        flash("Company is required.")
+    elif parent is not None and parent is job:
+        flash("A jobsite cannot be its own parent.")
+    elif parent is not None and _jobsite_parent(parent) is not None:
+        flash(f"{parent['code']} is itself a location — a location "
+              "cannot have locations of its own. Pick a top-level "
+              "jobsite as the parent.")
+    elif parent is not None and _jobsite_children(job):
+        flash(f"{job['code']} still has "
+              f"{len(_jobsite_children(job))} location(s) under it — "
+              "a jobsite with locations cannot become a location "
+              "itself. Remove the locations first.")
+    else:
+        job["code"] = code
+        job["name"] = name or code
+        job["company"] = company
+        job["site"] = site
+        job["parent_id"] = parent["id"] if parent else None
+        save_db()
+        flash(f"Jobsite {code} updated.")
+        return redirect(url_for(".jobsite_detail", job_id=job["id"]))
+    return render_template("payroll/edit_jobsite.html", job=job,
+                           companies=DB.get("companies", []),
+                           top_jobsites=top)
+
+
 @bp.route("/jobsites/<job_id>")
 def jobsite_detail(job_id):
     job = find_jobsite(job_id)
