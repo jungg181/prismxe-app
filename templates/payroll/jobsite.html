@@ -1,39 +1,38 @@
 {% extends "payroll/base.html" %}
 {% block title %}{{ job.code }} · Jobsite{% endblock %}
 {% block content %}
-<h1>{{ job.code }}</h1>
+<div class="page-head">
+  <h1>{{ job.code }}</h1>
+  <a class="btn secondary" href="{{ url_for('.edit_jobsite', job_id=job.id) }}">Edit Jobsite</a>
+</div>
 <p class="sub">{{ job.name }} · {{ job.company }}{% if job.site %} · {{ job.site }}{% endif %}{% if summary.parent %} · Location of <a href="{{ url_for('.jobsite_detail', job_id=summary.parent.id) }}">{{ summary.parent.code }}</a>{% endif %}</p>
 
-<p><a class="btn" href="{{ url_for('.edit_jobsite', job_id=job.id) }}">Edit Jobsite</a></p>
-
 <div class="stat-row">
+  <div class="stat profit"><div class="k">Profit</div><div class="v">${{ '%.2f' % summary.profit }}</div></div>
   <div class="stat"><div class="k">Revenue (billed)</div><div class="v">${{ '%.2f' % summary.pnl.revenue }}</div></div>
   <div class="stat"><div class="k">Labor cost</div><div class="v">${{ '%.2f' % summary.pnl.labor_cost }}</div></div>
   <div class="stat"><div class="k">Other costs</div><div class="v">${{ '%.2f' % summary.other_total }}</div></div>
-  <div class="stat"><div class="k">Profit</div><div class="v">${{ '%.2f' % summary.profit }}</div></div>
   <div class="stat"><div class="k">Margin</div><div class="v">{% if summary.margin is not none %}{{ summary.margin }}%{% else %}—{% endif %}</div></div>
-  <div class="stat"><div class="k">Hours</div><div class="v">{{ summary.pnl.total_hours }}h</div><div class="small muted">{{ summary.pnl.reg_hours }} reg · {{ summary.pnl.ot_hours }} OT</div></div>
+  <div class="stat"><div class="k">Hours</div><div class="v">{{ '%.1f' % summary.pnl.total_hours }}h</div>{% if summary.pnl.total_hours %}<div class="hours-split">{{ '%.2f' % summary.pnl.reg_hours }} reg · {{ '%.2f' % summary.pnl.ot_hours }} OT</div>{% endif %}</div>
 </div>
-
-<p class="small muted">Overtime is weekly per worker (over 40h in a Mon–Sun week at 1.5×). When a worker splits a week across jobsites, the OT hours are the ones that push the week over 40 — the later days in the week — so the per-jobsite numbers add up exactly to the company payroll.</p>
 
 {% if summary.children %}
 <div class="card">
-  <h2 style="margin-top:0">Locations ({{ summary.children | length }})</h2>
+  <h2>Locations ({{ summary.children | length }})</h2>
   <p class="small muted">The numbers above roll up this jobsite plus every location below. Each location keeps its own P&amp;L.</p>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Location</th><th>Name</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor Cost</th><th class="num">Other Costs</th><th class="num">Profit</th></tr></thead>
+      <thead><tr><th>Location</th><th>Name</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor cost</th><th class="num">Other costs</th><th class="num">Profit</th></tr></thead>
       <tbody>
         {% for c in summary.children %}
         <tr>
-          <td><a href="{{ url_for('.jobsite_detail', job_id=c.job.id) }}"><strong>{{ c.job.code }}</strong></a></td>
+          <td><a href="{{ url_for('.jobsite_detail', job_id=c.job.id) }}">{{ c.job.code }}</a></td>
           <td>{{ c.job.name }}</td>
-          <td class="num">{{ c.summary.pnl.total_hours }}</td>
+          <td class="num">{{ '%.1f' % c.summary.pnl.total_hours }}h{% if c.summary.pnl.total_hours %}<span class="hours-split">{{ '%.2f' % c.summary.pnl.reg_hours }} reg · {{ '%.2f' % c.summary.pnl.ot_hours }} OT</span>{% endif %}</td>
           <td class="num">${{ '%.2f' % c.summary.pnl.revenue }}</td>
           <td class="num">${{ '%.2f' % c.summary.pnl.labor_cost }}</td>
           <td class="num">${{ '%.2f' % c.summary.other_total }}</td>
-          <td class="num"><strong>${{ '%.2f' % c.summary.profit }}</strong></td>
+          <td class="num profit-fig">${{ '%.2f' % c.summary.profit }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -44,23 +43,23 @@
 
 {% if summary.pnl.no_rate %}
 <div class="card">
-  <h2 style="margin-top:0">No rate — not counted in revenue or labor cost</h2>
+  <h2>No rate — not counted in revenue or labor cost</h2>
   <p class="small muted">These workers have hours on this jobsite but no rate row, so their pay and billing stay blank. Add a rate for them and the numbers update.</p>
   <p>{{ summary.pnl.no_rate | join(', ') }}</p>
 </div>
 {% endif %}
 
 <div class="card">
-  <h2 style="margin-top:0">Time entries on this jobsite ({{ summary.pnl.lines | length }})</h2>
+  <h2>Time entries on this jobsite ({{ summary.pnl.lines | length }})</h2>
   {% if summary.pnl.lines %}
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Date</th><th>Employee</th>{% if summary.children %}<th>Location</th>{% endif %}<th class="num">Hours</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Revenue</th><th class="num">Labor Cost</th></tr></thead>
+      <thead><tr><th>Date</th><th>Employee</th>{% if summary.children %}<th>Location</th>{% endif %}<th class="num">Hours</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Revenue</th><th class="num">Labor cost</th></tr></thead>
       <tbody>
         {% for line in summary.pnl.lines %}
         <tr>
-          <td>{{ line.date }}</td><td>{{ line.employee }}</td>{% if summary.children %}<td>{% if line.jobsite_id and line.jobsite_id != job.id %}{{ jobsite_by_id[line.jobsite_id].code if jobsite_by_id.get(line.jobsite_id) else '—' }}{% else %}—{% endif %}</td>{% endif %}<td class="num">{{ line.hours }}</td>
-          <td class="num">{{ line.reg_hours }}</td><td class="num">{{ line.ot_hours }}</td>
+          <td>{{ line.date }}</td><td>{{ line.employee }}</td>{% if summary.children %}<td>{% if line.jobsite_id and line.jobsite_id != job.id %}{{ jobsite_by_id[line.jobsite_id].code if jobsite_by_id.get(line.jobsite_id) else '—' }}{% else %}—{% endif %}</td>{% endif %}<td class="num">{{ '%.1f' % line.hours }}</td>
+          <td class="num">{{ '%.2f' % line.reg_hours }}</td><td class="num">{{ '%.2f' % line.ot_hours }}</td>
           <td class="num">{% if line.revenue is not none %}${{ '%.2f' % line.revenue }}{% else %}—{% endif %}</td>
           <td class="num">{% if line.labor_cost is not none %}${{ '%.2f' % line.labor_cost }}{% else %}—{% endif %}</td>
         </tr>
@@ -68,13 +67,14 @@
       </tbody>
     </table>
   </div>
+  <p class="small muted table-note">Overtime is weekly per worker (over 40h in a Mon–Sun week at 1.5×). When a worker splits a week across jobsites, the OT hours are the ones that push the week over 40 — the later days in the week — so the per-jobsite numbers add up exactly to the company payroll.</p>
   {% else %}
   <p class="muted">No time entries tagged to this jobsite yet. Tag them from the Time Entries page — open the company's entries, pick this jobsite, and use "Tag untagged entries", or set it on a single entry with Edit.</p>
   {% endif %}
 </div>
 
 <div class="card">
-  <h2 style="margin-top:0">Other purchase costs ({{ summary.costs | length }})</h2>
+  <h2>Other purchase costs ({{ summary.costs | length }})</h2>
   {% if summary.costs %}
   <div class="table-scroll">
     <table>
@@ -102,7 +102,7 @@
       <div><label for="amount">Amount ($)</label><input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" required></div>
       <div><label for="date">Date</label><input id="date" name="date" type="date"></div>
     </div>
-    <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Cost</button></div>
+    <div class="form-actions"><button class="btn" type="submit">Add Cost</button></div>
   </form>
 </div>
 
