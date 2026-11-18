@@ -114,8 +114,11 @@ def timecard_rows(data, start, end):
 
     Returns (rows, skipped). A row is one closed timecard:
     {employee, date (clock-in date), hours, clock_in, clock_out,
-    clock_out_date, site, notes}. Skipped rows carry a reason
-    ('still clocked in' when clock_out is missing)."""
+    clock_out_date, site, notes, jobsite_id}. The jobsite_id is the
+    payroll jobsite (or location) the worker picked at clock-in on
+    /staffing/onsite; it is None when the punch was not tagged.
+    Skipped rows carry a reason ('still clocked in' when clock_out
+    is missing)."""
     workers = {w.get("id"): (w.get("name") or "").strip()
                for w in data.get("workers", [])}
     sites = {s.get("id"): (s.get("name") or "").strip()
@@ -150,6 +153,7 @@ def timecard_rows(data, start, end):
             "clock_out_date": co.date().isoformat(),
             "site": sites.get(t.get("site_id"), ""),
             "notes": t.get("notes") or "",
+            "jobsite_id": (t.get("jobsite_id") or "") or None,
         })
     rows.sort(key=lambda r: (r["date"], r["employee"].lower()))
     return rows, skipped
@@ -356,6 +360,7 @@ def import_rows(preview_rows, existing_entries, company, aliases,
             "clock_out_date": row.get("clock_out_date"),
             "gross_hours": None,
             "site": row.get("site") or "",
+            "jobsite_id": (row.get("jobsite_id") or "") or None,
             "notes": (row.get("notes") or "").strip()
                      or (f"Imported from {source_label}"
                          if source_label else ""),
