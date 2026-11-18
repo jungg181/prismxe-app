@@ -30,7 +30,12 @@
       <div><label for="clock_out">Clock-Out (optional)</label><input id="clock_out" name="clock_out" value="{{ edit_entry.clock_out if edit_entry else '' }}" placeholder="e.g. 3:30 PM"></div>
       <div><label for="site">Site (optional)</label><input id="site" name="site" value="{{ edit_entry.site if edit_entry else '' }}" placeholder="e.g. LGES"></div>
       <div><label for="notes">Notes (optional)</label><input id="notes" name="notes" value="{{ edit_entry.notes if edit_entry else '' }}" placeholder="e.g. KB"></div>
-      <div><label for="jobsite_id">Jobsite (optional)</label><select id="jobsite_id" name="jobsite_id"><option value="">— Unassigned —</option>{% for j in jobsites %}<option value="{{ j.id }}"{{ ' selected' if edit_entry and (edit_entry.jobsite_id or '') == j.id else '' }}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
+      <div><label for="jobsite_id">Jobsite (optional)</label><select id="jobsite_id" name="jobsite_id"><option value="">— Unassigned —</option>{% for j in jobsites %}<option value="{{ j.id }}"{{ ' selected' if edit_entry and (edit_jobsite_id or '') == j.id else '' }}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
+    </div>
+    <div id="location-picker" style="display:none;margin-top:4px">
+      <label style="margin-top:0">Location — tap one</label>
+      <div class="loc-btns" id="location-btns"></div>
+      <input type="hidden" id="sub_jobsite_id" name="sub_jobsite_id" value="{{ edit_location_id or '' }}">
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">{{ 'Save Changes' if edit_entry else 'Add Entry' }}</button>
@@ -150,6 +155,11 @@
       <div style="flex:1;min-width:180px"><label style="margin-top:0" for="assign_jobsite_id">Jobsite</label><select id="assign_jobsite_id" name="jobsite_id" required><option value="">— pick —</option>{% for j in jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
       <button class="btn" type="submit">Tag untagged entries</button>
     </div>
+    <div id="assign-location-picker" style="display:none;margin-top:10px">
+      <label style="margin-top:0">Location — tap one</label>
+      <div class="loc-btns" id="assign-location-btns"></div>
+      <input type="hidden" id="assign_sub_jobsite_id" name="sub_jobsite_id" value="">
+    </div>
   </form>
 </div>
 {% endif %}
@@ -209,7 +219,7 @@
         <tr>
           <td>{{ e.date }}</td><td><a href="{{ url_for('.employee_page', company=company.slug, name=e.employee) }}">{{ e.employee }}</a>{% if alias_map.get(e.employee) %}<br><span class="badge ok">→ {{ alias_map[e.employee] }}</span>{% endif %}</td><td class="num">{{ e.payroll_hours }}</td>
           <td>{{ e.clock_in or '—' }}</td><td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
-          <td>{{ e.site or '—' }}</td><td>{{ jobsite_by_id[e.jobsite_id].code if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) else '—' }}</td><td>{{ e.notes or '—' }}</td>
+          <td>{{ e.site or '—' }}</td><td>{% if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) %}{% set _jj = jobsite_by_id[e.jobsite_id] %}{% if _jj.parent_id and jobsite_by_id.get(_jj.parent_id) %}{{ jobsite_by_id[_jj.parent_id].code }} / {% endif %}{{ _jj.code }}{% else %}—{% endif %}</td><td>{{ e.notes or '—' }}</td>
           <td>
             <a class="btn secondary small" href="{{ url_for('.entries', company=company.slug, edit=e.id, **{'from': start, 'to': end}) }}">Edit</a>
             <form class="inline-form" method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" onsubmit="return confirm('Delete this entry?')">
@@ -227,4 +237,47 @@
   <p>No entries in this period. Add one above or import a CSV.</p>
   {% endif %}
 </div>
+<script>
+// Location picker: direct-click buttons, not a dropdown. When the
+// picked jobsite has locations under it, one button per location
+// appears (plus "Parent only"). Tapping a button stores the location
+// id in the hidden field; the server tags the entry to the location.
+var SUBS_BY_PARENT = {{ subjobsites_by_parent | tojson }};
+function setupLocationPicker(selectId, btnsId, inputId, pickerId) {
+  var sel = document.getElementById(selectId);
+  var btns = document.getElementById(btnsId);
+  var input = document.getElementById(inputId);
+  var picker = document.getElementById(pickerId);
+  if (!sel || !btns || !input || !picker) return;
+  function setLocation(id) {
+    input.value = id || '';
+    Array.prototype.forEach.call(btns.children, function (b) {
+      b.classList.toggle('on', b.dataset.loc === (id || ''));
+    });
+  }
+  function render() {
+    var subs = SUBS_BY_PARENT[sel.value] || [];
+    btns.innerHTML = '';
+    if (!subs.length) { picker.style.display = 'none'; input.value = ''; return; }
+    picker.style.display = 'block';
+    var all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
+    all.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'loc-btn';
+      b.dataset.loc = s.id;
+      b.textContent = s.code + (s.name && s.name !== s.code ? ' — ' + s.name : '');
+      b.addEventListener('click', function () { setLocation(s.id); });
+      btns.appendChild(b);
+    });
+    var cur = input.value || '';
+    if (cur && !subs.some(function (s) { return s.id === cur; })) cur = '';
+    setLocation(cur);
+  }
+  sel.addEventListener('change', render);
+  render();
+}
+setupLocationPicker('jobsite_id', 'location-btns', 'sub_jobsite_id', 'location-picker');
+setupLocationPicker('assign_jobsite_id', 'assign-location-btns', 'assign_sub_jobsite_id', 'assign-location-picker');
+</script>
 {% endblock %}
