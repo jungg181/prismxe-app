@@ -11,9 +11,9 @@
       <div><label for="name">Name</label><input id="name" name="name" value="{{ job.name }}"></div>
       <div><label for="company">Company</label><select id="company" name="company" required><option value="">— pick —</option>{% for c in companies %}<option value="{{ c.name }}" {% if c.name == job.company %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
       <div><label for="site">Site (optional)</label><input id="site" name="site" value="{{ job.site or '' }}" placeholder="e.g. LGES"></div>
-      <div><label for="parent_id">Parent Jobsite (optional)</label><select id="parent_id" name="parent_id"><option value="">— Top-level jobsite —</option>{% for j in top_jobsites %}<option value="{{ j.id }}" {% if job.parent_id == j.id %}selected{% endif %}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select><p class="small muted" style="margin:4px 0 0">Pick a parent to make this a location under it (e.g. LGES → Building A). Leave blank for a top-level jobsite. A jobsite with locations under it cannot become a location itself.</p></div>
+      <div><label for="parent_id">Parent Jobsite (optional)</label><select id="parent_id" name="parent_id"><option value="">— Top-level jobsite —</option>{% for j in top_jobsites %}<option value="{{ j.id }}" {% if job.parent_id == j.id %}selected{% endif %}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select><p class="small muted field-help">Pick a parent to make this a location under it (e.g. LGES → Building A). Leave blank for a top-level jobsite. A jobsite with locations under it cannot become a location itself.</p></div>
     </div>
-    <div class="btn-row" style="margin-top:12px">
+    <div class="form-actions">
       <button class="btn" type="submit">Save changes</button>
       <a class="btn secondary" href="{{ url_for('.jobsite_detail', job_id=job.id) }}">Cancel</a>
     </div>
