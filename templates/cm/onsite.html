@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="On Site">
+<link rel="manifest" href="/static/cm/manifest.json">
+<link rel="apple-touch-icon" href="/static/cm/icon-180.png">
 <title>On Site · Construction Manager</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='cm/style.css') }}">
 <style>
@@ -25,6 +31,12 @@
 .msg.err{background:#fee2e2;color:#991b1b}
 .msg.info{background:#dbeafe;color:#1e40af}
 .hidden{display:none!important}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-btn{flex:1;padding:13px 6px;font-size:1rem;font-weight:700;background:#fff;border:none;cursor:pointer;color:var(--ink)}
+.seg-btn + .seg-btn{border-left:1.5px solid var(--line)}
+.seg-btn.on{background:#16a34a;color:#fff}
+.review-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+#sig-pad{touch-action:none}
 </style>
 </head>
 <body>
@@ -37,6 +49,13 @@
 <main class="container narrow">
   <div id="flash"></div>
   <div id="offline-bar" class="hidden" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.85rem;font-weight:700">Offline — clock actions and locations will sync when reconnected.</div>
+  <div id="install-card" class="hidden" style="background:#fff;border:1.5px solid #16a34a;border-radius:12px;padding:12px;margin:10px 0;font-size:.88rem">
+    <b>Install the On Site app</b> — add it to your home screen for one-tap clock in/out.
+    <button class="btn primary small" id="install-btn" style="margin-top:8px">Install</button>
+  </div>
+  <div id="ios-install-hint" class="hidden" style="background:#fff;border:1.5px solid #16a34a;border-radius:12px;padding:12px;margin:10px 0;font-size:.85rem">
+    <b>iPhone:</b> tap <b>Share</b> in Safari, then <b>Add to Home Screen</b> to install the On Site app.
+  </div>
 
   <div class="card" id="register-card" style="margin-top:12px"><div class="card-body">
     <h3 style="margin-top:0">Register your phone</h3>
@@ -100,19 +119,50 @@
   </div><!-- /main-app -->
 </main>
 
-<!-- Clock-out hours confirmation -->
-<div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px">
-  <div class="card" style="width:100%;max-width:400px;margin:0"><div class="card-body" style="text-align:center">
-    <h3 style="margin:8px 0 4px">Clock Out</h3>
-    <p style="margin:4px 0"><b>오늘 일한 시간을 적어주세요</b></p>
-    <p class="muted small" style="margin:0 0 10px">(Meal Break 시간 제외)<br>Enter the hours you worked today, excluding meal break.</p>
-    <input type="number" id="hours-input" step="0.1" min="0" max="24" inputmode="decimal"
-           placeholder="예: 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:12px">
-    <div class="row-actions" style="margin-top:12px;justify-content:center">
-      <button class="btn primary big" id="hours-confirm-btn" onclick="confirmDirectClockOut()">Confirm Clock Out</button>
-      <button class="btn big" onclick="closeHoursModal()">Cancel</button>
+<!-- Clock-out: hours + meal break + signature + email, then review -->
+<div id="hours-modal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto">
+  <div class="card" style="width:100%;max-width:420px;margin:0"><div class="card-body">
+    <!-- STEP 1: form -->
+    <div id="co-step1">
+      <h3 style="margin:8px 0 4px;text-align:center">Clock Out</h3>
+      <label><b>Hours worked today</b>
+        <span class="muted small">Excluding meal break — leave blank to skip.</span>
+        <input type="number" id="hours-input" step="0.1" min="0" max="24" inputmode="decimal"
+               placeholder="e.g. 7.5" style="width:100%;font-size:1.4rem;text-align:center;padding:12px;border-radius:12px">
+      </label>
+      <div style="margin-top:14px">
+        <b>Meal break — did you take a 1-hour meal break?</b>
+        <div class="seg" id="meal-seg" style="margin-top:6px">
+          <button type="button" class="seg-btn on" data-v="yes">Yes, 1 hour</button>
+          <button type="button" class="seg-btn" data-v="no">No break</button>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <b>Sign here</b>
+        <span class="muted small">(sign with your finger)</span>
+        <canvas id="sig-pad" style="width:100%;height:150px;border:1.5px solid var(--line);border-radius:12px;background:#fff;display:block;margin-top:6px"></canvas>
+        <div style="text-align:right;margin-top:6px"><button class="btn small" type="button" onclick="clearSig()">Clear signature</button></div>
+      </div>
+      <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer">
+        <input type="checkbox" id="email-copy" style="width:22px;height:22px;margin-top:2px;flex:none">
+        <span><b>Email me a copy</b><br><span class="muted small">Sends this record to info@prismxe.com and your email.</span></span>
+      </label>
+      <div id="co-form-err" class="msg err hidden" style="margin-top:10px"></div>
+      <div class="row-actions" style="margin-top:14px;justify-content:center">
+        <button class="btn primary big" onclick="reviewClockOut()">Review</button>
+        <button class="btn big" onclick="closeHoursModal()">Cancel</button>
+      </div>
     </div>
-    <p class="muted small" style="margin:10px 0 0">비워 두면 입력 없이 퇴근 처리됩니다.</p>
+    <!-- STEP 2: review -->
+    <div id="co-step2" class="hidden">
+      <h3 style="margin:8px 0 4px;text-align:center">Review before confirming</h3>
+      <p class="muted small" style="text-align:center;margin:0 0 10px">Check everything below, then confirm.</p>
+      <div id="review-rows"></div>
+      <div class="row-actions" style="margin-top:14px;justify-content:center">
+        <button class="btn big" onclick="backToForm()">Back</button>
+        <button class="btn primary big" id="co-confirm-btn" onclick="confirmDirectClockOut()">Confirm Clock Out</button>
+      </div>
+    </div>
   </div></div>
 </div>
 
@@ -379,25 +429,127 @@ async function directClockIn(){
   btn.disabled = false;
   refreshAll();
 }
+/* ---------- signature pad ---------- */
+let sigCtx = null, sigDrawing = false, sigHasInk = false, sigRatio = 1;
+function setupSigPad(){
+  const cv = $('sig-pad');
+  const rect = cv.getBoundingClientRect();
+  sigRatio = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(rect.width * sigRatio));
+  cv.height = Math.max(1, Math.round(rect.height * sigRatio));
+  sigCtx = cv.getContext('2d');
+  sigCtx.scale(sigRatio, sigRatio);
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+  sigCtx.strokeStyle = '#0f172a';
+  sigHasInk = false;
+}
+function sigPos(e){
+  const r = $('sig-pad').getBoundingClientRect();
+  return {x: e.clientX - r.left, y: e.clientY - r.top};
+}
+function sigStart(e){
+  e.preventDefault();
+  sigDrawing = true;
+  const p = sigPos(e);
+  sigCtx.beginPath();
+  sigCtx.moveTo(p.x, p.y);
+}
+function sigMove(e){
+  if (!sigDrawing) return;
+  e.preventDefault();
+  const p = sigPos(e);
+  sigCtx.lineTo(p.x, p.y);
+  sigCtx.stroke();
+  sigHasInk = true;
+}
+function sigEnd(e){
+  if (!sigDrawing) return;
+  e.preventDefault();
+  sigDrawing = false;
+}
+function clearSig(){
+  const cv = $('sig-pad');
+  if (sigCtx) sigCtx.clearRect(0, 0, cv.width / sigRatio, cv.height / sigRatio);
+  sigHasInk = false;
+}
+(function initSigPad(){
+  const cv = $('sig-pad');
+  cv.addEventListener('pointerdown', sigStart);
+  cv.addEventListener('pointermove', sigMove);
+  window.addEventListener('pointerup', sigEnd);
+  window.addEventListener('pointercancel', sigEnd);
+})();
+
+/* ---------- meal break toggle ---------- */
+let mealBreak = true; // default: took the 1-hour break
+document.querySelectorAll('#meal-seg .seg-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#meal-seg .seg-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    mealBreak = btn.dataset.v === 'yes';
+  };
+});
+
 function openHoursModal(){
   $('hours-input').value = '';
+  $('email-copy').checked = false;
+  mealBreak = true;
+  document.querySelectorAll('#meal-seg .seg-btn').forEach(b => b.classList.toggle('on', b.dataset.v === 'yes'));
+  $('co-step1').classList.remove('hidden');
+  $('co-step2').classList.add('hidden');
+  $('co-form-err').classList.add('hidden');
   $('hours-modal').classList.remove('hidden');
+  requestAnimationFrame(() => setupSigPad());
   setTimeout(() => $('hours-input').focus(), 100);
 }
 function closeHoursModal(){
   $('hours-modal').classList.add('hidden');
 }
+function reviewClockOut(){
+  const err = $('co-form-err');
+  err.classList.add('hidden');
+  err.textContent = '';
+  if (!sigHasInk) {
+    err.textContent = 'Please sign above to confirm your hours.';
+    err.classList.remove('hidden');
+    return;
+  }
+  const rh = $('hours-input').value.trim();
+  const sigUrl = $('sig-pad').toDataURL('image/png');
+  const emailCopy = $('email-copy').checked;
+  const rows = [
+    ['Hours worked', rh !== '' ? rh + 'h (excluding meal break)' : 'Not entered'],
+    ['Meal break (1 hour)', mealBreak ? 'Yes' : 'No'],
+    ['Email copy', emailCopy ? 'Yes — info@prismxe.com + your email' : 'No'],
+  ];
+  $('review-rows').innerHTML = rows.map(r =>
+    `<div class="review-row"><span class="muted">${r[0]}</span><b>${r[1]}</b></div>`).join('') +
+    `<div style="margin-top:10px"><div class="muted small" style="margin-bottom:4px">Signature</div>` +
+    `<img src="${sigUrl}" alt="Signature" style="max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`;
+  $('co-step1').classList.add('hidden');
+  $('co-step2').classList.remove('hidden');
+}
+function backToForm(){
+  $('co-step2').classList.add('hidden');
+  $('co-step1').classList.remove('hidden');
+}
 async function confirmDirectClockOut(){
   if (!curWorker) { closeHoursModal(); return; }
   const rh = $('hours-input').value.trim();
-  const btn = $('hours-confirm-btn');
+  const sigUrl = $('sig-pad').toDataURL('image/png');
+  const emailCopy = $('email-copy').checked;
+  const btn = $('co-confirm-btn');
   btn.disabled = true;
   closeHoursModal();
   $('dc-geo').textContent = 'Getting your location...';
   const pos = await capturePosition();
   $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking out anyway.';
   const payload = {worker_id: curWorker, action: 'clock_out',
-                   lat: pos ? pos.lat : null, lng: pos ? pos.lng : null};
+                   lat: pos ? pos.lat : null, lng: pos ? pos.lng : null,
+                   meal_break: mealBreak, signature: sigUrl,
+                   email_opt_in: emailCopy};
   if (rh !== '') payload.reported_hours = rh;
   if (!isOnline()) {
     const q = loadQueue(QUEUE_KEY);
@@ -413,7 +565,8 @@ async function confirmDirectClockOut(){
     const d = await r.json();
     if (d.ok) {
       msg(`Clocked out — ${d.hours}h` +
-          (d.reported_hours ? ` (you reported ${d.reported_hours}h)` : ''), 'ok');
+          (d.reported_hours ? ` (you reported ${d.reported_hours}h)` : '') +
+          (emailCopy ? ' — a copy was emailed to you.' : ''), 'ok');
     } else {
       msg(d.error || 'Clock out failed.', 'err');
     }
@@ -423,6 +576,32 @@ async function confirmDirectClockOut(){
   btn.disabled = false;
   refreshAll();
 }
+
+/* ---------- home-screen install ---------- */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    $('install-card').classList.remove('hidden');
+  }
+});
+$('install-btn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  $('install-card').classList.add('hidden');
+};
+window.addEventListener('appinstalled', () => {
+  $('install-card').classList.add('hidden');
+  $('ios-install-hint').classList.add('hidden');
+});
+(function iosHint(){
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (isIos && !standalone) $('ios-install-hint').classList.remove('hidden');
+})();
 
 /* ---------- live location sharing ---------- */
 $('loc-toggle').onchange = () => {
