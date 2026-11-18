@@ -233,26 +233,64 @@ def find_jobsite(job_id):
     return None
 
 
+def _jobsite_children(job):
+    """Sub-jobsites (locations) directly under this jobsite, by code."""
+    return sorted((j for j in DB.get("jobsites", [])
+                   if (j.get("parent_id") or "") == job["id"]),
+                  key=lambda x: (x.get("code") or "").lower())
+
+
+def _jobsite_parent(job):
+    """The parent jobsite of a sub-jobsite, or None for top-level."""
+    pid = (job.get("parent_id") or "").strip()
+    return find_jobsite(pid) if pid else None
+
+
+def _resolve_jobsite_pick(job, sub):
+    """Resolve a jobsite + location pick from the entry forms into the
+    single jobsite id the entry is tagged with. `job` is the picked
+    top-level jobsite, `sub` the picked location (or None). The entry
+    is tagged to the location when one is picked and it belongs to
+    that jobsite; otherwise it is tagged to the jobsite itself.
+    Returns the job dict to tag to, or None when nothing was picked.
+    """
+    if job is None:
+        return None
+    if sub is not None and (sub.get("parent_id") or "") == job["id"]:
+        return sub
+    return job
+
+
 def _jobsite_summary(job):
     """P&L for one jobsite: labor revenue + labor cost from the tagged
     time entries (weekly OT allocated to the days that push the week
     over 40), other purchase costs from jobsite_costs, and the
     resulting profit + margin. Returns a dict with the pnl, the
-    other-cost rows, and the totals."""
+    other-cost rows, and the totals.
+
+    A parent jobsite rolls up its own direct entries and costs plus
+    every sub-jobsite under it, so the parent total stays intact
+    while the split by location is visible in `children`. A
+    sub-jobsite's own summary covers only its own entries/costs."""
     s = _settings()
+    children = _jobsite_children(job)
+    ids = {job["id"]} | {c["id"] for c in children}
     pnl = compute_jobsite_pnl(
         DB.get("entries", []), DB.get("rates", []), job["id"],
         ot_threshold=s["ot_threshold"], ot_multiplier=s["ot_multiplier"],
-        aliases=DB.get("aliases", []))
+        aliases=DB.get("aliases", []), jobsite_ids=ids)
     costs = sorted((c for c in DB.get("jobsite_costs", [])
-                    if c.get("jobsite_id") == job["id"]),
+                    if (c.get("jobsite_id") or "") in ids),
                    key=lambda c: (c.get("date") or "", c.get("id") or ""))
     other_total = round(sum(float(c.get("amount") or 0) for c in costs), 2)
     profit = round(pnl["revenue"] - pnl["labor_cost"] - other_total, 2)
     revenue = pnl["revenue"]
     margin = round(profit / revenue * 100, 1) if revenue else None
     return {"pnl": pnl, "costs": costs, "other_total": other_total,
-            "profit": profit, "margin": margin}
+            "profit": profit, "margin": margin,
+            "children": [{"job": c, "summary": _jobsite_summary(c)}
+                         for c in children],
+            "parent": _jobsite_parent(job)}
 
 
 def _alias_map(company):
@@ -2429,12 +2467,19 @@ def jobsites():
     + labor cost from the time entries tagged with it (weekly OT
     allocated to the days that push the week over 40) and its other
     purchase costs from jobsite_costs; profit = revenue - labor -
-    other. The list shows the P&L summary per jobsite."""
+    other. The list shows the P&L summary per jobsite.
+
+    A jobsite can have locations under it (sub-jobsites): pick a
+    parent when adding one. A parent's P&L rolls up its own entries
+    and costs plus every location under it; each location keeps its
+    own P&L too. Only two levels — a location cannot have locations
+    of its own."""
     if request.method == "POST":
         code = (request.form.get("code") or "").strip()
         name = (request.form.get("name") or "").strip()
         company = (request.form.get("company") or "").strip()
         site = (request.form.get("site") or "").strip()
+        parent = find_jobsite(request.form.get("parent_id") or "")
         if not code:
             flash("Jobsite ID is required.")
         elif any((j.get("code") or "").strip().lower() == code.lower()
@@ -2442,22 +2487,32 @@ def jobsites():
             flash(f"A jobsite with ID {code} already exists.")
         elif not company:
             flash("Company is required.")
+        elif parent is not None and _jobsite_parent(parent) is not None:
+            flash(f"{parent['code']} is itself a location — a location "
+                  "cannot have locations of its own. Pick a top-level "
+                  "jobsite as the parent.")
         else:
             DB["jobsites"].append({
                 "id": "job-" + uuid.uuid4().hex[:8], "code": code,
                 "name": name or code, "company": company,
                 "site": site, "status": "active",
+                "parent_id": parent["id"] if parent else None,
             })
             save_db()
             flash(f"Jobsite {code} added.")
         return redirect(url_for(".jobsites"))
+    top = sorted((j for j in DB.get("jobsites", [])
+                  if not (j.get("parent_id") or "")),
+                 key=lambda x: (x.get("code") or "").lower())
     summaries = []
-    for j in sorted(DB.get("jobsites", []),
-                    key=lambda x: (x.get("code") or "").lower()):
+    for j in top:
         s = _jobsite_summary(j)
         summaries.append({"job": j, "summary": s})
-    return render_template("payroll/jobsites.html", summaries=summaries,
-                           companies=DB.get("companies", []))
+    return render_template(
+        "payroll/jobsites.html", summaries=summaries,
+        companies=DB.get("companies", []),
+        top_jobsites=top,
+        total_count=len(DB.get("jobsites", [])))
 
 
 @bp.post("/jobsites/<job_id>/delete")
@@ -2469,7 +2524,12 @@ def delete_jobsite(job_id):
                       for e in DB.get("entries", []))
     has_costs = any((c.get("jobsite_id") or "") == job["id"]
                     for c in DB.get("jobsite_costs", []))
-    if has_entries or has_costs:
+    children = _jobsite_children(job)
+    if children:
+        flash(f"Cannot remove {job['code']}: it still has "
+              f"{len(children)} location(s) under it. Remove the "
+              "locations first.")
+    elif has_entries or has_costs:
         flash(f"Cannot remove {job['code']}: it still has time entries "
               "or purchase costs. Reassign them first.")
     else:
@@ -2487,7 +2547,9 @@ def jobsite_detail(job_id):
         return "Unknown jobsite", 404
     s = _jobsite_summary(job)
     return render_template("payroll/jobsite.html", job=job, summary=s,
-                           money=_money, fmt_hours=_fmt_hours)
+                           money=_money, fmt_hours=_fmt_hours,
+                           jobsite_by_id={j.get("id"): j
+                                          for j in DB.get("jobsites", [])})
 
 
 @bp.post("/jobsites/<job_id>/costs")
@@ -2582,8 +2644,11 @@ def entries(company):
             # Tag every entry in this company + period that has no
             # jobsite yet with the chosen jobsite. Entries already
             # tagged to another jobsite are left alone — reassign
-            # those one by one with Edit.
+            # those one by one with Edit. When a location button was
+            # tapped, the entries go to that location instead.
             job = find_jobsite(request.form.get("jobsite_id") or "")
+            sub = find_jobsite(request.form.get("sub_jobsite_id") or "")
+            job = _resolve_jobsite_pick(job, sub)
             if job is None:
                 flash("Pick a jobsite first.")
             else:
@@ -2674,6 +2739,13 @@ def entries(company):
             except ValueError:
                 hours = 0
             jobsite_id = (request.form.get("jobsite_id") or "").strip()
+            # A tapped location button overrides the jobsite dropdown:
+            # the entry is tagged to the location, not the parent.
+            _picked = _resolve_jobsite_pick(
+                find_jobsite(jobsite_id),
+                find_jobsite(request.form.get("sub_jobsite_id") or ""))
+            if _picked is not None:
+                jobsite_id = _picked["id"]
             entry = _entry_from_values(
                 co, employee, day, hours,
                 (request.form.get("clock_in") or "").strip(),
@@ -2745,6 +2817,29 @@ def entries(company):
         except (ValueError, IndexError):
             monthly_month = ""
             monthly_days = []
+    # The Jobsite dropdown lists top-level jobsites only; locations
+    # are picked by tapping a button (see the template). When editing
+    # an entry tagged to a location, the dropdown shows its parent and
+    # the location button comes pre-selected.
+    all_jobs = sorted(DB.get("jobsites", []),
+                      key=lambda j: (j.get("code") or "").lower())
+    top_jobsites = [j for j in all_jobs if not (j.get("parent_id") or "")]
+    subjobsites_by_parent = {}
+    for _j in all_jobs:
+        _pid = (_j.get("parent_id") or "")
+        if _pid:
+            subjobsites_by_parent.setdefault(_pid, []).append(_j)
+    _by_id = {j.get("id"): j for j in all_jobs}
+    edit_jobsite_id = ""
+    edit_location_id = ""
+    if edit_entry and (edit_entry.get("jobsite_id") or ""):
+        _ej = _by_id.get(edit_entry["jobsite_id"])
+        if _ej is not None:
+            if (_ej.get("parent_id") or ""):
+                edit_jobsite_id = _ej["parent_id"]
+                edit_location_id = _ej["id"]
+            else:
+                edit_jobsite_id = _ej["id"]
     return render_template(
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
@@ -2755,8 +2850,10 @@ def entries(company):
         monthly_month=monthly_month,
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
-        jobsites=sorted(DB.get("jobsites", []),
-                        key=lambda j: (j.get("code") or "").lower()),
+        jobsites=top_jobsites,
+        subjobsites_by_parent=subjobsites_by_parent,
+        edit_jobsite_id=edit_jobsite_id,
+        edit_location_id=edit_location_id,
         jobsite_by_id={j.get("id"): j for j in DB.get("jobsites", [])},
         alias_map=_alias_map(co),
         aliases=[a for a in DB.get("aliases", [])
