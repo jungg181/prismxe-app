@@ -271,6 +271,85 @@ def worker_name(worker_id):
     return w['name'] if w else '—'
 
 
+PAYROLL_PATH = os.path.join(BASE_DIR, 'data_payroll.json')
+
+
+def _load_payroll_jobsites():
+    """Payroll jobsites (top-level + locations) from data_payroll.json.
+
+    Read fresh each call — the file is small and jobsites change when
+    the user adds a location in /payroll/jobsites, so a cached copy
+    would go stale. Missing/corrupt file -> []."""
+    try:
+        with open(PAYROLL_PATH) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [j for j in data.get("jobsites", []) if isinstance(j, dict)]
+
+
+def payroll_jobsite_tree():
+    """Top-level ACTIVE payroll jobsites with their locations, for the
+    On Site clock-in picker: [{id, code, name,
+    children: [{id, code, name}]}]. Jobsites without a status are
+    treated as active (older records predate the field)."""
+    all_jobs = _load_payroll_jobsites()
+
+    def _active(j):
+        return (j.get("status") or "active") == "active"
+
+    def _label(j):
+        return {"id": j.get("id"), "code": j.get("code") or "",
+                "name": j.get("name") or j.get("code") or ""}
+    top = sorted((j for j in all_jobs
+                  if not (j.get("parent_id") or "") and _active(j)),
+                 key=lambda x: (x.get("code") or "").lower())
+    out = []
+    for j in top:
+        kids = sorted((c for c in all_jobs
+                       if (c.get("parent_id") or "") == j.get("id")
+                       and _active(c)),
+                      key=lambda x: (x.get("code") or "").lower())
+        node = _label(j)
+        node["children"] = [_label(c) for c in kids]
+        out.append(node)
+    return out
+
+
+def _valid_payroll_jobsite(jobsite_id):
+    """A clock-in jobsite pick, validated against the payroll jobsites.
+    Unknown/blank ids -> None. Never fails a punch on a bad pick."""
+    jid = (jobsite_id or "").strip()
+    if not jid:
+        return None
+    for j in _load_payroll_jobsites():
+        if (j.get("id") or "") == jid:
+            return jid
+    return None
+
+
+def payroll_jobsite_label(jobsite_id):
+    """Display label for a payroll jobsite id on a timecard:
+    'CODE' for a top-level jobsite, 'Parent / CODE' for a location.
+    Unknown/blank id -> ''."""
+    jid = (jobsite_id or "").strip()
+    if not jid:
+        return ""
+    jobs = _load_payroll_jobsites()
+    job = next((j for j in jobs if (j.get("id") or "") == jid), None)
+    if not job:
+        return ""
+    pid = (job.get("parent_id") or "").strip()
+    if not pid:
+        return job.get("code") or ""
+    parent = next((j for j in jobs if (j.get("id") or "") == pid), None)
+    if parent:
+        return f"{parent.get('code') or ''} / {job.get('code') or ''}"
+    return job.get("code") or ""
+
+
 def compute_hours(clock_in_iso, clock_out_iso):
     """Shift hours; 1h meal break auto-deducted for shifts >= 5h."""
     ci, co = parse_iso(clock_in_iso), parse_iso(clock_out_iso)
@@ -393,6 +472,7 @@ def register_jinja(app):
         gmaps_link=gmaps_link, compute_hours=compute_hours,
         days_remaining=days_remaining, today=today,
         clock_in_distance_km=clock_in_distance_km,
+        payroll_jobsite_label=payroll_jobsite_label,
     )
 
 NAV = [
@@ -760,10 +840,16 @@ def _send_clockout_email(worker, t, site_name):
 
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
                    offline=False, reported_hours=None, meal_break=None,
-                   signature_data_url=None, email_opt_in=False):
+                   signature_data_url=None, email_opt_in=False,
+                   jobsite_id=None):
     """Shared clock-in/out engine for the On Site worker app API.
     at_iso overrides the timestamp (used for offline-synced punches);
-    offline marks the record as synced offline. Returns (ok, info dict)."""
+    offline marks the record as synced offline. jobsite_id is the
+    payroll jobsite (or location) the worker picked at clock-in; it
+    is validated against the payroll jobsites and stored on the
+    timecard so payroll imports arrive already tagged. An unknown
+    or missing pick stores None and never blocks the punch.
+    Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
         return False, {'error': 'Worker not found.'}
@@ -772,16 +858,19 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
         if open_timecard(worker_id):
             return False, {'error': f"{w['name']} is already clocked in.",
                            'already_in': True}
+        valid_jobsite = _valid_payroll_jobsite(jobsite_id)
         t = {'id': new_id(), 'worker_id': worker_id, 'site_id': site_id,
              'clock_in': now, 'clock_in_lat': lat, 'clock_in_lng': lng,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
              'hours': 0.0, 'status': 'clocked_in', 'notes': 'Onsite clock-in',
-             'offline': offline}
+             'offline': offline, 'jobsite_id': valid_jobsite}
         DB['timecards'].append(t)
         save_db()
         return True, {'action': 'clock_in', 'site_id': site_id,
                       'site_name': site_name(site_id), 'worker_name': w['name'],
-                      'clock_in': now, 'clock_out': None, 'hours': 0.0}
+                      'clock_in': now, 'clock_out': None, 'hours': 0.0,
+                      'jobsite_id': valid_jobsite,
+                      'jobsite_label': payroll_jobsite_label(valid_jobsite)}
     t = open_timecard(worker_id, site_id) or open_timecard(worker_id)
     if not t:
         return False, {'error': f"No open shift found for {w['name']}."}
@@ -847,6 +936,7 @@ def _reported_hours(d):
 def api_direct_clock():
     """GPS self clock-in/out from /staffing/onsite (no QR needed).
     Body: {worker_id, site_id (clock-in only), action, lat, lng,
+    jobsite_id (clock-in only, optional payroll jobsite/location),
     reported_hours (clock-out only, optional),
     meal_break (clock-out only, optional bool),
     signature (clock-out only, optional data-URL PNG),
@@ -865,7 +955,8 @@ def api_direct_clock():
                               reported_hours=reported,
                               meal_break=_meal_break(d),
                               signature_data_url=d.get('signature'),
-                              email_opt_in=_email_opt_in(d))
+                              email_opt_in=_email_opt_in(d),
+                              jobsite_id=d.get('jobsite_id'))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -875,7 +966,8 @@ def api_direct_clock():
 @bp.route('/onsite')
 def onsite():
     sites = [s for s in DB['sites'] if s.get('status') == 'active']
-    return render_template('cm/onsite.html', trades=TRADES, sites=sites)
+    return render_template('cm/onsite.html', trades=TRADES, sites=sites,
+                           payroll_jobsites=payroll_jobsite_tree())
 
 
 def _phone_match(a, b):
@@ -1035,7 +1127,8 @@ def api_sync_clock():
                               reported_hours=reported,
                               meal_break=_meal_break(d),
                               signature_data_url=d.get('signature'),
-                              email_opt_in=_email_opt_in(d))
+                              email_opt_in=_email_opt_in(d),
+                              jobsite_id=d.get('jobsite_id'))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -1123,6 +1216,9 @@ def api_worker_status(worker_id):
                     'clocked_in': t is not None,
                     'site_id': t['site_id'] if t else None,
                     'site_name': site_name(t['site_id']) if t else None,
+                    'jobsite_id': t.get('jobsite_id') if t else None,
+                    'jobsite_label': payroll_jobsite_label(
+                        t.get('jobsite_id')) if t else '',
                     'clock_in': t.get('clock_in') if t else None,
                     'today_hours': round(today_hours, 2)})
 
@@ -1179,6 +1275,8 @@ def api_my_timecards(worker_id):
             continue
         rows.append({'date': (t.get('clock_in') or '')[:10],
                      'site_name': site_name(t.get('site_id')),
+                     'jobsite_label': payroll_jobsite_label(
+                         t.get('jobsite_id')),
                      'clock_in': fmt_dt(t.get('clock_in')),
                      'clock_out': fmt_dt(t.get('clock_out')) if t.get('clock_out') else None,
                      'hours': t.get('hours') or compute_hours(t.get('clock_in'), t.get('clock_out')),
