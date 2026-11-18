@@ -15,6 +15,14 @@
   <a class="btn small" href="{{ url_for('.workers_export') }}">Export CSV</a>
 </div>
 
+<div class="card" style="margin-top:12px"><div class="card-body" style="display:flex;align-items:center;gap:16px">
+  <img src="/static/cm/onsite-qr.png" alt="Scan to open the On Site clock-in page" width="140" height="140" style="flex:none">
+  <div>
+    <b>New workers: scan to clock in</b>
+    <p class="muted small" style="margin:4px 0 0">Point a phone camera at this code to open the On Site page — register once, then clock in and out from there.<br>app.prismxe.com/staffing/onsite</p>
+  </div>
+</div></div>
+
 <form class="filters" method="get">
   <input type="search" name="q" placeholder="Search name, phone, trade, company..." value="{{ q }}">
   <div class="grid3">
