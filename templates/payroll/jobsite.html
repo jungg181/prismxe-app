@@ -2,7 +2,7 @@
 {% block title %}{{ job.code }} · Jobsite{% endblock %}
 {% block content %}
 <h1>{{ job.code }}</h1>
-<p class="sub">{{ job.name }} · {{ job.company }}{% if job.site %} · {{ job.site }}{% endif %}</p>
+<p class="sub">{{ job.name }} · {{ job.company }}{% if job.site %} · {{ job.site }}{% endif %}{% if summary.parent %} · Location of <a href="{{ url_for('.jobsite_detail', job_id=summary.parent.id) }}">{{ summary.parent.code }}</a>{% endif %}</p>
 
 <div class="stat-row">
   <div class="stat"><div class="k">Revenue (billed)</div><div class="v">${{ '%.2f' % summary.pnl.revenue }}</div></div>
@@ -14,6 +14,31 @@
 </div>
 
 <p class="small muted">Overtime is weekly per worker (over 40h in a Mon–Sun week at 1.5×). When a worker splits a week across jobsites, the OT hours are the ones that push the week over 40 — the later days in the week — so the per-jobsite numbers add up exactly to the company payroll.</p>
+
+{% if summary.children %}
+<div class="card">
+  <h2 style="margin-top:0">Locations ({{ summary.children | length }})</h2>
+  <p class="small muted">The numbers above roll up this jobsite plus every location below. Each location keeps its own P&amp;L.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Location</th><th>Name</th><th class="num">Hours</th><th class="num">Revenue</th><th class="num">Labor Cost</th><th class="num">Other Costs</th><th class="num">Profit</th></tr></thead>
+      <tbody>
+        {% for c in summary.children %}
+        <tr>
+          <td><a href="{{ url_for('.jobsite_detail', job_id=c.job.id) }}"><strong>{{ c.job.code }}</strong></a></td>
+          <td>{{ c.job.name }}</td>
+          <td class="num">{{ c.summary.pnl.total_hours }}</td>
+          <td class="num">${{ '%.2f' % c.summary.pnl.revenue }}</td>
+          <td class="num">${{ '%.2f' % c.summary.pnl.labor_cost }}</td>
+          <td class="num">${{ '%.2f' % c.summary.other_total }}</td>
+          <td class="num"><strong>${{ '%.2f' % c.summary.profit }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 {% if summary.pnl.no_rate %}
 <div class="card">
@@ -28,11 +53,11 @@
   {% if summary.pnl.lines %}
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Date</th><th>Employee</th><th class="num">Hours</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Revenue</th><th class="num">Labor Cost</th></tr></thead>
+      <thead><tr><th>Date</th><th>Employee</th>{% if summary.children %}<th>Location</th>{% endif %}<th class="num">Hours</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Revenue</th><th class="num">Labor Cost</th></tr></thead>
       <tbody>
         {% for line in summary.pnl.lines %}
         <tr>
-          <td>{{ line.date }}</td><td>{{ line.employee }}</td><td class="num">{{ line.hours }}</td>
+          <td>{{ line.date }}</td><td>{{ line.employee }}</td>{% if summary.children %}<td>{% if line.jobsite_id and line.jobsite_id != job.id %}{{ jobsite_by_id[line.jobsite_id].code if jobsite_by_id.get(line.jobsite_id) else '—' }}{% else %}—{% endif %}</td>{% endif %}<td class="num">{{ line.hours }}</td>
           <td class="num">{{ line.reg_hours }}</td><td class="num">{{ line.ot_hours }}</td>
           <td class="num">{% if line.revenue is not none %}${{ '%.2f' % line.revenue }}{% else %}—{% endif %}</td>
           <td class="num">{% if line.labor_cost is not none %}${{ '%.2f' % line.labor_cost }}{% else %}—{% endif %}</td>
@@ -51,11 +76,11 @@
   {% if summary.costs %}
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Description</th>{% if summary.children %}<th>Location</th>{% endif %}<th class="num">Amount</th><th></th></tr></thead>
       <tbody>
         {% for c in summary.costs %}
         <tr>
-          <td>{{ c.date or '—' }}</td><td>{{ c.description }}</td><td class="num">${{ '%.2f' % c.amount }}</td>
+          <td>{{ c.date or '—' }}</td><td>{{ c.description }}</td>{% if summary.children %}<td>{% if c.jobsite_id and c.jobsite_id != job.id %}{{ jobsite_by_id[c.jobsite_id].code if jobsite_by_id.get(c.jobsite_id) else '—' }}{% else %}—{% endif %}</td>{% endif %}<td class="num">${{ '%.2f' % c.amount }}</td>
           <td>
             <form class="inline-form" method="post" action="{{ url_for('.delete_jobsite_cost', job_id=job.id, cost_id=c.id) }}" onsubmit="return confirm('Remove this cost?')">
               <button class="btn danger small" type="submit">Remove</button>
