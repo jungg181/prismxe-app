@@ -37,6 +37,10 @@
 .seg-btn.on{background:#16a34a;color:#fff}
 .review-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 #sig-pad{touch-action:none}
+/* Payroll jobsite + location pickers: direct-click buttons, not a dropdown */
+.pj-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.pj-btn{flex:1;min-width:110px;min-height:48px;padding:12px 10px;font-size:1rem;font-weight:700;background:#fff;color:var(--ink);border:1.5px solid var(--line);border-radius:12px;cursor:pointer;text-align:center}
+.pj-btn.on{background:#16a34a;color:#fff;border-color:transparent}
 </style>
 </head>
 <body>
@@ -97,6 +101,19 @@
         </select>
       </label>
       {% if not sites %}<p class="msg err">No active jobsites — ask your supervisor to add one.</p>{% endif %}
+      <div style="margin-top:12px">
+        <b>Payroll jobsite</b>
+        <span class="muted small">(tap one — optional)</span>
+        {% if payroll_jobsites %}
+        <div class="pj-btns" id="pj-btns"></div>
+        {% else %}
+        <p class="muted small" style="margin:6px 0 0">No payroll jobsites yet — ask your supervisor to add one in /payroll/jobsites. You can still clock in.</p>
+        {% endif %}
+      </div>
+      <div id="pj-loc-picker" class="hidden" style="margin-top:12px">
+        <b>Location — tap one</b>
+        <div class="pj-btns" id="pj-loc-btns"></div>
+      </div>
       <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()">Clock In</button>
     </div>
     <div id="dc-out-ui" class="hidden">
@@ -347,6 +364,7 @@ async function refreshStatus(){
   if (d.clocked_in) {
     c.innerHTML = `<div class="status-big">Clocked in</div>
       <div>${d.site_name} · since ${d.clock_in ? d.clock_in.slice(5,16).replace('T',' ') : ''}</div>
+      ${d.jobsite_label ? `<div class="muted small">Payroll jobsite: ${d.jobsite_label}</div>` : ''}
       <div class="muted small">Today: ${d.today_hours}h</div>`;
     $('loc-toggle').disabled = false;
   } else {
@@ -365,11 +383,91 @@ async function refreshTimecards(){
     rows = await r.json();
   } catch(e) { return; } // offline — keep the last rendered list
   $('tc-list').innerHTML = rows.length ? rows.map(t =>
-    `<div class="tc-row"><span><b>${t.date}</b> · ${t.site_name}<br>
+    `<div class="tc-row"><span><b>${t.date}</b> · ${t.site_name}${t.jobsite_label ? ' · ' + t.jobsite_label : ''}<br>
      <span class="muted small">${t.clock_in}${t.clock_out ? ' – ' + t.clock_out : ' – on shift'} · ${t.status.replace('_',' ')}</span></span>
      <b>${t.hours}h</b></div>`).join('')
     : '<div class="muted">No timecards in the last 7 days.</div>';
 }
+
+/* ---------- payroll jobsite + location pickers (buttons, not a dropdown) ---------- */
+const PJ_JOBS = {{ payroll_jobsites | tojson }};
+const PJ_JOB_KEY = 'onsite_last_pjob';
+const PJ_LOC_KEY = 'onsite_last_ploc';
+let pjJob = null, pjLoc = null; // selected ids (null = none picked)
+function pjSubs(jobId){
+  const job = PJ_JOBS.find(j => j.id === jobId);
+  return job ? (job.children || []) : [];
+}
+function pjLabel(id){
+  for (const j of PJ_JOBS) {
+    if (j.id === id) return j.code;
+    for (const c of (j.children || [])) {
+      if (c.id === id) return j.code + ' / ' + c.code;
+    }
+  }
+  return '';
+}
+function renderPjButtons(){
+  const wrap = $('pj-btns');
+  if (!wrap) return; // no payroll jobsites on this page
+  wrap.innerHTML = '';
+  // restore last pick when it still exists
+  if (pjJob && !PJ_JOBS.some(j => j.id === pjJob)) pjJob = null;
+  if (pjLoc && !pjSubs(pjJob).some(c => c.id === pjLoc)) pjLoc = null;
+  const all = [{id: '', code: 'No jobsite', name: ''}].concat(PJ_JOBS);
+  all.forEach(function (j) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pj-btn' + ((pjJob || '') === j.id ? ' on' : '');
+    b.dataset.job = j.id;
+    b.textContent = j.code + (j.name && j.name !== j.code ? ' — ' + j.name : '');
+    b.addEventListener('click', function () {
+      pjJob = j.id || null;
+      pjLoc = null;
+      localStorage.setItem(PJ_JOB_KEY, pjJob || '');
+      localStorage.setItem(PJ_LOC_KEY, '');
+      renderPjButtons();
+    });
+    wrap.appendChild(b);
+  });
+  renderPjLocations();
+}
+function renderPjLocations(){
+  const picker = $('pj-loc-picker');
+  const btns = $('pj-loc-btns');
+  if (!picker || !btns) return;
+  const subs = pjJob ? pjSubs(pjJob) : [];
+  btns.innerHTML = '';
+  if (!subs.length) { picker.classList.add('hidden'); pjLoc = null; return; }
+  picker.classList.remove('hidden');
+  const all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
+  all.forEach(function (s) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pj-btn' + ((pjLoc || '') === s.id ? ' on' : '');
+    b.dataset.loc = s.id;
+    b.textContent = s.code + (s.name && s.name !== s.code ? ' — ' + s.name : '');
+    b.addEventListener('click', function () {
+      pjLoc = s.id || null;
+      localStorage.setItem(PJ_LOC_KEY, pjLoc || '');
+      renderPjLocations();
+    });
+    btns.appendChild(b);
+  });
+}
+function pjSelectedId(){
+  // The location wins when one is picked and belongs to the jobsite;
+  // otherwise the jobsite itself; null when nothing is picked.
+  if (pjLoc && pjSubs(pjJob).some(c => c.id === pjLoc)) return pjLoc;
+  return pjJob;
+}
+(function initPjPickers(){
+  try {
+    pjJob = localStorage.getItem(PJ_JOB_KEY) || null;
+    pjLoc = localStorage.getItem(PJ_LOC_KEY) || null;
+  } catch (e) { pjJob = null; pjLoc = null; }
+  renderPjButtons();
+})();
 
 /* ---------- direct clock in/out (no QR) ---------- */
 const SITE_KEY = 'onsite_last_site';
@@ -408,7 +506,8 @@ async function directClockIn(){
   const pos = await capturePosition();
   $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking in anyway.';
   const payload = {worker_id: curWorker, site_id: siteId, action: 'clock_in',
-                   lat: pos ? pos.lat : null, lng: pos ? pos.lng : null};
+                   lat: pos ? pos.lat : null, lng: pos ? pos.lng : null,
+                   jobsite_id: pjSelectedId()};
   if (!isOnline()) {
     const q = loadQueue(QUEUE_KEY);
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
