@@ -2,6 +2,7 @@
 import os
 import io
 import csv
+import base64
 import json
 import copy
 import uuid
@@ -658,8 +659,108 @@ def workers_export():
                      download_name='workers.csv')
 
 
+SIGNATURE_DIR = os.path.join(BASE_DIR, 'static', 'cm', 'signatures')
+
+
+def _save_signature(timecard_id, data_url):
+    """Save a data-URL PNG signature to disk. Returns the public URL
+    path (e.g. /static/cm/signatures/<id>.png), or None on any failure
+    — clock-out still succeeds without it."""
+    if not data_url or not isinstance(data_url, str):
+        return None
+    if not data_url.startswith('data:image/png;base64,'):
+        return None
+    try:
+        raw = base64.b64decode(data_url.split(',', 1)[1], validate=True)
+    except Exception:
+        return None
+    if not raw or len(raw) > 300 * 1024:
+        return None
+    if raw[:8] != b'\x89PNG\r\n\x1a\n':
+        return None
+    try:
+        os.makedirs(SIGNATURE_DIR, exist_ok=True)
+        name = '%s.png' % timecard_id
+        with open(os.path.join(SIGNATURE_DIR, name), 'wb') as f:
+            f.write(raw)
+        return '/static/cm/signatures/' + name
+    except Exception:
+        return None
+
+
+def _meal_break(d):
+    """Parse an optional meal-break flag (true/false) from a clock
+    request body. Returns True/False, or None when not supplied."""
+    v = d.get('meal_break')
+    if v is None or v == '':
+        return None
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        if v.lower() in ('true', 'yes', '1'):
+            return True
+        if v.lower() in ('false', 'no', '0'):
+            return False
+    return None
+
+
+def _email_opt_in(d):
+    """True when the worker asked for an emailed copy of the record."""
+    v = d.get('email_opt_in')
+    if isinstance(v, bool):
+        return v
+    return isinstance(v, str) and v.lower() in ('true', 'yes', '1')
+
+
+def _send_clockout_email(worker, t, site_name):
+    """Best-effort: email the signed clock-out record to info@prismxe.com
+    and the worker. Sent in a background thread so clock-out never waits
+    on email. The plain-text body is complete on its own; the HTML
+    version adds the signature image."""
+    if not CM_SHEETS_URL:
+        return
+    import html as _html
+    email = (worker.get('email') or '').strip()
+    to = 'info@prismxe.com'
+    if email:
+        to += ', ' + email
+    date = (t.get('clock_in') or '')[:10]
+    ci = fmt_dt(t.get('clock_in'))
+    co = fmt_dt(t.get('clock_out'))
+    sys_h = t.get('hours')
+    rep_h = t.get('reported_hours')
+    meal = t.get('meal_break')
+    meal_txt = ('Yes (1 hour)' if meal is True else
+                'No' if meal is False else 'Not recorded')
+    subject = 'Timecard — %s — %s' % (worker.get('name'), date)
+    lines = [
+        'Worker: %s' % worker.get('name'),
+        'Date: %s' % date,
+        'Jobsite: %s' % site_name,
+        'Clock in: %s' % ci,
+        'Clock out: %s' % co,
+        'Hours (system): %sh' % sys_h,
+    ]
+    if rep_h is not None:
+        lines.append('Hours reported by worker: %sh' % rep_h)
+    lines.append('Meal break (1 hour): %s' % meal_txt)
+    lines.append('Signed by the worker at clock-out.')
+    body = '\n'.join(lines)
+    sig = t.get('signature')
+    html_body = '<br>'.join(_html.escape(x) for x in lines)
+    if sig:
+        sig_url = BASE_URL.rstrip('/') + sig
+        body += '\nSignature: ' + sig_url
+        html_body += ('<br><br><img src="%s" alt="Worker signature" '
+                      'style="max-width:320px;border:1px solid #ccc">'
+                      % _html.escape(sig_url, quote=True))
+    sheets_post_async({'action': 'sendEmail', 'to': to, 'subject': subject,
+                       'body': body, 'html': html_body})
+
+
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
-                   offline=False, reported_hours=None):
+                   offline=False, reported_hours=None, meal_break=None,
+                   signature_data_url=None, email_opt_in=False):
     """Shared clock-in/out engine for the On Site worker app API.
     at_iso overrides the timestamp (used for offline-synced punches);
     offline marks the record as synced offline. Returns (ok, info dict)."""
@@ -691,13 +792,26 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
     t['status'] = 'clocked_out'
     if reported_hours is not None:
         t['reported_hours'] = reported_hours
+    if meal_break is not None:
+        t['meal_break'] = meal_break
+    if signature_data_url:
+        sig = _save_signature(t['id'], signature_data_url)
+        if sig:
+            t['signature'] = sig
+    if email_opt_in:
+        t['email_opt_in'] = True
     if offline:
         t['offline'] = True
     save_db()
-    return True, {'action': 'clock_out', 'site_id': t['site_id'],
-                  'site_name': site_name(t['site_id']), 'worker_name': w['name'],
-                  'clock_in': t['clock_in'], 'clock_out': now,
-                  'hours': t['hours'], 'reported_hours': reported_hours}
+    info = {'action': 'clock_out', 'site_id': t['site_id'],
+            'site_name': site_name(t['site_id']), 'worker_name': w['name'],
+            'clock_in': t['clock_in'], 'clock_out': now,
+            'hours': t['hours'], 'reported_hours': reported_hours,
+            'timecard_id': t['id'], 'meal_break': t.get('meal_break'),
+            'signature': t.get('signature')}
+    if email_opt_in:
+        _send_clockout_email(w, t, site_name(t['site_id']))
+    return True, info
 
 
 def _client_at_local_iso(s):
@@ -733,7 +847,10 @@ def _reported_hours(d):
 def api_direct_clock():
     """GPS self clock-in/out from /staffing/onsite (no QR needed).
     Body: {worker_id, site_id (clock-in only), action, lat, lng,
-    reported_hours (clock-out only, optional)}."""
+    reported_hours (clock-out only, optional),
+    meal_break (clock-out only, optional bool),
+    signature (clock-out only, optional data-URL PNG),
+    email_opt_in (clock-out only, optional bool)}."""
     d = request.get_json(force=True) or {}
     action = d.get('action')
     if action not in ('clock_in', 'clock_out'):
@@ -745,7 +862,10 @@ def api_direct_clock():
         return err
     ok, info = _perform_clock(d.get('site_id'), action, d.get('worker_id'),
                               d.get('lat'), d.get('lng'),
-                              reported_hours=reported)
+                              reported_hours=reported,
+                              meal_break=_meal_break(d),
+                              signature_data_url=d.get('signature'),
+                              email_opt_in=_email_opt_in(d))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -912,7 +1032,10 @@ def api_sync_clock():
     ok, info = _perform_clock(d.get('site_id'), action, worker_id,
                               d.get('lat'), d.get('lng'),
                               at_iso=client_at, offline=True,
-                              reported_hours=reported)
+                              reported_hours=reported,
+                              meal_break=_meal_break(d),
+                              signature_data_url=d.get('signature'),
+                              email_opt_in=_email_opt_in(d))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
