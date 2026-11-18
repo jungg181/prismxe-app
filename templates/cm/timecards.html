@@ -65,7 +65,7 @@
   <td>{% if t.clock_out %}{{ fmt_dt(t.clock_out) }}{% set gl=gmaps_link(t.clock_out_lat,t.clock_out_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">GPS</a>{% endif %}{% else %}<span class="muted">Still on shift</span>{% endif %}</td>
   <td>{% set sys_h = t.hours or compute_hours(t.clock_in, t.clock_out) %}{{ sys_h }}{% if t.reported_hours %}{% if (sys_h - t.reported_hours)|abs >= 0.5 %}<br><span class="pill pill-low small">{{ t.reported_hours }}h reported</span>{% else %}<br><span class="small muted">{{ t.reported_hours }}h · match</span>{% endif %}{% endif %}</td>
   <td><span class="pill pill-{{ t.status }}">{{ t.status.replace('_',' ').title() }}</span>{% if t.offline %} <span class="pill pill-offline" title="Synced from an offline device">Offline</span>{% endif %}</td>
-  <td class="small muted">{{ t.notes or '' }}</td>
+  <td class="small muted">{{ t.notes or '' }}{% if 'meal_break' in t %}<br>Meal break: {{ 'Yes (1h)' if t.meal_break else 'No' }}{% endif %}{% if t.signature %}<br><a href="{{ t.signature }}" target="_blank"><img src="{{ t.signature }}" alt="Signature" style="max-width:120px;max-height:36px;border:1px solid var(--line);border-radius:4px;background:#fff;vertical-align:middle"></a>{% endif %}</td>
   <td class="nowrap">
     {% if t.status == 'clocked_out' %}
     <form method="post" action="{{ url_for('.timecard_approve', tid=t.id) }}" style="display:inline"><button class="btn small primary">Approve</button></form>
