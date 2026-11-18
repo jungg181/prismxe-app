@@ -1,7 +1,7 @@
 /* On Site service worker — offline support for the worker app.
    Bump CACHE when /staffing/onsite or its core assets change. */
-const CACHE = 'onsite-v2';
-const CORE = ['/staffing/onsite', '/static/cm/style.css'];
+const CACHE = 'onsite-v3';
+const CORE = ['/staffing/onsite', '/static/cm/style.css', '/static/cm/manifest.json'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
