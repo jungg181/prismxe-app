@@ -2045,6 +2045,89 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                relay=bool(MAIL_SCRIPT_URL),
                                batch_id=batch_id)
 
+    # ---- Automatic weekly hour emails (cron-triggered) ----
+    # Every Monday 10:00 America/Phoenix a scheduled job POSTs here with
+    # the PATROL_AUTO_EMAIL_TOKEN; the previous Mon-Sun week's hours are
+    # emailed to Carlos Carreno and Oswaldo Gudino (Hanseong only), using
+    # the same hours_email / hours_pdf / mail_send path as the manual
+    # /email-hours/send page, including the confirmation token + batch
+    # record so the workers can confirm from the email link.
+    # ?dry=1 computes and previews without sending or recording.
+    AUTO_EMAIL_WORKERS = ['Carlos Carreno', 'Oswaldo gudino']
+
+    @bp.route('/email-hours/auto', methods=['POST'])
+    def email_hours_auto():
+        from datetime import timedelta as _td
+        if company_id != 'hanseong':
+            return jsonify({'ok': False, 'error': 'hanseong only'}), 404
+        token = (request.args.get('token') or request.form.get('token') or '')
+        secret = os.environ.get('PATROL_AUTO_EMAIL_TOKEN', '')
+        if not secret or token != secret:
+            return jsonify({'ok': False, 'error': 'forbidden'}), 403
+        dry = (request.args.get('dry') or request.form.get('dry') or ''
+               ) in ('1', 'true', 'yes')
+        today = datetime.now(TZ).date()
+        monday = today - _td(days=today.weekday())
+        start_s = (monday - _td(days=7)).isoformat()
+        end_s = (monday - _td(days=1)).isoformat()
+        by_name = {}
+        for w in hours_summary(start_s, end_s):
+            by_name[(w.get('name') or '').strip().lower()] = w
+        results = []
+        batch = {'id': uuid.uuid4().hex[:12], 'start': start_s,
+                 'end': end_s,
+                 'created_at': datetime.now().isoformat(timespec='seconds'),
+                 'entries': []}
+        for name in AUTO_EMAIL_WORKERS:
+            w = by_name.get(name.strip().lower())
+            if not w or not w.get('shifts'):
+                results.append({'name': name,
+                                'email': w.get('email') if w else '',
+                                'ok': False, 'skipped': 'no shifts'})
+                continue
+            em = (w['email'] or '').strip().lower()
+            token_w = uuid.uuid4().hex
+            subject, body = hours_email(w['name'], start_s, end_s,
+                                        w['shifts'], w['total'],
+                                        confirm_url=confirm_url_for(token_w))
+            if dry:
+                results.append({'name': w['name'], 'email': w['email'],
+                                'ok': True, 'dry': True,
+                                'total': w['total'],
+                                'shifts': len(w['shifts'])})
+                continue
+            try:
+                pdf_bytes = hours_pdf(w['name'], w['email'], start_s, end_s,
+                                      w['shifts'], w['total'])
+                safe = ''.join(ch if ch.isalnum() else '_'
+                               for ch in w['name']).strip('_') or 'worker'
+                ok, err = mail_send(
+                    em, subject, body,
+                    attach_name=f"hours_{safe}_{start_s}_to_{end_s}.pdf",
+                    attach_bytes=pdf_bytes)
+            except Exception as e:  # noqa: BLE001 - never lose the email over a PDF
+                ok, err = mail_send(em, subject, body)
+                if ok:
+                    err = f'sent without PDF ({e})'
+            results.append({'name': w['name'], 'email': w['email'],
+                            'ok': ok, 'error': err, 'total': w['total']})
+            if ok:
+                batch['entries'].append({
+                    'name': w['name'], 'email': w['email'], 'token': token_w,
+                    'shifts': w['shifts'], 'total': w['total'],
+                    'sent_at': datetime.now().isoformat(timespec='seconds'),
+                    'status': 'sent', 'confirmed_at': None,
+                    'problem_note': '', 'resends': 0})
+        batch_id = None
+        if batch['entries'] and not dry:
+            DB.setdefault('hour_batches', []).append(batch)
+            save_db()
+            batch_id = batch['id']
+            sheet_log_batch(batch)
+        return jsonify({'ok': True, 'start': start_s, 'end': end_s,
+                        'dry': dry, 'results': results,
+                        'batch_id': batch_id})
+
     # ---- Worker hour confirmation (public, token link from the email) ----
 
     @bp.route('/confirm/<token>', methods=['GET', 'POST'])
