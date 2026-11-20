@@ -808,19 +808,18 @@ def company_payroll(company):
     start, end = _period_args()
     result = _payroll_for(co, start, end)
     variances = _variances_for(co, result)
-    # Paid markers for exactly this period, per employee — so the
-    # payroll page can show at a glance who has been paid for the
-    # period shown and who has not. The key is company + employee +
-    # the exact From-To period, so a different period shows its own
-    # paid state. Value is the paid date (MM-DD).
-    paid_by_employee = {}
+    # Paid markers, per DATE — the key is company + employee + a
+    # single date, so each day is paid independently. paid_dates
+    # maps each employee to {date: paid MM-DD} for the Days list.
+    paid_dates = {}
     for m in DB.get("paid_markers", []):
         if (m.get("company") == co["name"]
-                and m.get("start") == start.isoformat()
-                and m.get("end") == end.isoformat()):
+                and m.get("date")
+                and start.isoformat() <= m.get("date") <= end.isoformat()):
             emp = m.get("employee") or ""
             paid_at = m.get("paid_at") or ""
-            paid_by_employee[emp] = paid_at[5:10] if len(paid_at) >= 10 else paid_at
+            paid_dates.setdefault(emp, {})[m.get("date")] = (
+                paid_at[5:10] if len(paid_at) >= 10 else paid_at)
     # Day-by-day entries per employee in this period, so the payroll
     # page can show (and fix) the hours behind each worker's total.
     # EVERY date in the period is listed in order, even days the
@@ -869,53 +868,86 @@ def company_payroll(company):
                     })
         # Newest date first — the latest days are what the user checks.
         days_by_employee[emp] = day_list[::-1]
+    # Paid summary per employee for the employee table: how many of
+    # the days they worked in this period are paid.
+    paid_summary = {}
+    for r in result["rows"]:
+        emp = r["employee"]
+        worked_dates = {d["date"] for d in days_by_employee.get(emp, [])
+                        if (d.get("payroll_hours") or 0) > 0}
+        paid = len(worked_dates & set(paid_dates.get(emp, {}).keys()))
+        paid_summary[emp] = {"paid": paid, "worked": len(worked_dates)}
     return render_template(
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
         days_by_employee=days_by_employee,
-        paid_by_employee=paid_by_employee,
+        paid_dates=paid_dates, paid_summary=paid_summary,
         companies=DB.get("companies", []),
         money=_money, fmt_hours=_fmt_hours)
 
 
 @bp.post("/<company>/paid")
 def toggle_paid(company):
-    """Mark (or unmark) one employee as paid for the period shown.
-    The marker is keyed by company + employee + the exact From-To
-    period on the page, so a different period shows its own paid
-    state. Toggling twice returns to unpaid; the marker carries the
-    date it was marked so the page can show when it was paid."""
+    """Mark (or unmark) one DAY as paid for one employee.
+    The marker is keyed by company + employee + a single date, so
+    each day is paid independently. The Days list toggles by fetch
+    (no page reload, JSON reply); a plain form post redirects back
+    to the same period."""
     co = find_company(company)
     if co is None:
         return "Unknown company", 404
     start, end = _period_args()
     employee = (request.form.get("employee") or "").strip()
-    if not employee:
+    day = _parse_date(request.form.get("date"), None)
+    if not employee or day is None:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify({"ok": False}), 400
         return redirect(url_for(".company_payroll", company=co["slug"],
                                 **{"from": start.isoformat(),
                                    "to": end.isoformat()}))
     markers = DB.setdefault("paid_markers", [])
-    key = (co["name"], employee, start.isoformat(), end.isoformat())
+    key = (co["name"], employee, day.isoformat())
     existing = [m for m in markers
                 if (m.get("company"), m.get("employee"),
-                    m.get("start"), m.get("end")) == key]
+                    m.get("date")) == key]
     if existing:
         for m in existing:
             markers.remove(m)
-        flash(f"{employee} marked unpaid for "
-              f"{start.isoformat()} – {end.isoformat()}.")
+        paid = False
     else:
         markers.append({
             "id": "paid-" + uuid.uuid4().hex[:8],
             "company": co["name"],
             "employee": employee,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
+            "date": day.isoformat(),
             "paid_at": datetime.now(PHOENIX).isoformat(timespec="seconds"),
         })
-        flash(f"{employee} marked paid for "
-              f"{start.isoformat()} – {end.isoformat()}.")
+        paid = True
     save_db()
+    # Paid / worked day counts for this employee in this period,
+    # so the employee table's Paid cell can update without a reload.
+    worked_dates = set()
+    for e in DB.get("entries", []):
+        if (e.get("company") == co["name"]
+                and (e.get("employee") or "") == employee
+                and (e.get("payroll_hours") or 0) > 0):
+            d = e.get("date") or ""
+            if start.isoformat() <= d <= end.isoformat():
+                worked_dates.add(d)
+    paid_dates = {m.get("date") for m in markers
+                  if m.get("company") == co["name"]
+                  and m.get("employee") == employee
+                  and m.get("date") in worked_dates}
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({
+            "ok": True, "paid": paid,
+            "paid_date": (datetime.now(PHOENIX).strftime("%m-%d")
+                          if paid else ""),
+            "paid_count": len(paid_dates),
+            "worked": len(worked_dates),
+        })
+    flash(f"{employee} on {day.isoformat()} marked "
+          f"{'paid' if paid else 'unpaid'}.")
     return redirect(url_for(".company_payroll", company=co["slug"],
                             **{"from": start.isoformat(),
                                "to": end.isoformat()}))
