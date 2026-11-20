@@ -93,8 +93,19 @@
       </div>
     </form>
   </div>
+  <style>
+    /* Employee table: Employee keeps its width (left-aligned); every
+       other column is the same fixed width and centered. The fixed
+       layout + colgroup keep the widths identical in every row. */
+    #emp-table{table-layout:fixed}
+    #emp-table > thead > tr > th,
+    #emp-table > tbody > tr > td{text-align:center}
+    #emp-table > thead > tr > th:first-child,
+    #emp-table > tbody > tr > td:first-child{text-align:left}
+  </style>
   <div class="table-scroll">
     <table id="emp-table">
+      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"></colgroup>
       <thead><tr>
         <th>Employee</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Total</th>
         <th class="num">Staffing Rate</th><th class="num">Gross Pay</th>
