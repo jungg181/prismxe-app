@@ -34,9 +34,9 @@
 
 {% if result.rows %}
 <div class="stat-row">
-  <div class="stat"><div class="k">Total Hours</div><div class="v">{{ fmt_hours(result.totals.total_hours) }}</div></div>
-  <div class="stat"><div class="k">Regular</div><div class="v">{{ fmt_hours(result.totals.total_reg_hours) }}</div></div>
-  <div class="stat"><div class="k">Overtime</div><div class="v">{{ fmt_hours(result.totals.total_ot_hours) }}</div></div>
+  <div class="stat"><div class="k">Total Hours</div><div class="v" id="stat-total-hours">{{ fmt_hours(unpaid_total_hours) }}</div></div>
+  <div class="stat"><div class="k">Regular</div><div class="v" id="stat-regular">{{ fmt_hours(unpaid_total_reg) }}</div></div>
+  <div class="stat"><div class="k">Overtime</div><div class="v" id="stat-overtime">{{ fmt_hours(unpaid_total_ot) }}</div></div>
   <div class="stat"><div class="k">Gross Pay</div><div class="v" id="stat-gross-pay">{{ money(unpaid_total) }}</div></div>
   <div class="stat"><div class="k">Billing</div><div class="v">{{ money(result.totals.total_billing_gross) }}</div></div>
 </div>
@@ -104,9 +104,9 @@
         {% set ps = paid_summary.get(r.employee) %}
         <tr{% if r.no_rate %} class="zero"{% endif %} data-paid="{{ ps.paid if ps else 0 }}" data-worked="{{ ps.worked if ps else 0 }}">
           <td><a href="{{ url_for('.employee_page', company=company.slug, name=r.employee) }}">{{ r.employee }}</a></td>
-          <td class="num">{{ fmt_hours(r.reg_hours) }}</td>
-          <td class="num">{{ fmt_hours(r.ot_hours) }}</td>
-          <td class="num">{{ fmt_hours(r.total_hours) }}</td>
+          <td class="num" id="reg-{{ loop.index }}">{{ fmt_hours(unpaid_reg[r.employee]) }}</td>
+          <td class="num" id="ot-{{ loop.index }}">{{ fmt_hours(unpaid_ot[r.employee]) }}</td>
+          <td class="num" id="total-{{ loop.index }}">{{ fmt_hours(unpaid_hours[r.employee]) }}</td>
           <td class="num">{{ '—' if r.staffing is none else money(r.staffing) }}</td>
           <td class="num" id="gross-{{ loop.index }}">{{ '—' if unpaid_gross[r.employee] is none else money(unpaid_gross[r.employee]) }}</td>
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
@@ -165,9 +165,9 @@
         {% endfor %}
         <tr class="total">
           <td>PAYROLL TOTAL</td>
-          <td class="num">{{ fmt_hours(result.totals.total_reg_hours) }}</td>
-          <td class="num">{{ fmt_hours(result.totals.total_ot_hours) }}</td>
-          <td class="num">{{ fmt_hours(result.totals.total_hours) }}</td>
+          <td class="num" id="total-reg">{{ fmt_hours(unpaid_total_reg) }}</td>
+          <td class="num" id="total-ot">{{ fmt_hours(unpaid_total_ot) }}</td>
+          <td class="num" id="total-hours">{{ fmt_hours(unpaid_total_hours) }}</td>
           <td></td>
           <td class="num" id="total-gross-pay">{{ money(unpaid_total) }}</td>
           <td></td>
@@ -216,7 +216,7 @@
       <thead><tr><th>Employee</th>{% for d in result.days %}<th class="num"><span class="day-wd">{{ result.weekdays[d] }}</span><span class="day-dt">{{ d[5:] }}</span></th>{% endfor %}<th class="num">Total</th><th class="num">Gross Pay</th></tr></thead>
       <tbody>
         {% for r in result.rows %}
-        <tr><td>{{ r.employee }}</td>{% for d in result.days %}{% set tot = r.days[d] %}{% set ot = r.days_ot[d] %}{% set reg = tot - ot %}<td class="num">{% if tot %}{% if ot %}<span class="day-split"><span class="day-reg">{{ fmt_hours(reg) }}</span><span class="day-ot">{{ fmt_hours(ot) }}</span></span>{% else %}{{ fmt_hours(tot) }}{% endif %}{% else %}·{% endif %}</td>{% endfor %}<td class="num">{% if r.ot_hours %}<span class="total-cell"><span class="day-split"><span class="day-reg">{{ fmt_hours(r.reg_hours) }}</span><span class="day-ot">{{ fmt_hours(r.ot_hours) }}</span></span><span class="total-sum">{{ fmt_hours(r.total_hours) }}</span></span>{% else %}{{ fmt_hours(r.total_hours) }}{% endif %}</td><td class="num" id="hours-gross-{{ loop.index }}">{{ '—' if unpaid_gross[r.employee] is none else money(unpaid_gross[r.employee]) }}</td></tr>
+        <tr><td>{{ r.employee }}</td>{% for d in result.days %}{% set tot = r.days[d] %}{% set ot = r.days_ot[d] %}{% set reg = tot - ot %}<td class="num">{% if tot %}{% if ot %}<span class="day-split"><span class="day-reg">{{ fmt_hours(reg) }}</span><span class="day-ot">{{ fmt_hours(ot) }}</span></span>{% else %}{{ fmt_hours(tot) }}{% endif %}{% else %}·{% endif %}</td>{% endfor %}<td class="num" id="hours-total-{{ loop.index }}">{% if unpaid_ot[r.employee] %}<span class="total-cell"><span class="day-split"><span class="day-reg">{{ fmt_hours(unpaid_reg[r.employee]) }}</span><span class="day-ot">{{ fmt_hours(unpaid_ot[r.employee]) }}</span></span><span class="total-sum">{{ fmt_hours(unpaid_hours[r.employee]) }}</span></span>{% else %}{{ fmt_hours(unpaid_hours[r.employee]) }}{% endif %}</td><td class="num" id="hours-gross-{{ loop.index }}">{{ '—' if unpaid_gross[r.employee] is none else money(unpaid_gross[r.employee]) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -320,6 +320,11 @@ function moneyFmt(v){
   var s = Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return (neg ? '-$' : '$') + s;
 }
+function hoursFmt(v){
+  if(v === null || v === undefined) return '—';
+  var s = Number(v).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  return s === '' ? '0' : s;
+}
 document.addEventListener('submit', function(ev){
   var form = ev.target;
   if(!form.classList || !form.classList.contains('paid-form')) return;
@@ -355,6 +360,15 @@ document.addEventListener('submit', function(ev){
       if(grossCell) grossCell.textContent = moneyFmt(d.unpaid_gross);
       var hoursGrossCell = document.getElementById('hours-gross-' + empIdx);
       if(hoursGrossCell) hoursGrossCell.textContent = moneyFmt(d.unpaid_gross);
+      // Regular / Overtime / Total show the unpaid hours too.
+      var regCell = document.getElementById('reg-' + empIdx);
+      if(regCell) regCell.textContent = hoursFmt(d.unpaid_reg);
+      var otCell = document.getElementById('ot-' + empIdx);
+      if(otCell) otCell.textContent = hoursFmt(d.unpaid_ot);
+      var totalCell = document.getElementById('total-' + empIdx);
+      if(totalCell) totalCell.textContent = hoursFmt(d.unpaid_hours);
+      var hoursTotalCell = document.getElementById('hours-total-' + empIdx);
+      if(hoursTotalCell) hoursTotalCell.textContent = hoursFmt(d.unpaid_hours);
       // The Show filter keys off the row's paid count, so keep the
       // row's data-paid in step with the toggle.
       var row = summary ? summary.closest('tr') : null;
@@ -364,6 +378,18 @@ document.addEventListener('submit', function(ev){
     if(statGross) statGross.textContent = moneyFmt(d.unpaid_total);
     var totalGross = document.getElementById('total-gross-pay');
     if(totalGross) totalGross.textContent = moneyFmt(d.unpaid_total);
+    var statHours = document.getElementById('stat-total-hours');
+    if(statHours) statHours.textContent = hoursFmt(d.unpaid_total_hours);
+    var statReg = document.getElementById('stat-regular');
+    if(statReg) statReg.textContent = hoursFmt(d.unpaid_total_reg);
+    var statOt = document.getElementById('stat-overtime');
+    if(statOt) statOt.textContent = hoursFmt(d.unpaid_total_ot);
+    var totalReg = document.getElementById('total-reg');
+    if(totalReg) totalReg.textContent = hoursFmt(d.unpaid_total_reg);
+    var totalOt = document.getElementById('total-ot');
+    if(totalOt) totalOt.textContent = hoursFmt(d.unpaid_total_ot);
+    var totalHours = document.getElementById('total-hours');
+    if(totalHours) totalHours.textContent = hoursFmt(d.unpaid_total_hours);
   }).catch(function(){
     form.submit();
   });
