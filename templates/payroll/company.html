@@ -91,7 +91,7 @@
       <thead><tr>
         <th>Employee</th><th class="num">Regular</th><th class="num">Overtime</th><th class="num">Total</th>
         <th class="num">Staffing Rate</th><th class="num">Gross Pay</th>
-        <th class="num">Billing Rate</th><th class="num">Billing Gross</th><th></th>
+        <th class="num">Billing Rate</th><th class="num">Billing Gross</th><th>Paid</th><th></th>
       </tr></thead>
       <tbody>
         {% for r in result.rows %}
@@ -104,11 +104,12 @@
           <td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td>
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
           <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
+          <td style="white-space:nowrap">{% if paid_by_employee.get(r.employee) %}<span class="badge ok">Paid</span> <span class="small muted">{{ paid_by_employee[r.employee] }}</span> <form method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><button class="btn secondary small" type="submit">Undo</button></form>{% else %}<form method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><button class="btn secondary small" type="submit">Mark paid</button></form>{% endif %}</td>
           <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
         </tr>
         {% if days_by_employee.get(r.employee) %}
         <tr id="days-{{ loop.index }}" style="display:none">
-          <td colspan="9" style="background:var(--card);padding:10px 14px">
+          <td colspan="10" style="background:var(--card);padding:10px 14px">
             <div class="small muted" style="margin-bottom:6px">Day-by-day hours for {{ r.employee }} — fix a wrong day here; hours and clock times save together, totals and overtime recalculate automatically.</div>
             <table style="width:auto;margin:0">
               <thead><tr><th>Date</th><th>Day</th><th>Clock-In</th><th>Clock-Out</th><th class="num">Hours</th><th></th></tr></thead>
@@ -162,6 +163,7 @@
           <td class="num">{{ money(result.totals.total_gross_pay) }}</td>
           <td></td>
           <td class="num">{{ money(result.totals.total_billing_gross) }}</td>
+          <td></td>
           <td></td>
         </tr>
       </tbody>
