@@ -45,6 +45,12 @@
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
     <button class="btn secondary" type="button" id="add-employee-toggle" onclick="toggleAddEmployee('add-employee-form', 'add-employee-toggle')">＋ Add Employee</button>
     <div style="display:flex;align-items:center;gap:8px">
+    <label class="muted small" for="paid-filter">Show</label>
+    <select id="paid-filter" onchange="filterByPaid(this.value)">
+      <option value="all">All employees</option>
+      <option value="paid">Paid only</option>
+      <option value="unpaid">Unpaid only</option>
+    </select>
     <label class="muted small" for="emp-sort">Sort</label>
     <select id="emp-sort" onchange="sortEmployees(this.value)">
       <option value="name">Name (A–Z)</option>
@@ -95,7 +101,8 @@
       </tr></thead>
       <tbody>
         {% for r in result.rows %}
-        <tr{% if r.no_rate %} class="zero"{% endif %}>
+        {% set ps = paid_summary.get(r.employee) %}
+        <tr{% if r.no_rate %} class="zero"{% endif %} data-paid="{{ ps.paid if ps else 0 }}" data-worked="{{ ps.worked if ps else 0 }}">
           <td><a href="{{ url_for('.employee_page', company=company.slug, name=r.employee) }}">{{ r.employee }}</a></td>
           <td class="num">{{ fmt_hours(r.reg_hours) }}</td>
           <td class="num">{{ fmt_hours(r.ot_hours) }}</td>
@@ -104,7 +111,7 @@
           <td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td>
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
           <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
-          <td id="paid-summary-{{ loop.index }}" style="white-space:nowrap">{% set ps = paid_summary.get(r.employee) %}{% if ps and ps.worked > 0 %}{% if ps.paid == ps.worked %}<span class="badge ok">Paid</span> <span class="small muted">{{ ps.paid }}/{{ ps.worked }}</span>{% elif ps.paid > 0 %}<span class="small">{{ ps.paid }}/{{ ps.worked }}</span>{% else %}<span class="small muted">0/{{ ps.worked }}</span>{% endif %}{% else %}<span class="small muted">—</span>{% endif %}</td>
+          <td id="paid-summary-{{ loop.index }}" style="white-space:nowrap">{% if ps and ps.worked > 0 %}{% if ps.paid == ps.worked %}<span class="badge ok">Paid</span> <span class="small muted">{{ ps.paid }}/{{ ps.worked }}</span>{% elif ps.paid > 0 %}<span class="small">{{ ps.paid }}/{{ ps.worked }}</span>{% else %}<span class="small muted">0/{{ ps.worked }}</span>{% endif %}{% else %}<span class="small muted">—</span>{% endif %}</td>
           <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
         </tr>
         {% if days_by_employee.get(r.employee) %}
@@ -338,6 +345,36 @@ document.addEventListener('submit', function(ev){
     form.submit();
   });
 });
+
+// Filter the employee table by paid state: All / Paid only / Unpaid
+// only. Paid = at least one worked day marked paid in this period;
+// Unpaid = no worked day marked paid. The PAYROLL TOTAL row always
+// stays, and each employee's Days detail row follows its main row.
+// Filtering closes every Days list (the user re-opens the one they
+// want) and resets its toggle button so it reads closed.
+function filterByPaid(mode){
+  var table = document.getElementById('emp-table');
+  if(!table) return;
+  var tbody = table.tBodies[0];
+  if(!tbody) return;
+  var rows = Array.prototype.slice.call(tbody.rows);
+  for(var i = 0; i < rows.length; i++){
+    var row = rows[i];
+    if(row.classList.contains('total')) continue;
+    if(row.id && row.id.indexOf('days-') === 0) continue;
+    var paid = parseInt(row.getAttribute('data-paid') || '0', 10);
+    var show = true;
+    if(mode === 'paid') show = paid > 0;
+    if(mode === 'unpaid') show = paid === 0;
+    row.style.display = show ? '' : 'none';
+    var next = row.nextElementSibling;
+    if(next && next.id && next.id.indexOf('days-') === 0){
+      next.style.display = 'none';
+      var btn = row.querySelector('button[onclick*="days-"]');
+      if(btn) btn.textContent = '▸ Days';
+    }
+  }
+}
 
 // Add Employee: reveal/hide the inline form (same pattern as the
 // "+ Add a company" button on the payroll index).
