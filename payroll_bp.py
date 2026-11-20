@@ -362,6 +362,23 @@ def _money(value):
     return f"${value:,.2f}"
 
 
+def _fmt_period(start, end):
+    """Readable pay-period label, e.g. "Oct 14 – Nov 15, 2026".
+
+    Same month: "Oct 14 – 15, 2026". Same year, different months:
+    "Oct 14 – Nov 15, 2026". Spanning years: "Dec 28, 2026 – Jan 3,
+    2027". start/end are datetime.date.
+    """
+    if start.year == end.year:
+        if start.month == end.month:
+            return (f"{start.strftime('%b')} {start.day} – {end.day}, "
+                    f"{start.year}")
+        return (f"{start.strftime('%b %d')} – {end.strftime('%b %d')}, "
+                f"{start.year}")
+    return (f"{start.strftime('%b %d, %Y')} – "
+            f"{end.strftime('%b %d, %Y')}")
+
+
 def _fmt_hours(value):
     if value is None:
         return "—"
@@ -945,7 +962,8 @@ def company_payroll(company):
     unpaid = _unpaid_summary(result, paid_dates)
     return render_template(
         "payroll/company.html", company=co, start=start.isoformat(),
-        end=end.isoformat(), result=result, variances=variances,
+        end=end.isoformat(), period_label=_fmt_period(start, end),
+        result=result, variances=variances,
         days_by_employee=days_by_employee,
         paid_dates=paid_dates, paid_summary=paid_summary,
         unpaid_gross=unpaid["gross"], unpaid_total=unpaid["gross_total"],
