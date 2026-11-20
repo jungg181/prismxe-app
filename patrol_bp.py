@@ -2086,6 +2086,14 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                 'ok': False, 'skipped': 'no shifts'})
                 continue
             em = (w['email'] or '').strip().lower()
+            if not dry and any(
+                    e.get('email') == em and e.get('status') == 'sent'
+                    for b in DB.get('hour_batches', [])
+                    if b.get('start') == start_s and b.get('end') == end_s
+                    for e in b.get('entries', [])):
+                results.append({'name': w['name'], 'email': w['email'],
+                                'ok': False, 'skipped': 'already sent'})
+                continue
             token_w = uuid.uuid4().hex
             subject, body = hours_email(w['name'], start_s, end_s,
                                         w['shifts'], w['total'],
