@@ -104,15 +104,16 @@
           <td class="num">{{ '—' if r.gross_pay is none else money(r.gross_pay) }}</td>
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
           <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
-          <td style="white-space:nowrap">{% if paid_by_employee.get(r.employee) %}<span class="badge ok">Paid</span> <span class="small muted">{{ paid_by_employee[r.employee] }}</span> <form method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><button class="btn secondary small" type="submit">Undo</button></form>{% else %}<form method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><button class="btn secondary small" type="submit">Mark paid</button></form>{% endif %}</td>
+          <td id="paid-summary-{{ loop.index }}" style="white-space:nowrap">{% set ps = paid_summary.get(r.employee) %}{% if ps and ps.worked > 0 %}{% if ps.paid == ps.worked %}<span class="badge ok">Paid</span> <span class="small muted">{{ ps.paid }}/{{ ps.worked }}</span>{% elif ps.paid > 0 %}<span class="small">{{ ps.paid }}/{{ ps.worked }}</span>{% else %}<span class="small muted">0/{{ ps.worked }}</span>{% endif %}{% else %}<span class="small muted">—</span>{% endif %}</td>
           <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
         </tr>
         {% if days_by_employee.get(r.employee) %}
+        {% set emp_idx = loop.index %}
         <tr id="days-{{ loop.index }}" style="display:none">
           <td colspan="10" style="background:var(--card);padding:10px 14px">
             <div class="small muted" style="margin-bottom:6px">Day-by-day hours for {{ r.employee }} — fix a wrong day here; hours and clock times save together, totals and overtime recalculate automatically.</div>
             <table style="width:auto;margin:0">
-              <thead><tr><th>Date</th><th>Day</th><th>Clock-In</th><th>Clock-Out</th><th class="num">Hours</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Day</th><th>Clock-In</th><th>Clock-Out</th><th class="num">Hours</th><th>Paid</th><th></th></tr></thead>
               <tbody>
                 {% for d in days_by_employee[r.employee] %}
                 <tr>
@@ -145,6 +146,7 @@
                     </form>
                     {% endif %}
                   </td>
+                  <td style="white-space:nowrap">{% if d.payroll_hours and d.payroll_hours > 0 %}{% set pd = paid_dates.get(r.employee, {}).get(d.date) %}{% if pd %}<span class="badge ok">Paid</span> <span class="small muted">{{ pd }}</span> <form class="paid-form" method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" data-emp="{{ emp_idx }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><input type="hidden" name="date" value="{{ d.date }}"><button class="btn secondary small" type="submit">Undo</button></form>{% else %}<form class="paid-form" method="post" action="{{ url_for('.toggle_paid', company=company.slug, **{'from': start, 'to': end}) }}" data-emp="{{ emp_idx }}" style="display:inline"><input type="hidden" name="employee" value="{{ r.employee }}"><input type="hidden" name="date" value="{{ d.date }}"><button class="btn secondary small" type="submit">Mark paid</button></form>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
                   <td><span class="day-status muted small"></span></td>
                 </tr>
                 {% endfor %}
@@ -282,6 +284,60 @@
     form.addEventListener('submit', function(ev){ ev.preventDefault(); saveForm(form); });
   });
 })();
+
+// Paid toggle in the Days list: mark/unmark one day without a page
+// reload. The form posts by fetch; the reply carries the new state
+// for that day plus the employee's paid/worked day counts, so both
+// the day's cell and the employee table's Paid cell update in place.
+// Delegated, so forms rebuilt after a toggle keep working.
+function escHtml(s){
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function paidFormHtml(action, emp, day, empIdx, label){
+  return '<form class="paid-form" method="post" action="' + escHtml(action) +
+    '" data-emp="' + empIdx + '" style="display:inline">' +
+    '<input type="hidden" name="employee" value="' + escHtml(emp) + '">' +
+    '<input type="hidden" name="date" value="' + escHtml(day) + '">' +
+    '<button class="btn secondary small" type="submit">' + label + '</button></form>';
+}
+function paidSummaryHtml(paidCount, worked){
+  if(worked === 0) return '<span class="small muted">—</span>';
+  if(paidCount === worked) return '<span class="badge ok">Paid</span> <span class="small muted">' + paidCount + '/' + worked + '</span>';
+  if(paidCount > 0) return '<span class="small">' + paidCount + '/' + worked + '</span>';
+  return '<span class="small muted">0/' + worked + '</span>';
+}
+document.addEventListener('submit', function(ev){
+  var form = ev.target;
+  if(!form.classList || !form.classList.contains('paid-form')) return;
+  ev.preventDefault();
+  var cell = form.closest('td');
+  var empIdx = form.getAttribute('data-emp');
+  var summary = empIdx ? document.getElementById('paid-summary-' + empIdx) : null;
+  var empInput = form.querySelector('input[name="employee"]');
+  var dayInput = form.querySelector('input[name="date"]');
+  var emp = empInput ? empInput.value : '';
+  var day = dayInput ? dayInput.value : '';
+  fetch(form.action, {
+    method: 'POST',
+    body: new FormData(form),
+    headers: {'X-Requested-With': 'fetch'}
+  }).then(function(r){
+    if(!r.ok) throw new Error('toggle failed');
+    return r.json();
+  }).then(function(d){
+    if(!d.ok) throw new Error('not saved');
+    if(d.paid){
+      cell.innerHTML = '<span class="badge ok">Paid</span> <span class="small muted">' + escHtml(d.paid_date) + '</span> ' +
+        paidFormHtml(form.action, emp, day, empIdx, 'Undo');
+    } else {
+      cell.innerHTML = paidFormHtml(form.action, emp, day, empIdx, 'Mark paid');
+    }
+    if(summary) summary.innerHTML = paidSummaryHtml(d.paid_count, d.worked);
+  }).catch(function(){
+    form.submit();
+  });
+});
 
 // Add Employee: reveal/hide the inline form (same pattern as the
 // "+ Add a company" button on the payroll index).
