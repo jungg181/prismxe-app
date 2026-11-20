@@ -60,7 +60,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data_payroll.json")
 COLLECTIONS = ["companies", "rates", "entries", "expenses", "settings",
                "aliases", "variances", "jobsites", "jobsite_costs",
-               "invoices", "payroll_review_tokens", "payroll_corrections"]
+               "invoices", "payroll_review_tokens", "payroll_corrections",
+               "paid_markers"]
 
 # Email goes through the same Apps Script sendEmail action the CM
 # payroll emails used (sender info@prismxe.com) — the URL lives in
@@ -807,6 +808,19 @@ def company_payroll(company):
     start, end = _period_args()
     result = _payroll_for(co, start, end)
     variances = _variances_for(co, result)
+    # Paid markers for exactly this period, per employee — so the
+    # payroll page can show at a glance who has been paid for the
+    # period shown and who has not. The key is company + employee +
+    # the exact From-To period, so a different period shows its own
+    # paid state. Value is the paid date (MM-DD).
+    paid_by_employee = {}
+    for m in DB.get("paid_markers", []):
+        if (m.get("company") == co["name"]
+                and m.get("start") == start.isoformat()
+                and m.get("end") == end.isoformat()):
+            emp = m.get("employee") or ""
+            paid_at = m.get("paid_at") or ""
+            paid_by_employee[emp] = paid_at[5:10] if len(paid_at) >= 10 else paid_at
     # Day-by-day entries per employee in this period, so the payroll
     # page can show (and fix) the hours behind each worker's total.
     # EVERY date in the period is listed in order, even days the
@@ -859,8 +873,52 @@ def company_payroll(company):
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
         days_by_employee=days_by_employee,
+        paid_by_employee=paid_by_employee,
         companies=DB.get("companies", []),
         money=_money, fmt_hours=_fmt_hours)
+
+
+@bp.post("/<company>/paid")
+def toggle_paid(company):
+    """Mark (or unmark) one employee as paid for the period shown.
+    The marker is keyed by company + employee + the exact From-To
+    period on the page, so a different period shows its own paid
+    state. Toggling twice returns to unpaid; the marker carries the
+    date it was marked so the page can show when it was paid."""
+    co = find_company(company)
+    if co is None:
+        return "Unknown company", 404
+    start, end = _period_args()
+    employee = (request.form.get("employee") or "").strip()
+    if not employee:
+        return redirect(url_for(".company_payroll", company=co["slug"],
+                                **{"from": start.isoformat(),
+                                   "to": end.isoformat()}))
+    markers = DB.setdefault("paid_markers", [])
+    key = (co["name"], employee, start.isoformat(), end.isoformat())
+    existing = [m for m in markers
+                if (m.get("company"), m.get("employee"),
+                    m.get("start"), m.get("end")) == key]
+    if existing:
+        for m in existing:
+            markers.remove(m)
+        flash(f"{employee} marked unpaid for "
+              f"{start.isoformat()} – {end.isoformat()}.")
+    else:
+        markers.append({
+            "id": "paid-" + uuid.uuid4().hex[:8],
+            "company": co["name"],
+            "employee": employee,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "paid_at": datetime.now(PHOENIX).isoformat(timespec="seconds"),
+        })
+        flash(f"{employee} marked paid for "
+              f"{start.isoformat()} – {end.isoformat()}.")
+    save_db()
+    return redirect(url_for(".company_payroll", company=co["slug"],
+                            **{"from": start.isoformat(),
+                               "to": end.isoformat()}))
 
 
 @bp.post("/<company>/entries/<entry_id>/hours")
