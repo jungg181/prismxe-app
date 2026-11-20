@@ -220,6 +220,39 @@ def _payroll_for(company, start, end):
                            aliases=DB.get("aliases", []))
 
 
+def _unpaid_gross(result, paid_dates):
+    """Unpaid Gross Pay per employee and in total.
+
+    Gross Pay on the payroll page shows what is still owed: the
+    period total minus the gross of the days marked paid. Per-day
+    gross uses the same reg/OT split as compute_payroll (OT on the
+    later days of the week), so the parts add up exactly to the
+    period total. Returns (unpaid_gross, unpaid_total) where
+    unpaid_gross maps employee -> float, or None when the employee
+    has no rate row (pay stays blank, never $0).
+    """
+    ot_mult = _settings()["ot_multiplier"]
+    unpaid_gross = {}
+    unpaid_total = 0.0
+    for r in result["rows"]:
+        emp = r["employee"]
+        if r["gross_pay"] is None or r["staffing"] is None:
+            unpaid_gross[emp] = None
+            continue
+        paid_reg = 0.0
+        paid_ot = 0.0
+        for d in paid_dates.get(emp, {}):
+            h = r["days"].get(d, 0.0) or 0.0
+            ot = r["days_ot"].get(d, 0.0) or 0.0
+            paid_reg += h - ot
+            paid_ot += ot
+        ug = round((r["reg_hours"] - paid_reg) * r["staffing"]
+                   + (r["ot_hours"] - paid_ot) * r["staffing"] * ot_mult, 2)
+        unpaid_gross[emp] = ug
+        unpaid_total += ug
+    return unpaid_gross, round(unpaid_total, 2)
+
+
 def _variances_for(company, result):
     return variance_report(result["rows"], DB.get("variances", []),
                            company["name"],
@@ -884,11 +917,15 @@ def company_payroll(company):
                         if (d.get("payroll_hours") or 0) > 0}
         paid = len(worked_dates & set(paid_dates.get(emp, {}).keys()))
         paid_summary[emp] = {"paid": paid, "worked": len(worked_dates)}
+    # Unpaid Gross Pay: the Gross Pay column shows what is still
+    # owed (period total minus the paid days), not the period total.
+    unpaid_gross, unpaid_total = _unpaid_gross(result, paid_dates)
     return render_template(
         "payroll/company.html", company=co, start=start.isoformat(),
         end=end.isoformat(), result=result, variances=variances,
         days_by_employee=days_by_employee,
         paid_dates=paid_dates, paid_summary=paid_summary,
+        unpaid_gross=unpaid_gross, unpaid_total=unpaid_total,
         companies=DB.get("companies", []),
         money=_money, fmt_hours=_fmt_hours)
 
@@ -949,6 +986,15 @@ def toggle_paid(company):
                   if m.get("company") == co["name"]
                   and m.get("employee") == employee
                   and m.get("date") in worked_dates}
+    # Unpaid Gross Pay for this employee and the company, so the
+    # Gross Pay cells can update without a reload.
+    _result = _payroll_for(co, start, end)
+    _paid_dates = {}
+    for m in markers:
+        if (m.get("company") == co["name"] and m.get("date")
+                and start.isoformat() <= m.get("date") <= end.isoformat()):
+            _paid_dates.setdefault(m.get("employee") or "", {})[m.get("date")] = ""
+    _ug, _ut = _unpaid_gross(_result, _paid_dates)
     if request.headers.get("X-Requested-With") == "fetch":
         return jsonify({
             "ok": True, "paid": paid,
@@ -956,6 +1002,8 @@ def toggle_paid(company):
                           if paid else ""),
             "paid_count": len(paid_dates),
             "worked": len(worked_dates),
+            "unpaid_gross": _ug.get(employee),
+            "unpaid_total": _ut,
         })
     flash(f"{employee} on {day.isoformat()} marked "
           f"{'paid' if paid else 'unpaid'}.")
