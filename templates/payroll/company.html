@@ -44,6 +44,7 @@
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
     <button class="btn secondary" type="button" id="add-employee-toggle" onclick="toggleAddEmployee('add-employee-form', 'add-employee-toggle')">＋ Add Employee</button>
+    <span class="muted" style="font-size:14px">Pay Period: <strong style="color:var(--text);font-weight:600">{{ period_label }}</strong></span>
     <div style="display:flex;align-items:center;gap:8px">
     <label class="muted small" for="paid-filter">Show</label>
     <select id="paid-filter" onchange="filterByPaid(this.value)">
