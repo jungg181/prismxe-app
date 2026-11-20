@@ -49,7 +49,7 @@ from flask import (Blueprint, Response, flash, jsonify, redirect,
 from payroll_calc import (DEFAULT_OT_MULTIPLIER, DEFAULT_OT_THRESHOLD,
                           compute_jobsite_pnl, compute_payroll,
                           find_unmatched, invoice_lines, invoice_number,
-                          variance_report)
+                          resolve_aliases, variance_report)
 from payroll_import_app import (HOURS_RULE_TEXT, SOURCES, build_preview,
                                 import_rows)
 
@@ -834,10 +834,17 @@ def company_payroll(company):
     while _d <= end:
         all_dates.append(_d.isoformat())
         _d += _td(days=1)
+    # Resolve aliases so entries stored under a short name (e.g.
+    # "Francisco") match the canonical rate-row name ("Francisco
+    # Ernesto Martinez Bastidas") used in result rows — otherwise
+    # the Days list shows 0h for those days and the Paid buttons
+    # never appear. resolve_aliases returns copies; the entry ids
+    # (used by the edit forms) are unchanged.
+    _entries = resolve_aliases(
+        [e for e in DB.get("entries", []) if e.get("company") == co["name"]],
+        DB.get("aliases", []), co["name"])
     _by_emp_date = {}
-    for e in DB.get("entries", []):
-        if e.get("company") != co["name"]:
-            continue
+    for e in _entries:
         d = e.get("date") or ""
         if not (start.isoformat() <= d <= end.isoformat()):
             continue
@@ -926,10 +933,14 @@ def toggle_paid(company):
     save_db()
     # Paid / worked day counts for this employee in this period,
     # so the employee table's Paid cell can update without a reload.
+    # Alias-aware: entries may be stored under a short name
+    # ("Francisco") while the rate row uses the canonical name.
     worked_dates = set()
-    for e in DB.get("entries", []):
-        if (e.get("company") == co["name"]
-                and (e.get("employee") or "") == employee
+    for e in resolve_aliases(
+            [x for x in DB.get("entries", [])
+             if x.get("company") == co["name"]],
+            DB.get("aliases", []), co["name"]):
+        if ((e.get("employee") or "") == employee
                 and (e.get("payroll_hours") or 0) > 0):
             d = e.get("date") or ""
             if start.isoformat() <= d <= end.isoformat():
