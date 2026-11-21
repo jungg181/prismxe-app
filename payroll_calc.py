@@ -465,16 +465,23 @@ def invoice_lines(rows, expenses=None, ot_multiplier=DEFAULT_OT_MULTIPLIER):
     excluded = []
     for r in rows:
         if r.get("no_rate") or r.get("billing") is None:
-            excluded.append(r["employee"])
+            # Combined invoices tag the company, so the same name in
+            # two companies stays unambiguous; single-company rows
+            # carry no company and the name stays bare.
+            excluded.append(r["employee"]
+                            + (f" ({r['company']})"
+                               if r.get("company") else ""))
             continue
         billing = float(r["billing"])
         lines.append({
-            "employee": r["employee"], "type": "Regular",
+            "employee": r["employee"], "company": r.get("company") or "",
+            "type": "Regular",
             "qty": r["reg_hours"], "unit": _money(billing),
             "total": _money(r["reg_hours"] * billing),
         })
         lines.append({
-            "employee": r["employee"], "type": "Overtime",
+            "employee": r["employee"], "company": r.get("company") or "",
+            "type": "Overtime",
             "qty": r["ot_hours"], "unit": _money(billing * ot_multiplier),
             "total": _money(r["ot_hours"] * billing * ot_multiplier),
         })
