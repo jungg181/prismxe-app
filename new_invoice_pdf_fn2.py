@@ -1,4 +1,5 @@
-def _invoice_pdf_bytes(co, start, end, number, inv, bank):
+def _invoice_pdf_bytes(co, start, end, number, inv, bank,
+                       fit_one_page=False):
     """Build the invoice PDF matching the Hanseong sheet format (Letter
     portrait, compact so a 20-worker invoice fits on one page): PRISM
     logo + blue Invoice title, contact block (email on the same line as
@@ -13,7 +14,11 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     invoice has the bank box + totals + approval at the very bottom and
     a long invoice never overlaps them; very long invoices flow to
     page 2. Top/bottom margins come from the company record
-    (pdf_top_margin / pdf_bottom_margin, mm; defaults 5 / 5)."""
+    (pdf_top_margin / pdf_bottom_margin, mm; defaults 5 / 5).
+    fit_one_page: shrink the item rows just enough for the whole
+    invoice to fit on one page (never taller than the default, never
+    below 3.0mm); if even the minimum row height cannot fit it, the
+    invoice still flows to page 2."""
     from fpdf import FPDF
 
     NAVY = (10, 48, 65)
@@ -29,6 +34,24 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     PAGE_H = 279.4
     TOP = _pdf_margin(co.get("pdf_top_margin"), 5, 0, 20)
     BOTTOM_MARGIN = _pdf_margin(co.get("pdf_bottom_margin"), 5, 5, 30)
+    if fit_one_page:
+        # The items table runs from TOP+65 down to the bottom
+        # section's top (yb2, computed the same way as below: the
+        # 7-line bank box + approval block). Shrink the item rows
+        # just enough to fit; only shrinks, never grows past the
+        # default 3.6mm, and never below 3.0mm (the 8pt text still
+        # needs to fit).
+        box_h = 4 + 3.4 * 7  # 7 bank lines, same as the bottom section
+        yb2 = PAGE_H - BOTTOM_MARGIN - 7 - 6 - (box_h + 1)
+        available = yb2 - (TOP + 65)
+        distinct = {(ln.get("company") or "") for ln in inv["lines"]
+                    if ln.get("company")}
+        n_section = len(distinct) if len(distinct) > 1 else 0
+        n_rows = (len(inv["lines"]) + len(inv["expenses"]) + n_section)
+        excluded_h = 4 if inv.get("excluded") else 0
+        if n_rows > 0:
+            fit_row = (available - ROW - excluded_h) / n_rows
+            DATA_ROW = max(3.0, min(DATA_ROW, fit_row))
 
     def money(v):
         # Negative amounts (discounts / deductions) read as -$2,500.00.
