@@ -4,24 +4,25 @@
 <h1>Invoice {{ rec.number }}</h1>
 <p class="sub">{{ company.vendor }} · {{ rec.start }} → {{ rec.end }} · Saved {{ (rec.created or '')[:10] }}{% if rec.updated and (rec.updated or '')[:10] != (rec.created or '')[:10] %} · Updated {{ (rec.updated or '')[:10] }}{% endif %}</p>
 
+{% set show_company = rec.lines | selectattr('company') | map(attribute='company') | unique | list | length > 1 %}
 <div class="card">
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Employee</th><th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+      <thead><tr><th>Employee</th>{% if show_company %}<th>Company</th>{% endif %}<th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
       <tbody>
         {% for line in rec.lines %}
         <tr{% if line.qty == 0 %} class="zero"{% endif %}>
-          <td>{{ line.employee }}</td><td>{{ line.type }}</td>
+          <td>{{ line.employee }}</td>{% if show_company %}<td>{{ line.company or '' }}</td>{% endif %}<td>{{ line.type }}</td>
           <td class="num">{{ line.qty }}</td><td class="num">{{ money(line.unit) }}</td>
           <td class="num">{{ money(line.total) }}</td>
         </tr>
         {% endfor %}
         {% for ex in rec.expenses %}
-        <tr><td>{{ ex.description }}</td><td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
+        <tr><td>{{ ex.description }}</td>{% if show_company %}<td></td>{% endif %}<td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
         {% endfor %}
-        <tr class="total"><td colspan="4">Labour Total</td><td class="num">{{ money(rec.labour_total) }}</td></tr>
-        <tr><td colspan="4">Expenses Total</td><td class="num">{{ money(rec.expense_total) }}</td></tr>
-        <tr class="total"><td colspan="4">TOTAL</td><td class="num">{{ money(rec.total) }}</td></tr>
+        <tr class="total"><td colspan="{% if show_company %}5{% else %}4{% endif %}">Labour Total</td><td class="num">{{ money(rec.labour_total) }}</td></tr>
+        <tr><td colspan="{% if show_company %}5{% else %}4{% endif %}">Expenses Total</td><td class="num">{{ money(rec.expense_total) }}</td></tr>
+        <tr class="total"><td colspan="{% if show_company %}5{% else %}4{% endif %}">TOTAL</td><td class="num">{{ money(rec.total) }}</td></tr>
       </tbody>
     </table>
   </div>
