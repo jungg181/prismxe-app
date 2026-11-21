@@ -38,6 +38,24 @@ def _money(value):
     return round(float(value) + 0.0, 2)
 
 
+def _is_night_shift(shift):
+    """True for a night shift: the text says 'night', or the shift
+    spans midnight (starts PM, ends AM, e.g. '7PM-7AM'). Night-shift
+    workers are billed at the rate row's night billing rate when one
+    is set; otherwise they fall back to the day billing rate."""
+    s = (shift or "").strip().lower()
+    if not s:
+        return False
+    if "night" in s:
+        return True
+    parts = s.split("-")
+    if len(parts) == 2:
+        start, end = parts[0].strip(), parts[1].strip()
+        if "pm" in start and "am" in end:
+            return True
+    return False
+
+
 def _hours(value):
     if value is None or value == "":
         return 0.0
@@ -161,6 +179,11 @@ def compute_payroll(entries, rates, company, start, end,
         (YYYY-MM-DD), payroll_hours (float). Extra keys are ignored.
     rates: iterable of dicts with keys name, company, staffing, billing.
         staffing/billing may be None (blank in the source sheet).
+        A rate row may also carry billing_night: the client charge
+        for night-shift workers. When the row's shift is a night
+        shift and billing_night is set, the night rate is used for
+        billing (staffing pay is unchanged); otherwise the day
+        billing rate applies.
     company: company display name, e.g. "KB Link" or "Hanseong".
     start, end: date objects (inclusive) or YYYY-MM-DD strings.
 
@@ -274,6 +297,12 @@ def compute_payroll(entries, rates, company, start, end,
         # ride on the rate row, so they are blank until entered.
         shift = (rate.get("shift") or "").strip() if rate else ""
         position = (rate.get("position") or "").strip() if rate else ""
+        # Night shift: the night billing rate applies when one is set.
+        # A rate row with no night billing falls back to the day rate,
+        # so other companies are unaffected. Staffing pay never changes.
+        billing_night = rate.get("billing_night") if rate else None
+        if billing_night is not None and _is_night_shift(shift):
+            billing = float(billing_night)
         if staffing is None or billing is None:
             # No usable rate row: pay/billing stay blank, never $0.
             rows.append({
