@@ -21,26 +21,49 @@
 </div>
 {% else %}
 <h1>Invoice {{ number }}</h1>
-<p class="sub">{{ company.vendor }} · {{ start }} → {{ end }} · {{ company.category }} · Ship to: {{ company.ship_to }}</p>
+<p class="sub">{{ company.vendor }} · {{ start }} → {{ end }} · {{ company.category }} · Ship to: {{ company.ship_to }}{% if combine_co %} · Combined with {{ combine_co.name }}{% endif %}</p>
+
+<div class="card">
+  <form method="get" action="{{ url_for('.invoice', company=company.slug) }}">
+    <input type="hidden" name="from" value="{{ start }}">
+    <input type="hidden" name="to" value="{{ end }}">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label class="muted small" for="combine">Combine with</label>
+      <select id="combine" name="combine" style="width:auto;min-width:180px">
+        <option value="">— Single company —</option>
+        {% for c in companies %}
+        {% if c.slug != company.slug %}
+        <option value="{{ c.slug }}"{% if combine_co and c.slug == combine_co.slug %} selected{% endif %}>{{ c.name }}</option>
+        {% endif %}
+        {% endfor %}
+      </select>
+      <button class="btn secondary" type="submit">Show Invoice</button>
+      {% if combine_co %}
+      <a class="btn secondary" href="{{ url_for('.invoice', company=company.slug, **{'from': start, 'to': end}) }}">Single company only</a>
+      {% endif %}
+    </div>
+    <p class="small muted" style="margin:8px 0 0">Combine two companies into one invoice — both companies' employees appear in a single table, with the company shown on each line. The invoice number stays the {{ company.name }} number.</p>
+  </form>
+</div>
 
 <div class="card">
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Employee</th><th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+      <thead><tr><th>Employee</th>{% if combine_co %}<th>Company</th>{% endif %}<th>Type</th><th class="num">Hours</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
       <tbody>
         {% for line in inv.lines %}
         <tr{% if line.qty == 0 %} class="zero"{% endif %}>
-          <td>{{ line.employee }}</td><td>{{ line.type }}</td>
+          <td>{{ line.employee }}</td>{% if combine_co %}<td>{{ line.company }}</td>{% endif %}<td>{{ line.type }}</td>
           <td class="num">{{ line.qty }}</td><td class="num">{{ money(line.unit) }}</td>
           <td class="num">{{ money(line.total) }}</td>
         </tr>
         {% endfor %}
         {% for ex in inv.expenses %}
-        <tr><td>{{ ex.description }}</td><td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
+        <tr><td>{{ ex.description }}</td>{% if combine_co %}<td></td>{% endif %}<td>Expense</td><td class="num">—</td><td class="num">—</td><td class="num">{{ money(ex.amount) }}</td></tr>
         {% endfor %}
-        <tr class="total"><td colspan="4">Labour Total</td><td class="num">{{ money(inv.labour_total) }}</td></tr>
-        <tr><td colspan="4">Expenses Total</td><td class="num">{{ money(inv.expense_total) }}</td></tr>
-        <tr class="total"><td colspan="4">TOTAL</td><td class="num">{{ money(inv.total) }}</td></tr>
+        <tr class="total"><td colspan="{% if combine_co %}5{% else %}4{% endif %}">Labour Total</td><td class="num">{{ money(inv.labour_total) }}</td></tr>
+        <tr><td colspan="{% if combine_co %}5{% else %}4{% endif %}">Expenses Total</td><td class="num">{{ money(inv.expense_total) }}</td></tr>
+        <tr class="total"><td colspan="{% if combine_co %}5{% else %}4{% endif %}">TOTAL</td><td class="num">{{ money(inv.total) }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -51,6 +74,7 @@
   <form method="get" action="{{ url_for('.invoice_pdf', company=company.slug) }}">
     <input type="hidden" name="from" value="{{ start }}">
     <input type="hidden" name="to" value="{{ end }}">
+    {% if combine_co %}<input type="hidden" name="combine" value="{{ combine_co.slug }}">{% endif %}
     <h3 style="margin:14px 0 6px">PDF options</h3>
     <p class="small muted" style="margin:0 0 8px">Adjust these before downloading. They apply to this download only; the company's saved values stay the same.</p>
     <div class="form-grid">
