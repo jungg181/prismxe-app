@@ -22,12 +22,12 @@
 
 <div class="card">
   <h2 style="margin-top:0">Companies &amp; rates</h2>
-  <p class="small muted">One rate per company — a worker can belong to several companies, each with its own staffing and billing rate, shift and position.</p>
+  <p class="small muted">One rate per company — a worker can belong to several companies, each with its own staffing and billing rate, shift and position. Night Billing applies to night-shift workers (7PM–7AM); leave it blank to use the day Billing rate.</p>
   {% if rates %}
   <div class="table-scroll">
     <table style="table-layout:fixed">
-      <colgroup><col><col style="width:120px"><col style="width:80px"><col style="width:110px"><col style="width:110px"><col style="width:150px"></colgroup>
-      <thead><tr><th>Company</th><th>Shift</th><th>Position</th><th class="num">Staffing ($/h)</th><th class="num">Billing ($/h)</th><th></th></tr></thead>
+      <colgroup><col><col style="width:120px"><col style="width:80px"><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:150px"></colgroup>
+      <thead><tr><th>Company</th><th>Shift</th><th>Position</th><th class="num">Staffing ($/h)</th><th class="num">Billing Day ($/h)</th><th class="num">Billing Night ($/h)</th><th></th></tr></thead>
       <tbody>
         {% for r in rates %}
         <tr>
@@ -42,6 +42,7 @@
           <td><input type="text" name="position" list="position-list" style="width:70px" value="{{ r.position or '' }}" placeholder="e.g. F" form="rate-{{ loop.index }}"></td>
           <td class="num"><input type="number" name="staffing" step="0.01" min="0" style="width:110px" value="{{ r.staffing if r.staffing is not none else '' }}" placeholder="—" form="rate-{{ loop.index }}"></td>
           <td class="num"><input type="number" name="billing" step="0.01" min="0" style="width:110px" value="{{ r.billing if r.billing is not none else '' }}" placeholder="—" form="rate-{{ loop.index }}"></td>
+          <td class="num"><input type="number" name="billing_night" step="0.01" min="0" style="width:110px" value="{{ r.billing_night if r.billing_night is not none else '' }}" placeholder="—" form="rate-{{ loop.index }}"></td>
           <td style="white-space:nowrap">
             <button class="btn secondary small" type="submit" form="rate-{{ loop.index }}">Save</button>
             <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}" class="inline-form" onsubmit="return confirm('Remove {{ person.name }} from {{ r.company }}?')">
@@ -64,7 +65,8 @@
     <div class="form-grid">
       <div><label for="ncompany">Add to another company</label><select id="ncompany" name="to_company">{% for c in other_companies %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endfor %}</select></div>
       <div><label for="nstaffing">Staffing rate ($/h)</label><input type="number" id="nstaffing" name="staffing" step="0.01" min="0" placeholder="What the worker is paid"></div>
-      <div><label for="nbilling">Billing rate ($/h)</label><input type="number" id="nbilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
+      <div><label for="nbilling">Billing rate — Day ($/h)</label><input type="number" id="nbilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
+      <div><label for="nbilling_night">Billing rate — Night ($/h)</label><input type="number" id="nbilling_night" name="billing_night" step="0.01" min="0" placeholder="Blank = day rate"></div>
       <div><label for="nshift">Shift</label><input type="text" id="nshift" name="shift" list="shift-list" placeholder="e.g. 4AM-12PM"></div>
       <div><label for="nposition">Position</label><input type="text" id="nposition" name="position" list="position-list" placeholder="e.g. F"></div>
     </div>
