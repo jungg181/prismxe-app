@@ -1358,6 +1358,29 @@ def _company_invoices(co):
     return recs
 
 
+def _invoice_data(co, start, end, combine_co=None):
+    """Build invoice_lines for one company, or for two companies
+    combined (primary + combine_co). Each row is tagged with its
+    company name, so the invoice can show which company each
+    employee belongs to. Expenses from both companies are included.
+    Returns (inv, included) where included is the list of company
+    dicts in the invoice, primary first."""
+    ot_mult = _settings()["ot_multiplier"]
+    rows = []
+    expenses = []
+    included = [co]
+    for c in [co] + ([combine_co] if combine_co else []):
+        res = _payroll_for(c, start, end)
+        for r in res["rows"]:
+            r["company"] = c["name"]
+            rows.append(r)
+        expenses.extend(_period_expenses(c, start, end))
+        if c is not co:
+            included.append(c)
+    inv = invoice_lines(rows, expenses, ot_multiplier=ot_mult)
+    return inv, included
+
+
 @bp.get("/<company>/invoice")
 def invoice(company):
     co = find_company(company)
@@ -1371,19 +1394,28 @@ def invoice(company):
             "payroll/invoice.html", company=co, start="", end="",
             number="", inv=None, bank=_company_bank(co),
             approved_by=APPROVED_BY, money=_money,
-            saved=_company_invoices(co)[:10], period_required=True)
+            saved=_company_invoices(co)[:10], period_required=True,
+            combine_co=None, included=None,
+            companies=DB.get("companies", []))
     start, end = period
-    result = _payroll_for(co, start, end)
-    inv = invoice_lines(result["rows"],
-                        _period_expenses(co, start, end),
-                        ot_multiplier=_settings()["ot_multiplier"])
+    # Optional second company to combine into one invoice
+    # (?combine=<slug>). The number stays the primary company's.
+    combine_co = None
+    combine_slug = (request.args.get("combine") or "").strip()
+    if combine_slug:
+        combine_co = find_company(combine_slug)
+        if combine_co is not None and combine_co["name"] == co["name"]:
+            combine_co = None
+    inv, included = _invoice_data(co, start, end, combine_co)
     number = invoice_number(co["prefix"], datetime.now(PHOENIX).date(),
                             co.get("prefix_end") or "")
     return render_template(
         "payroll/invoice.html", company=co, start=start.isoformat(),
         end=end.isoformat(), number=number, inv=inv, bank=_company_bank(co),
         approved_by=APPROVED_BY, money=_money,
-        saved=_company_invoices(co)[:10], period_required=False)
+        saved=_company_invoices(co)[:10], period_required=False,
+        combine_co=combine_co, included=included,
+        companies=DB.get("companies", []))
 
 
 @bp.get("/<company>/invoices")
@@ -1644,7 +1676,36 @@ def _invoice_pdf_bytes(co, start, end, number, inv, bank):
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("helvetica", "", BODY)
     emp_no = 0
+    cur_company = None
+    # Section rows only when the invoice actually spans two companies;
+    # a single-company invoice carries its company on every line but
+    # shows no section header.
+    combined_pdf = len({(ln.get("company") or "")
+                        for ln in inv["lines"]
+                        if ln.get("company")}) > 1
     for line in inv["lines"]:
+        # Combined invoice: a bold section row when the company
+        # changes, so the client can see which division each worker
+        # belongs to. Single-company invoices carry no company on
+        # their lines, so no header appears.
+        line_company = line.get("company") or ""
+        if combined_pdf and line_company and line_company != cur_company:
+            cur_company = line_company
+            pdf.set_font("helvetica", "B", BODY)
+            pdf.set_x(LEFT)
+            pdf.cell(13.8, DATA_ROW, "", border=1, align="C",
+                    new_x="RIGHT", new_y="TOP")
+            pdf.cell(60.4, DATA_ROW, f" {line_company}", border=1,
+                    align="L", new_x="RIGHT", new_y="TOP")
+            pdf.cell(31.9, DATA_ROW, "", border=1, align="R",
+                    new_x="RIGHT", new_y="TOP")
+            pdf.cell(14.8, DATA_ROW, "", border=1, align="C",
+                    new_x="RIGHT", new_y="TOP")
+            pdf.cell(16.2, DATA_ROW, "", border=1, align="R",
+                    new_x="RIGHT", new_y="TOP")
+            pdf.cell(42.9, DATA_ROW, "", border=1, align="R",
+                    new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("helvetica", "", BODY)
         if line["type"] == "Regular":
             emp_no += 1
             no = f"A{emp_no}"
@@ -2345,10 +2406,15 @@ def invoice_pdf(company):
     if period is None:
         return redirect(url_for(".invoice", company=co["slug"]))
     start, end = period
-    result = _payroll_for(co, start, end)
-    inv = invoice_lines(result["rows"],
-                        _period_expenses(co, start, end),
-                        ot_multiplier=_settings()["ot_multiplier"])
+    # A combined invoice (?combine=<slug>) is built the same way as
+    # the invoice page, so the PDF matches what was previewed.
+    combine_co = None
+    combine_slug = (request.args.get("combine") or "").strip()
+    if combine_slug:
+        combine_co = find_company(combine_slug)
+        if combine_co is not None and combine_co["name"] == co["name"]:
+            combine_co = None
+    inv, _included = _invoice_data(co, start, end, combine_co)
     number = invoice_number(co["prefix"], datetime.now(PHOENIX).date(),
                             co.get("prefix_end") or "")
     co = dict(co)
