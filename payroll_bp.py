@@ -3260,7 +3260,12 @@ def entries(company):
             _redir["tab"] = _tab
         if action == "daily_add":
             _day = (request.form.get("date") or "").strip()
-            if _day:
+            _next = (request.form.get("next_date") or "").strip()
+            # "Save & Move" from the unsaved-changes prompt: after
+            # saving, land on the day the user was moving to.
+            if _next:
+                _redir["daily_date"] = _next
+            elif _day:
                 _redir["daily_date"] = _day
         elif action == "monthly_add":
             _m = (request.form.get("monthly_month") or "").strip()
