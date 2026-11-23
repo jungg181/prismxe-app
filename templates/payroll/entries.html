@@ -1,6 +1,14 @@
 {% extends "payroll/base.html" %}
 {% block title %}{{ company.name }} Time Entries{% endblock %}
 {% block content %}
+<style>
+/* Entry tables: every column except the name is the same width,
+   and all text sits in the middle of its cell. */
+.entry-input-table th, .entry-input-table td { text-align: center; }
+.entry-input-table input { text-align: center; }
+/* Single Add/Edit form: same centred input text. */
+.form-grid input, .form-grid select { text-align: center; }
+</style>
 <h1>{{ company.name }} Time Entries</h1>
 <p class="sub">{{ start }} → {{ end }} · Payroll Hours are the hours that count toward pay. Clock-in/out times are kept for reference only.</p>
 
@@ -69,16 +77,16 @@
       <button class="btn" type="submit">Save Entries</button>
     </div>
     <div class="table-scroll">
-      <table style="table-layout:fixed">
+      <table class="entry-input-table" style="table-layout:fixed">
         <colgroup>
           <col style="width:200px">
-          <col style="width:140px">
-          <col style="width:110px">
-          <col style="width:110px">
-          <col style="width:70px">
-          <col style="width:90px">
           <col style="width:120px">
-          <col style="width:140px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
         </colgroup>
         <thead><tr><th>Employee</th><th>Date</th><th>Clock-In</th><th>Clock-Out</th><th>Meal</th><th>Payroll Hours</th><th>Site</th><th>Notes</th></tr></thead>
         <tbody>
@@ -130,15 +138,15 @@
       <button class="btn" type="submit">Save Entries</button>
     </div>
     <div class="table-scroll">
-      <table style="table-layout:fixed">
+      <table class="entry-input-table" style="table-layout:fixed">
         <colgroup>
-          <col style="width:140px">
-          <col style="width:110px">
-          <col style="width:110px">
-          <col style="width:70px">
-          <col style="width:90px">
           <col style="width:120px">
-          <col style="width:140px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
         </colgroup>
         <thead><tr><th>Date</th><th>Clock-In</th><th>Clock-Out</th><th>Meal</th><th>Payroll Hours</th><th>Site</th><th>Notes</th></tr></thead>
         <tbody>
@@ -190,15 +198,15 @@
       <button class="btn" type="submit">Save Entries</button>
     </div>
     <div class="table-scroll">
-      <table style="table-layout:fixed">
+      <table class="entry-input-table" style="table-layout:fixed">
         <colgroup>
           <col style="width:200px">
-          <col style="width:110px">
-          <col style="width:110px">
-          <col style="width:70px">
-          <col style="width:90px">
           <col style="width:120px">
-          <col style="width:140px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
+          <col style="width:120px">
         </colgroup>
         <thead><tr><th>Employee</th><th>Clock-In</th><th>Clock-Out</th><th>Meal</th><th>Payroll Hours</th><th>Site</th><th>Notes</th></tr></thead>
         <tbody>
