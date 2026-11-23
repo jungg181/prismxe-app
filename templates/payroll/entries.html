@@ -134,6 +134,60 @@
 </div>
 
 <div class="card">
+  <h2 style="margin-top:0">Daily Add</h2>
+  <p class="small muted">One date, every employee in {{ company.name }} at once. Pick the date, load the employees, then fill in the hours and clock in/out for the ones who worked — blank rows are skipped. Exact duplicates are skipped too.</p>
+  <form method="get" action="{{ url_for('.entries', company=company.slug) }}">
+    <input type="hidden" name="from" value="{{ start }}">
+    <input type="hidden" name="to" value="{{ end }}">
+    <div class="form-grid">
+      <div><label for="daily_date">Date</label><input id="daily_date" name="daily_date" type="date" value="{{ daily_date or start }}" required></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn secondary" type="submit">Load Employees</button>
+    </div>
+  </form>
+  {% if daily_date %}
+  {% if names %}
+  <p class="small" style="margin-top:16px"><strong>{{ daily_date }}</strong> · {{ names|length }} employee{{ 's' if names|length != 1 else '' }}</p>
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
+    <input type="hidden" name="action" value="daily_add">
+    <input type="hidden" name="date" value="{{ daily_date }}">
+    <div class="table-scroll">
+      <table style="table-layout:fixed">
+        <colgroup>
+          <col style="width:200px">
+          <col style="width:90px">
+          <col style="width:110px">
+          <col style="width:110px">
+          <col style="width:120px">
+          <col style="width:140px">
+        </colgroup>
+        <thead><tr><th>Employee</th><th>Payroll Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for name in names %}
+          <tr>
+            <td>{{ name }}{% if name in daily_existing %} <span class="muted small">· already {{ daily_existing[name] }}h</span>{% endif %}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
+            <td><input type="number" name="rows[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7"></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM"></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM"></td>
+            <td><input name="rows[{{ loop.index0 }}][site]" placeholder="e.g. LGES"></td>
+            <td><input name="rows[{{ loop.index0 }}][notes]" placeholder="e.g. KB"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" type="submit">Add Entries</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="muted" style="margin-top:16px">No employees with rates in {{ company.name }} yet — add rates first.</p>
+  {% endif %}
+  {% endif %}
+</div>
+
+<div class="card">
   <h2 style="margin-top:0">Import CSV</h2>
   <p class="small muted">Columns: Employee, Date, Payroll Hours, Notes + optional Clock-In, Clock-Out, Site. Re-importing the same file skips exact duplicates.</p>
   <p class="small"><a href="{{ url_for('.import_app', company=company.slug, **{'from': start, 'to': end}) }}">Or import from the app →</a> pull time records straight from CM, Hanseong Patrol, COA or Patrol COA (preview first).</p>
