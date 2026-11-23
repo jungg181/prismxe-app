@@ -168,23 +168,24 @@
 <div class="card">
   <h2 style="margin-top:0">Daily Add</h2>
   <p class="small muted">One date, every employee in {{ company.name }} at once. Pick the date, load the employees, then fill in the clock in/out times — the hours calculate automatically. Tick <strong>Meal</strong> to deduct 1h for a meal break. Blank rows are skipped. Exact duplicates are skipped too.</p>
-  <form method="get" action="{{ url_for('.entries', company=company.slug) }}">
+  <form method="get" action="{{ url_for('.entries', company=company.slug) }}" id="daily-date-form">
     <input type="hidden" name="from" value="{{ start }}">
     <input type="hidden" name="to" value="{{ end }}">
-    <div class="form-grid">
-      <div><label for="daily_date">Date</label><input id="daily_date" name="daily_date" type="date" value="{{ daily_date or start }}" required></div>
-    </div>
-    <div class="btn-row" style="margin-top:12px">
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+      <div><label for="daily_date">Date</label><input id="daily_date" name="daily_date" type="date" value="{{ daily_date or start }}" required style="width:170px"></div>
+      <button class="btn secondary" type="button" id="daily-prev" title="Previous day" aria-label="Previous day">&#8249;</button>
+      <button class="btn secondary" type="button" id="daily-next" title="Next day" aria-label="Next day">&#8250;</button>
       <button class="btn secondary" type="submit">Load Employees</button>
     </div>
   </form>
   {% if daily_date %}
   {% if names %}
   <p class="small" style="margin-top:16px"><strong>{{ daily_date }}</strong> · {{ names|length }} employee{{ 's' if names|length != 1 else '' }}</p>
-  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" id="daily-add-form">
     <input type="hidden" name="action" value="daily_add">
     <input type="hidden" name="tab" value="daily">
     <input type="hidden" name="date" value="{{ daily_date }}">
+    <input type="hidden" name="next_date" id="daily-next-date" value="">
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn" type="submit">Save Entries</button>
     </div>
@@ -223,6 +224,17 @@
   <p class="muted" style="margin-top:16px">No employees with rates in {{ company.name }} yet — add rates first.</p>
   {% endif %}
   {% endif %}
+  <div id="daily-nav-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:#131316;border:1px solid #2a2a2e;border-radius:10px;padding:20px;max-width:380px;width:90%">
+      <p style="margin:0 0 6px;font-weight:600">Unsaved changes</p>
+      <p class="small muted" style="margin:0 0 16px">You have unsaved changes for this day. Save them before moving to <strong id="daily-nav-target"></strong>?</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn secondary" type="button" id="daily-nav-discard">Move Without Saving</button>
+        <button class="btn secondary" type="button" id="daily-nav-cancel">Cancel</button>
+        <button class="btn" type="button" id="daily-nav-save">Save &amp; Move</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endif %}
 
@@ -434,5 +446,81 @@ function setupLocationPicker(selectId, btnsId, inputId, pickerId) {
 }
 setupLocationPicker('jobsite_id', 'location-btns', 'sub_jobsite_id', 'location-picker');
 setupLocationPicker('assign_jobsite_id', 'assign-location-btns', 'assign_sub_jobsite_id', 'assign-location-picker');
+
+// Daily Add: compact date row with prev/next arrows, and a
+// prompt when moving to another day with unsaved edits.
+(function () {
+  var getForm = document.getElementById('daily-date-form');
+  var postForm = document.getElementById('daily-add-form');
+  var dateInput = document.getElementById('daily_date');
+  var modal = document.getElementById('daily-nav-modal');
+  if (!getForm || !dateInput || !modal) return;
+  var dirty = false;
+  var navTarget = null;
+  if (postForm) {
+    postForm.addEventListener('input', function () { dirty = true; });
+    postForm.addEventListener('change', function () { dirty = true; });
+  }
+  function loadedDate() {
+    if (!postForm) return '';
+    var d = postForm.querySelector('input[name="date"]');
+    return d ? d.value : '';
+  }
+  function showModal(target) {
+    navTarget = target;
+    var t = document.getElementById('daily-nav-target');
+    if (t) t.textContent = target;
+    modal.style.display = 'flex';
+  }
+  function goTo(target) {
+    // Warn only when leaving a day that has unsaved edits.
+    if (dirty && postForm && target && target !== loadedDate()) {
+      showModal(target);
+      return;
+    }
+    dateInput.value = target;
+    getForm.submit();
+  }
+  function shift(days) {
+    var cur = dateInput.value;
+    if (!cur) return;
+    var d = new Date(cur + 'T12:00:00');
+    if (isNaN(d.getTime())) return;
+    d.setDate(d.getDate() + days);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    goTo(y + '-' + m + '-' + day);
+  }
+  var prev = document.getElementById('daily-prev');
+  var next = document.getElementById('daily-next');
+  if (prev) prev.addEventListener('click', function () { shift(-1); });
+  if (next) next.addEventListener('click', function () { shift(1); });
+  getForm.addEventListener('submit', function (ev) {
+    var target = dateInput.value;
+    if (dirty && postForm && target && target !== loadedDate()) {
+      ev.preventDefault();
+      showModal(target);
+    }
+  });
+  var saveBtn = document.getElementById('daily-nav-save');
+  var discardBtn = document.getElementById('daily-nav-discard');
+  var cancelBtn = document.getElementById('daily-nav-cancel');
+  if (saveBtn) saveBtn.addEventListener('click', function () {
+    var nd = document.getElementById('daily-next-date');
+    if (nd) nd.value = navTarget || '';
+    modal.style.display = 'none';
+    if (postForm) postForm.submit();
+  });
+  if (discardBtn) discardBtn.addEventListener('click', function () {
+    modal.style.display = 'none';
+    dateInput.value = navTarget || '';
+    getForm.submit();
+  });
+  if (cancelBtn) cancelBtn.addEventListener('click', function () {
+    modal.style.display = 'none';
+    navTarget = null;
+  });
+})();
 </script>
 {% endblock %}
