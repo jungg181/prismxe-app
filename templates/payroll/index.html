@@ -19,9 +19,15 @@
 
 <div class="card">
   <form method="get" action="{{ url_for('.index') }}">
-    <div class="form-grid">
-      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ request.args.get('from', default_from) }}" required></div>
-      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ request.args.get('to', default_to) }}" required></div>
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ request.args.get('from', default_from) }}" required style="width:170px"></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ request.args.get('to', default_to) }}" required style="width:170px"></div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding-bottom:9px">
+        <span class="small muted">Companies:</span>
+        <a class="btn{{ '' if status == 'active' else ' secondary' }} small" href="{{ url_for('.index', status='active', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Active</a>
+        <a class="btn{{ '' if status == 'inactive' else ' secondary' }} small" href="{{ url_for('.index', status='inactive', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Inactive</a>
+        <a class="btn{{ '' if status == 'all' else ' secondary' }} small" href="{{ url_for('.index', status='all', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">ALL</a>
+      </div>
     </div>
     <p class="small muted" style="margin:10px 0 12px">Pick a period, then choose a company. Only hours inside the period count; a week that straddles the period edge is split at the boundary.</p>
     <div class="btn-row">
@@ -30,13 +36,6 @@
       {% endfor %}
     </div>
   </form>
-</div>
-
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-  <span class="small muted">Companies:</span>
-  <a class="btn{{ '' if status == 'active' else ' secondary' }} small" href="{{ url_for('.index', status='active', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Active</a>
-  <a class="btn{{ '' if status == 'inactive' else ' secondary' }} small" href="{{ url_for('.index', status='inactive', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Inactive</a>
-  <a class="btn{{ '' if status == 'all' else ' secondary' }} small" href="{{ url_for('.index', status='all', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">ALL</a>
 </div>
 
 <div class="company-list">
