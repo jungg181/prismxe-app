@@ -65,6 +65,9 @@
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="bulk_add">
     <input type="hidden" name="tab" value="bulk">
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn" type="submit">Save Entries</button>
+    </div>
     <div class="table-scroll">
       <table style="table-layout:fixed">
         <colgroup>
@@ -95,7 +98,7 @@
       </table>
     </div>
     <div class="btn-row" style="margin-top:12px">
-      <button class="btn" type="submit">Add Entries</button>
+      <button class="btn" type="submit">Save Entries</button>
     </div>
   </form>
 </div>
@@ -123,6 +126,9 @@
     <input type="hidden" name="tab" value="monthly">
     <input type="hidden" name="monthly_month" value="{{ monthly_month }}">
     <input type="hidden" name="employee" value="{{ monthly_employee }}">
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn" type="submit">Save Entries</button>
+    </div>
     <div class="table-scroll">
       <table style="table-layout:fixed">
         <colgroup>
@@ -151,7 +157,7 @@
       </table>
     </div>
     <div class="btn-row" style="margin-top:12px">
-      <button class="btn" type="submit">Add Entries</button>
+      <button class="btn" type="submit">Save Entries</button>
     </div>
   </form>
   {% endif %}
@@ -179,6 +185,9 @@
     <input type="hidden" name="action" value="daily_add">
     <input type="hidden" name="tab" value="daily">
     <input type="hidden" name="date" value="{{ daily_date }}">
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn" type="submit">Save Entries</button>
+    </div>
     <div class="table-scroll">
       <table style="table-layout:fixed">
         <colgroup>
@@ -207,7 +216,7 @@
       </table>
     </div>
     <div class="btn-row" style="margin-top:12px">
-      <button class="btn" type="submit">Add Entries</button>
+      <button class="btn" type="submit">Save Entries</button>
     </div>
   </form>
   {% else %}
