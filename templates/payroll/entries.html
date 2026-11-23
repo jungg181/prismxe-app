@@ -181,7 +181,7 @@
     <input type="hidden" name="to" value="{{ end }}">
     <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
       <div><label for="daily_date">Date</label><input id="daily_date" name="daily_date" type="date" value="{{ daily_date or start }}" required style="width:170px"></div>
-      <span id="daily-weekday" class="small" style="font-weight:600;padding-bottom:9px;min-width:32px">{{ daily_weekday }}</span>
+      <span id="daily-weekday" class="small" style="font-weight:600;padding-bottom:9px;min-width:32px;text-align:center">{{ daily_weekday }}</span>
       <button class="btn secondary" type="button" id="daily-prev" title="Previous day" aria-label="Previous day">&#8249;</button>
       <button class="btn secondary" type="button" id="daily-next" title="Next day" aria-label="Next day">&#8250;</button>
       <button class="btn secondary" type="submit">Load Employees</button>
