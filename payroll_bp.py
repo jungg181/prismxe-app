@@ -624,18 +624,55 @@ def _parse_entry_date(value):
         return None
 
 
+def _clock_minutes(value):
+    """Minutes after midnight for a clock time in any form the entry
+    forms accept: '9', '18', '9:00', '18:30', '7:00 AM', '3:30 PM',
+    or an ISO datetime. None when unparseable."""
+    s = (value or "").strip()
+    if not s:
+        return None
+    if "T" in s:
+        s = s.split("T", 1)[1]
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*([AaPp][Mm])?$",
+                 s)
+    if not m:
+        return None
+    h = int(m.group(1))
+    mi = int(m.group(2) or 0)
+    ap = (m.group(4) or "").upper()
+    if ap == "PM" and h != 12:
+        h += 12
+    if ap == "AM" and h == 12:
+        h = 0
+    if h > 23 or mi > 59:
+        return None
+    return h * 60 + mi
+
+
 def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
                        site, notes, jobsite_id="", meal_break=False):
     """Build a payroll entry dict from already-parsed values, the way
     the single Add form does (same fields, same defaults). Used by
     both the single add/update path and the bulk-add path so the two
     never drift apart. meal_break records whether a 1h meal break
-    was deducted from the hours (the form's Meal checkbox)."""
+    was deducted from the hours (the form's Meal checkbox). A night
+    shift (clock-out at/before clock-in) is one row on the clock-in
+    date, and clock_out_date records the next day so the overnight
+    span is explicit in the data."""
+    _in_m = _clock_minutes(clock_in)
+    _out_m = _clock_minutes(clock_out)
+    _out_date = None
+    if _in_m is not None and _out_m is not None and _out_m <= _in_m:
+        try:
+            _out_date = (date.fromisoformat(day)
+                         + timedelta(days=1)).isoformat()
+        except ValueError:
+            _out_date = None
     return {
         "company": co["name"], "employee": employee, "date": day,
         "payroll_hours": round(hours, 2),
         "clock_in": clock_in, "clock_out": clock_out,
-        "clock_out_date": None, "gross_hours": None,
+        "clock_out_date": _out_date, "gross_hours": None,
         "site": site, "notes": notes,
         "jobsite_id": jobsite_id or None,
         "meal_break": bool(meal_break),
@@ -1133,10 +1170,22 @@ def add_day_hours(company):
                          if e.get("company") == co["name"]
                          and e.get("employee") == employee
                          and e.get("date") == day), None)
+        # A night shift (out at/before in) is one row on the
+        # clock-in date; clock_out_date records the next day.
+        _in_m = _clock_minutes(clock_in)
+        _out_m = _clock_minutes(clock_out)
+        _out_date = None
+        if _in_m is not None and _out_m is not None and _out_m <= _in_m:
+            try:
+                _out_date = (date.fromisoformat(day)
+                             + timedelta(days=1)).isoformat()
+            except ValueError:
+                _out_date = None
         if existing is not None:
             existing["payroll_hours"] = hours
             existing["clock_in"] = clock_in
             existing["clock_out"] = clock_out
+            existing["clock_out_date"] = _out_date
             save_db()
             msg = (f"Updated for {employee} on {day}: {hours}h"
                    + (f" ({clock_in} - {clock_out})"
@@ -1148,7 +1197,7 @@ def add_day_hours(company):
                 "employee": employee, "date": day,
                 "payroll_hours": hours,
                 "clock_in": clock_in, "clock_out": clock_out,
-                "clock_out_date": None,
+                "clock_out_date": _out_date,
                 "gross_hours": None, "site": "", "notes": "",
             })
             save_db()
@@ -3174,11 +3223,27 @@ def entries(company):
                     None)
                 if _existing is not None:
                     # Only the fields the form edits; everything
-                    # else (id, jobsite, clock-out date, gross) stays.
+                    # else (id, jobsite, gross) stays. The
+                    # clock-out date is re-derived from the times,
+                    # so a day shift that becomes a night shift
+                    # (or the reverse) records the right date.
+                    _in_m = _clock_minutes(clock_in)
+                    _out_m = _clock_minutes(clock_out)
+                    _out_date = None
+                    if (_in_m is not None and _out_m is not None
+                            and _out_m <= _in_m):
+                        try:
+                            _out_date = (
+                                date.fromisoformat(day)
+                                + timedelta(days=1)).isoformat()
+                        except ValueError:
+                            _out_date = None
                     _changed = (
                         float(_existing.get("payroll_hours") or 0) != hours
                         or (_existing.get("clock_in") or "") != clock_in
                         or (_existing.get("clock_out") or "") != clock_out
+                        or (_existing.get("clock_out_date") or "")
+                        != (_out_date or "")
                         or (_existing.get("site") or "") != site
                         or (_existing.get("notes") or "") != notes
                         or bool(_existing.get("meal_break")) != meal_break)
@@ -3188,6 +3253,7 @@ def entries(company):
                     _existing["payroll_hours"] = round(hours, 2)
                     _existing["clock_in"] = clock_in
                     _existing["clock_out"] = clock_out
+                    _existing["clock_out_date"] = _out_date
                     _existing["site"] = site
                     _existing["notes"] = notes
                     _existing["meal_break"] = meal_break
