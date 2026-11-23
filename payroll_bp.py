@@ -625,11 +625,12 @@ def _parse_entry_date(value):
 
 
 def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
-                       site, notes, jobsite_id=""):
+                       site, notes, jobsite_id="", meal_break=False):
     """Build a payroll entry dict from already-parsed values, the way
     the single Add form does (same fields, same defaults). Used by
     both the single add/update path and the bulk-add path so the two
-    never drift apart."""
+    never drift apart. meal_break records whether a 1h meal break
+    was deducted from the hours (the form's Meal checkbox)."""
     return {
         "company": co["name"], "employee": employee, "date": day,
         "payroll_hours": round(hours, 2),
@@ -637,24 +638,26 @@ def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
         "clock_out_date": None, "gross_hours": None,
         "site": site, "notes": notes,
         "jobsite_id": jobsite_id or None,
+        "meal_break": bool(meal_break),
     }
 
 
 def _insert_entries(co, candidates):
-    """Insert many entries at once (Bulk Add / Monthly Add).
-    candidates: (employee, day, hours, clock_in, clock_out, site, notes)
-    tuples, already parsed. Rows missing employee, day or hours are
-    skipped; exact duplicates (same _entry_key the CSV import uses)
-    are skipped too, so a double-submit adds nothing twice.
-    Returns (added, skipped)."""
+    """Insert many entries at once (Bulk Add / Monthly Add / Daily Add).
+    candidates: (employee, day, hours, clock_in, clock_out, site,
+    notes, meal_break) tuples, already parsed. Rows missing employee,
+    day or hours are skipped; exact duplicates (same _entry_key the
+    CSV import uses) are skipped too, so a double-submit adds
+    nothing twice. Returns (added, skipped)."""
     existing = {_entry_key(e) for e in DB.get("entries", [])}
     added = skipped = 0
-    for employee, day, hours, clock_in, clock_out, site, notes in candidates:
+    for employee, day, hours, clock_in, clock_out, site, notes, meal_break in candidates:
         if not employee or not day or hours is None:
             skipped += 1
             continue
         entry = _entry_from_values(
-            co, employee, day, hours, clock_in, clock_out, site, notes)
+            co, employee, day, hours, clock_in, clock_out, site, notes,
+            meal_break=meal_break)
         if _entry_key(entry) in existing:
             skipped += 1
             continue
@@ -3081,6 +3084,7 @@ def entries(company):
                 clock_out = (request.form.get(p + "[clock_out]") or "").strip()
                 site = (request.form.get(p + "[site]") or "").strip()
                 notes = (request.form.get(p + "[notes]") or "").strip()
+                meal_break = (request.form.get(p + "[meal_break]") == "1")
                 if not any([employee, raw_date, raw_hours, clock_in,
                             clock_out, site, notes]):
                     continue
@@ -3090,7 +3094,7 @@ def entries(company):
                 except ValueError:
                     hours = None
                 candidates.append((employee, day, hours, clock_in,
-                                   clock_out, site, notes))
+                                   clock_out, site, notes, meal_break))
             added, skipped = _insert_entries(co, candidates)
             if added:
                 save_db()
@@ -3111,6 +3115,7 @@ def entries(company):
                 clock_out = (request.form.get(p + "[clock_out]") or "").strip()
                 site = (request.form.get(p + "[site]") or "").strip()
                 notes = (request.form.get(p + "[notes]") or "").strip()
+                meal_break = (request.form.get(p + "[meal_break]") == "1")
                 # The date is always present (hidden field), so a day
                 # with no hours and nothing else is just a day off —
                 # ignore it, don't count it as skipped.
@@ -3123,7 +3128,7 @@ def entries(company):
                 except ValueError:
                     hours = None
                 candidates.append((employee, day, hours, clock_in,
-                                   clock_out, site, notes))
+                                   clock_out, site, notes, meal_break))
             added, skipped = _insert_entries(co, candidates)
             if added:
                 save_db()
@@ -3150,6 +3155,7 @@ def entries(company):
                 clock_out = (request.form.get(p + "[clock_out]") or "").strip()
                 site = (request.form.get(p + "[site]") or "").strip()
                 notes = (request.form.get(p + "[notes]") or "").strip()
+                meal_break = (request.form.get(p + "[meal_break]") == "1")
                 if not any([raw_hours, clock_in,
                             clock_out, site, notes]):
                     continue
@@ -3167,14 +3173,15 @@ def entries(company):
                      and (e.get("date") or "") == day),
                     None)
                 if _existing is not None:
-                    # Only the 5 fields the form edits; everything
+                    # Only the fields the form edits; everything
                     # else (id, jobsite, clock-out date, gross) stays.
                     _changed = (
                         float(_existing.get("payroll_hours") or 0) != hours
                         or (_existing.get("clock_in") or "") != clock_in
                         or (_existing.get("clock_out") or "") != clock_out
                         or (_existing.get("site") or "") != site
-                        or (_existing.get("notes") or "") != notes)
+                        or (_existing.get("notes") or "") != notes
+                        or bool(_existing.get("meal_break")) != meal_break)
                     if not _changed:
                         skipped += 1
                         continue
@@ -3183,10 +3190,11 @@ def entries(company):
                     _existing["clock_out"] = clock_out
                     _existing["site"] = site
                     _existing["notes"] = notes
+                    _existing["meal_break"] = meal_break
                     updated += 1
                     continue
                 candidates.append((employee, day, hours, clock_in,
-                                   clock_out, site, notes))
+                                   clock_out, site, notes, meal_break))
             added, _sk = _insert_entries(co, candidates)
             skipped += _sk
             if added or updated:
@@ -3221,7 +3229,8 @@ def entries(company):
                 (request.form.get("clock_out") or "").strip(),
                 (request.form.get("site") or "").strip(),
                 (request.form.get("notes") or "").strip(),
-                jobsite_id)
+                jobsite_id,
+                meal_break=(request.form.get("meal_break") == "1"))
             if not employee or not day:
                 flash("Employee and date are required.")
             elif action == "update":
