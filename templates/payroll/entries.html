@@ -14,11 +14,9 @@
 
 <div class="card">
   <form method="get" action="{{ url_for('.entries', company=company.slug) }}">
-    <div class="form-grid">
-      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ start }}" required></div>
-      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ end }}" required></div>
-    </div>
-    <div class="btn-row" style="margin-top:12px">
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+      <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ start }}" required style="width:170px"></div>
+      <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ end }}" required style="width:170px"></div>
       <button class="btn" type="submit">Show Entries</button>
       <a class="btn secondary" href="{{ url_for('.company_payroll', company=company.slug, **{'from': start, 'to': end}) }}">View Payroll</a>
     </div>
