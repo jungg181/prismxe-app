@@ -3128,6 +3128,38 @@ def entries(company):
             if added:
                 save_db()
             _flash_bulk_result(added, skipped)
+        elif action == "daily_add":
+            # Daily Add: one date, every employee in the company.
+            # The date is picked once; each employee is a row with
+            # hours + clock in/out. Same skip/dedup rules as Bulk
+            # Add — blank rows are ignored, exact duplicates are
+            # skipped. The roster is re-read here (the GET list is
+            # not available in the POST branch).
+            day = _parse_entry_date(request.form.get("date"))
+            _roster = sorted({r["name"] for r in DB.get("rates", [])
+                              if r.get("company") == co["name"]})
+            candidates = []
+            for i in range(len(_roster)):
+                p = f"rows[{i}]"
+                employee = (request.form.get(p + "[employee]") or "").strip()
+                raw_hours = (request.form.get(p + "[payroll_hours]") or "").strip()
+                clock_in = (request.form.get(p + "[clock_in]") or "").strip()
+                clock_out = (request.form.get(p + "[clock_out]") or "").strip()
+                site = (request.form.get(p + "[site]") or "").strip()
+                notes = (request.form.get(p + "[notes]") or "").strip()
+                if not any([raw_hours, clock_in,
+                            clock_out, site, notes]):
+                    continue
+                try:
+                    hours = float(raw_hours) if raw_hours else None
+                except ValueError:
+                    hours = None
+                candidates.append((employee, day, hours, clock_in,
+                                   clock_out, site, notes))
+            added, skipped = _insert_entries(co, candidates)
+            if added:
+                save_db()
+            _flash_bulk_result(added, skipped)
         else:
             employee = (request.form.get("employee") or "").strip()
             day = _parse_entry_date(request.form.get("date"))
@@ -3214,6 +3246,24 @@ def entries(company):
         except (ValueError, IndexError):
             monthly_month = ""
             monthly_days = []
+    # Daily Add: if a date was picked, list every employee with a
+    # rate row for this company so the template can render one row
+    # per employee. Employees who already have an entry on that date
+    # are flagged (their hours shown) — re-entering them is skipped
+    # as a duplicate by _insert_entries.
+    daily_date = (request.args.get("daily_date") or "").strip()
+    daily_existing = {}
+    if daily_date:
+        try:
+            date.fromisoformat(daily_date)
+        except ValueError:
+            daily_date = ""
+        else:
+            for _e in DB.get("entries", []):
+                if (_e.get("company") == co["name"]
+                        and (_e.get("date") or "") == daily_date):
+                    daily_existing[(_e.get("employee") or "")] = \
+                        _e.get("payroll_hours")
     # The Jobsite dropdown lists top-level jobsites only; locations
     # are picked by tapping a button (see the template). When editing
     # an entry tagged to a location, the dropdown shows its parent and
@@ -3245,6 +3295,8 @@ def entries(company):
         monthly_days=monthly_days,
         monthly_employee=monthly_employee,
         monthly_month=monthly_month,
+        daily_date=daily_date,
+        daily_existing=daily_existing,
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
         jobsites=top_jobsites,
