@@ -120,7 +120,7 @@
     <input type="hidden" name="from" value="{{ start }}">
     <input type="hidden" name="to" value="{{ end }}">
     <div class="form-grid">
-      <div><label for="monthly_employee">Employee</label><input id="monthly_employee" name="monthly_employee" list="names" value="{{ monthly_employee }}" placeholder="Exact name" required></div>
+      <div><label for="monthly_employee">Employee</label><select id="monthly_employee" name="monthly_employee" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}"{{ ' selected' if monthly_employee == n }}>{{ n }}</option>{% endfor %}</select></div>
       <div><label for="monthly_month">Month</label><input id="monthly_month" name="monthly_month" type="month" value="{{ monthly_month or start[:7] }}" required></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
