@@ -333,11 +333,15 @@
 function parseClock(s) {
   s = (s || '').trim();
   if (!s) return null;
-  var m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*([aApP][mM])?$/);
+  // ISO datetime from the auto-sync import (e.g. 2026-11-21T07:00:00):
+  // use the time part after the T.
+  var t = s.indexOf('T');
+  if (t >= 0) s = s.slice(t + 1);
+  var m = s.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*([aApP][mM])?$/);
   if (!m) return null;
   var h = parseInt(m[1], 10);
   var min = m[2] ? parseInt(m[2], 10) : 0;
-  var ap = (m[3] || '').toLowerCase();
+  var ap = (m[4] || '').toLowerCase();
   if (ap === 'pm' && h < 12) h += 12;
   if (ap === 'am' && h === 12) h = 0;
   if (h > 23 || min > 59) return null;
@@ -359,10 +363,19 @@ document.addEventListener('change', function (ev) {
   var isClock = n === 'clock_in' || n === 'clock_out' || n === 'meal_break'
     || /\[(clock_in|clock_out|meal_break)\]$/.test(n);
   if (!isClock) return;
-  var hoursName = n.replace(/(clock_in|clock_out|meal_break)$/, 'payroll_hours');
-  var ciName = n.replace(/(clock_in|clock_out|meal_break)$/, 'clock_in');
-  var coName = n.replace(/(clock_in|clock_out|meal_break)$/, 'clock_out');
-  var mbName = n.replace(/(clock_in|clock_out|meal_break)$/, 'meal_break');
+  // Swap the field name (clock_in / clock_out / meal_break) for
+  // another field in the same row. Row names end with "]"
+  // ("rows[0][clock_in]"), so the optional bracket must be kept —
+  // without it the swap is a no-op and every lookup lands on the
+  // changed input itself (which is how a time field got set to 0).
+  function swapField(name, field) {
+    return name.replace(/(clock_in|clock_out|meal_break)(\]?)$/,
+                        field + '$2');
+  }
+  var hoursName = swapField(n, 'payroll_hours');
+  var ciName = swapField(n, 'clock_in');
+  var coName = swapField(n, 'clock_out');
+  var mbName = swapField(n, 'meal_break');
   var hours = t.form.querySelector('input[name="' + hoursName + '"]');
   var ci = t.form.querySelector('input[name="' + ciName + '"]');
   var co = t.form.querySelector('input[name="' + coName + '"]');
