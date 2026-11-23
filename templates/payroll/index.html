@@ -32,18 +32,28 @@
   </form>
 </div>
 
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+  <span class="small muted">Companies:</span>
+  <a class="btn{{ '' if status == 'active' else ' secondary' }} small" href="{{ url_for('.index', status='active', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Active</a>
+  <a class="btn{{ '' if status == 'inactive' else ' secondary' }} small" href="{{ url_for('.index', status='inactive', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">Inactive</a>
+  <a class="btn{{ '' if status == 'all' else ' secondary' }} small" href="{{ url_for('.index', status='all', **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">ALL</a>
+</div>
+
 <div class="company-list">
   {% for c in companies %}
   <div class="company-row">
     <a class="company-info" href="{{ url_for('.company_payroll', company=c.slug, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
       <span class="company-text">
-        <strong>{{ c.name }}</strong>
+        <strong>{{ c.name }}{% if not c.get('active', True) %} <span class="badge">Inactive</span>{% endif %}</strong>
         <span>Invoice prefix {{ c.prefix }}{% if c.category %} · {{ c.category }}{% endif %}</span>
       </span>
     </a>
     <div class="btn-row" style="flex-wrap:nowrap">
       <a class="btn secondary small" href="{{ url_for('.company_rates', company=c.slug) }}">Rates</a>
       <a class="btn secondary small" href="{{ url_for('.edit_company', slug=c.slug) }}">Edit</a>
+      <form class="inline-form" method="post" action="{{ url_for('.toggle_company_active', slug=c.slug, status=status, **{'from': request.args.get('from', default_from), 'to': request.args.get('to', default_to)}) }}">
+        <button class="btn secondary small" type="submit">{{ 'Set Inactive' if c.get('active', True) else 'Set Active' }}</button>
+      </form>
       <form class="inline-form" method="post" action="{{ url_for('.delete_company', slug=c.slug) }}" onsubmit="return confirm('Remove {{ c.name }}? Only companies with no entries, rates or mappings can be removed.')">
         <button class="btn danger small" type="submit">Remove</button>
       </form>
