@@ -188,12 +188,12 @@
         <tbody>
           {% for name in names %}
           <tr>
-            <td>{{ name }}{% if name in daily_existing %} <span class="muted small">· already {{ daily_existing[name] }}h</span>{% endif %}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
-            <td><input type="number" name="rows[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7"></td>
-            <td><input name="rows[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM"></td>
-            <td><input name="rows[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM"></td>
-            <td><input name="rows[{{ loop.index0 }}][site]" placeholder="e.g. LGES"></td>
-            <td><input name="rows[{{ loop.index0 }}][notes]" placeholder="e.g. KB"></td>
+            <td>{{ name }}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
+            <td><input type="number" name="rows[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7" value="{{ daily_existing[name].payroll_hours if name in daily_existing else '' }}"></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM" value="{{ daily_existing[name].clock_in if name in daily_existing else '' }}"></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM" value="{{ daily_existing[name].clock_out if name in daily_existing else '' }}"></td>
+            <td><input name="rows[{{ loop.index0 }}][site]" placeholder="e.g. LGES" value="{{ daily_existing[name].site if name in daily_existing else '' }}"></td>
+            <td><input name="rows[{{ loop.index0 }}][notes]" placeholder="e.g. KB" value="{{ daily_existing[name].notes if name in daily_existing else '' }}"></td>
           </tr>
           {% endfor %}
         </tbody>
