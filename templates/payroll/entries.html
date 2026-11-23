@@ -187,8 +187,8 @@
     </div>
   </form>
   {% if daily_date %}
-  {% if names %}
-  <p class="small" style="margin-top:16px"><strong>{{ daily_date }}</strong> · {{ names|length }} employee{{ 's' if names|length != 1 else '' }}</p>
+  {% if daily_names %}
+  <p class="small" style="margin-top:16px"><strong>{{ daily_date }}</strong> · {{ daily_names|length }} employee{{ 's' if daily_names|length != 1 else '' }}</p>
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" id="daily-add-form">
     <input type="hidden" name="action" value="daily_add">
     <input type="hidden" name="tab" value="daily">
@@ -210,9 +210,9 @@
         </colgroup>
         <thead><tr><th>Employee</th><th>Clock-In</th><th>Clock-Out</th><th>Meal</th><th>Payroll Hours</th><th>Site</th><th>Notes</th></tr></thead>
         <tbody>
-          {% for name in names %}
+          {% for name in daily_names %}
           <tr>
-            <td>{{ name }}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
+            <td>{{ name }}{% if name not in names %} <span class="muted small">(no rate)</span>{% endif %}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
             <td><input name="rows[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM" value="{{ daily_existing[name].clock_in if name in daily_existing else '' }}"></td>
             <td><input name="rows[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM" value="{{ daily_existing[name].clock_out if name in daily_existing else '' }}"></td>
             <td style="text-align:center"><input type="checkbox" name="rows[{{ loop.index0 }}][meal_break]" value="1" title="Meal break — deducts 1h" style="width:auto;height:20px"{{ ' checked' if name in daily_existing and daily_existing[name].meal_break else '' }}></td>
@@ -229,7 +229,7 @@
     </div>
   </form>
   {% else %}
-  <p class="muted" style="margin-top:16px">No employees with rates in {{ company.name }} yet — add rates first.</p>
+  <p class="muted" style="margin-top:16px">No employees in {{ company.name }} yet — add rates first.</p>
   {% endif %}
   {% endif %}
   <div id="daily-nav-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
