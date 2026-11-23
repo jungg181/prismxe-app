@@ -385,6 +385,16 @@ function calcHours(clockIn, clockOut, meal) {
   if (h < 0) h = 0;
   return Math.round(h * 100) / 100;
 }
+// Show a typed time in 24h "H:MM" form: "9" -> "9:00",
+// "18" -> "18:00", "3:30 PM" -> "15:30". Unparseable text is
+// left alone so nothing the user typed is destroyed.
+function formatClock(s) {
+  var mins = parseClock(s);
+  if (mins === null) return null;
+  var h = Math.floor(mins / 60);
+  var m = mins % 60;
+  return h + ':' + (m < 10 ? '0' : '') + m;
+}
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (!t || !t.name || !t.form) return;
@@ -410,6 +420,14 @@ document.addEventListener('change', function (ev) {
   var co = t.form.querySelector('input[name="' + coName + '"]');
   var mb = t.form.querySelector('input[name="' + mbName + '"]');
   if (!hours || !ci || !co) return;
+  // Show the time just typed in 24h "H:MM" form ("9" -> "9:00").
+  // Only the clock fields themselves are rewritten, never the hours.
+  var isTimeField = n === 'clock_in' || n === 'clock_out'
+    || /\[(clock_in|clock_out)\]$/.test(n);
+  if (isTimeField) {
+    var f = formatClock(t.value);
+    if (f !== null) t.value = f;
+  }
   var h = calcHours(ci.value, co.value, mb && mb.checked);
   if (h !== null) hours.value = h;
 });
