@@ -725,12 +725,47 @@ def _norm_header(name):
 def index():
     today = datetime.now(PHOENIX).date()
     monday = today - timedelta(days=today.weekday())
+    # Company status filter: Active (default) / Inactive / ALL.
+    # Companies without an "active" flag count as active.
+    status = (request.args.get("status") or "active").strip().lower()
+    if status not in ("active", "inactive", "all"):
+        status = "active"
+    _all = DB.get("companies", [])
+    if status == "active":
+        companies = [c for c in _all if c.get("active", True)]
+    elif status == "inactive":
+        companies = [c for c in _all if not c.get("active", True)]
+    else:
+        companies = list(_all)
     return render_template(
         "payroll/index.html",
-        companies=DB.get("companies", []),
+        companies=companies,
+        status=status,
         default_from=monday.isoformat(),
         default_to=(monday + timedelta(days=6)).isoformat(),
     )
+
+
+@bp.post("/companies/<slug>/toggle-active")
+def toggle_company_active(slug):
+    """Flip a company's Active/Inactive status. Inactive companies
+    are hidden from the default Active view (and from the payroll
+    buttons) but keep all their entries, rates and history — they
+    come back with one tap."""
+    co = find_company(slug)
+    if co is None:
+        flash("Unknown company.")
+        return redirect(url_for(".index"))
+    co["active"] = not co.get("active", True)
+    save_db()
+    flash(f"Company {co['name']} is now "
+          f"{'Active' if co['active'] else 'Inactive'}.")
+    _args = {"status": request.args.get("status") or "active"}
+    if request.args.get("from"):
+        _args["from"] = request.args.get("from")
+    if request.args.get("to"):
+        _args["to"] = request.args.get("to")
+    return redirect(url_for(".index", **_args))
 
 
 # ---------------------------------------------------------------- companies
@@ -786,7 +821,7 @@ def add_company():
     DB.setdefault("companies", []).append({
         "name": name, "slug": slug, "prefix": prefix, "vendor": vendor,
         "phone": phone, "ship_to": ship_to, "category": category,
-        "prefix_end": prefix_end,
+        "prefix_end": prefix_end, "active": True,
         "bank_name": bank_name, "bank_branch": bank_branch,
         "bank_routing": bank_routing, "bank_account": bank_account,
         "bank_account_name": bank_account_name,
@@ -884,6 +919,8 @@ def edit_company(slug):
     co["slug"] = new_slug
     co["prefix"] = prefix
     co["prefix_end"] = prefix_end
+    if "active" in request.form:
+        co["active"] = (request.form.get("active") == "1")
     co["vendor"] = vendor
     co["phone"] = phone
     co["ship_to"] = ship_to
