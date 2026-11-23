@@ -14,6 +14,7 @@
       <div><label for="ephone">Vendor phone (TEL NUM)</label><input type="text" id="ephone" name="phone" value="{{ company.phone or '' }}" placeholder="213-905-1359"></div>
       <div><label for="eship">Ship to</label><input type="text" id="eship" name="ship_to" value="{{ company.ship_to }}" placeholder="e.g. Queen Creek AZ"></div>
       <div><label for="ecat">Category</label><input type="text" id="ecat" name="category" value="{{ company.category }}" placeholder="e.g. LG Alpha / Myeongjin"></div>
+      <div><label for="eactive">Status</label><select id="eactive" name="active"><option value="1"{{ ' selected' if company.get('active', True) }}>Active</option><option value="0"{{ ' selected' if not company.get('active', True) }}>Inactive</option></select></div>
     </div>
     <h2 style="margin:16px 0 8px">Bank account</h2>
     <p class="small muted" style="margin:0 0 10px">The deposit account for this company. Leave blank to use the default account.</p>
