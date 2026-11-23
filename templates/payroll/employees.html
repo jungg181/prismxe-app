@@ -1,6 +1,14 @@
 {% extends "payroll/base.html" %}
 {% block title %}Employees{% endblock %}
 {% block content %}
+<style>
+/* Every company table has the same fixed columns, so the numeric
+   columns line up exactly across all companies instead of
+   shifting with the longest name in each one. */
+.emp-table { table-layout: fixed; }
+.emp-table th, .emp-table td { text-align: center; }
+.emp-table th:first-child, .emp-table td:first-child { text-align: left; }
+</style>
 <h1>Employees</h1>
 <p class="sub">{{ total }} employees · grouped by company — one worker can belong to several companies. Click a name to manage everything about them: name, employee ID, rates per company, and time entries.</p>
 
@@ -40,7 +48,8 @@
   <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a></h2>
   {% if by_company[c.name] %}
   <div class="table-scroll">
-    <table>
+    <table class="emp-table">
+      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"></colgroup>
       <thead><tr><th>Employee</th><th>Employee ID</th><th class="num">Staffing</th><th class="num">Billing</th><th class="num">Entries</th><th class="num">Hours</th></tr></thead>
       <tbody>
         {% for row in by_company[c.name] %}
