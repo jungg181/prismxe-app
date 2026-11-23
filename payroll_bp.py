@@ -3202,9 +3202,25 @@ def entries(company):
                 DB["entries"].append(entry)
                 save_db()
                 flash(f"Entry added: {employee}, {day}, {hours}h.")
-        return redirect(url_for(".entries", company=co["slug"],
-                                **{"from": start.isoformat(),
-                                   "to": end.isoformat()}))
+        # Stay on the same add-method tab after saving, and keep the
+        # loaded Daily/Monthly state so the user can keep entering
+        # the next day/month without re-picking.
+        _redir = {"from": start.isoformat(), "to": end.isoformat()}
+        _tab = (request.form.get("tab") or "").strip()
+        if _tab in ("single", "bulk", "monthly", "daily", "import"):
+            _redir["tab"] = _tab
+        if action == "daily_add":
+            _day = (request.form.get("date") or "").strip()
+            if _day:
+                _redir["daily_date"] = _day
+        elif action == "monthly_add":
+            _m = (request.form.get("monthly_month") or "").strip()
+            _me = (request.form.get("employee") or "").strip()
+            if _m:
+                _redir["monthly_month"] = _m
+            if _me:
+                _redir["monthly_employee"] = _me
+        return redirect(url_for(".entries", company=co["slug"], **_redir))
     rows = [e for e in DB.get("entries", [])
             if e.get("company") == co["name"]
             and start.isoformat() <= (e.get("date") or "") <= end.isoformat()]
@@ -3287,6 +3303,20 @@ def entries(company):
                 edit_location_id = _ej["id"]
             else:
                 edit_jobsite_id = _ej["id"]
+    # Add-method tabs: only one add form shows at a time. The tab is
+    # explicit (?tab=...), or inferred from a loaded Daily/Monthly
+    # form so a reload after Load Employees / Load Days keeps the
+    # right form open; otherwise the single Add Entry form.
+    tab = (request.args.get("tab") or "").strip()
+    if tab not in ("single", "bulk", "monthly", "daily", "import"):
+        tab = ""
+    if not tab:
+        if daily_date:
+            tab = "daily"
+        elif monthly_month:
+            tab = "monthly"
+        else:
+            tab = "single"
     return render_template(
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
@@ -3297,6 +3327,7 @@ def entries(company):
         monthly_month=monthly_month,
         daily_date=daily_date,
         daily_existing=daily_existing,
+        tab=tab,
         companies=sorted(DB.get("companies", []),
                          key=lambda c: (c.get("name") or "").lower()),
         jobsites=top_jobsites,
@@ -3321,14 +3352,16 @@ def import_csv(company):
         flash("Choose a CSV file to import.")
         return redirect(url_for(".entries", company=co["slug"],
                                 **{"from": start.isoformat(),
-                                   "to": end.isoformat()}))
+                                   "to": end.isoformat(),
+                                   "tab": "import"}))
     try:
         text = f.read().decode("utf-8-sig")
     except UnicodeDecodeError:
         flash("Could not read the file — it must be UTF-8 CSV.")
         return redirect(url_for(".entries", company=co["slug"],
                                 **{"from": start.isoformat(),
-                                   "to": end.isoformat()}))
+                                   "to": end.isoformat(),
+                                   "tab": "import"}))
     reader = csv.DictReader(io.StringIO(text))
     existing = {_entry_key(e) for e in DB.get("entries", [])}
     imported = skipped = bad = 0
@@ -3383,7 +3416,8 @@ def import_csv(company):
     flash(msg)
     return redirect(url_for(".entries", company=co["slug"],
                             **{"from": start.isoformat(),
-                               "to": end.isoformat()}))
+                               "to": end.isoformat(),
+                               "tab": "import"}))
 
 
 # ----------------------------------------------------------------- employee
