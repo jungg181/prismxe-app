@@ -3391,9 +3391,11 @@ def entries(company):
     # same employee+date).
     daily_date = (request.args.get("daily_date") or "").strip()
     daily_existing = {}
+    daily_weekday = ""
     if daily_date:
         try:
-            date.fromisoformat(daily_date)
+            _dd = date.fromisoformat(daily_date)
+            daily_weekday = _dd.strftime("%a")
         except ValueError:
             daily_date = ""
         else:
@@ -3450,6 +3452,7 @@ def entries(company):
         monthly_employee=monthly_employee,
         monthly_month=monthly_month,
         daily_date=daily_date,
+        daily_weekday=daily_weekday,
         daily_existing=daily_existing,
         tab=tab,
         companies=sorted(DB.get("companies", []),
