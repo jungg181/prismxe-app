@@ -17,10 +17,22 @@
   </form>
 </div>
 
+<div class="card" style="padding:12px 16px">
+  <div class="btn-row">
+    <a class="btn{{ '' if tab == 'single' else ' secondary' }}" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end, 'tab': 'single'}) }}">Add Entry</a>
+    <a class="btn{{ '' if tab == 'bulk' else ' secondary' }}" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end, 'tab': 'bulk'}) }}">Bulk Add</a>
+    <a class="btn{{ '' if tab == 'monthly' else ' secondary' }}" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end, 'tab': 'monthly'}) }}">Monthly Add</a>
+    <a class="btn{{ '' if tab == 'daily' else ' secondary' }}" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end, 'tab': 'daily'}) }}">Daily Add</a>
+    <a class="btn{{ '' if tab == 'import' else ' secondary' }}" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end, 'tab': 'import'}) }}">Import CSV</a>
+  </div>
+</div>
+
+{% if tab == 'single' %}
 <div class="card">
   <h2 style="margin-top:0">{{ 'Edit Entry' if edit_entry else 'Add Entry' }}</h2>
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="{{ 'update' if edit_entry else 'add' }}">
+    <input type="hidden" name="tab" value="single">
     {% if edit_entry %}<input type="hidden" name="id" value="{{ edit_entry.id }}">{% endif %}
     <div class="form-grid">
       <div><label for="employee">Employee</label><input id="employee" name="employee" list="names" value="{{ edit_entry.employee if edit_entry else '' }}" placeholder="Exact name" required><datalist id="names">{% for n in names %}<option value="{{ n }}">{% endfor %}</datalist></div>
@@ -43,12 +55,15 @@
     </div>
   </form>
 </div>
+{% endif %}
 
+{% if tab == 'bulk' %}
 <div class="card">
   <h2 style="margin-top:0">Bulk Add</h2>
   <p class="small muted">Add up to 10 entries at once. Fill in a row to add it — empty rows are skipped. A row with an employee but no date or hours is skipped, and exact duplicates are skipped too.</p>
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="bulk_add">
+    <input type="hidden" name="tab" value="bulk">
     <div class="table-scroll">
       <table style="table-layout:fixed">
         <colgroup>
@@ -81,7 +96,9 @@
     </div>
   </form>
 </div>
+{% endif %}
 
+{% if tab == 'monthly' %}
 <div class="card">
   <h2 style="margin-top:0">Monthly Add</h2>
   <p class="small muted">One employee, one whole month at once. Pick the employee and the month, load the days, then fill in the hours for the days worked — blank days are skipped. Exact duplicates are skipped too.</p>
@@ -100,6 +117,8 @@
   <p class="small" style="margin-top:16px"><strong>{{ monthly_employee }}</strong> · {{ monthly_month }}</p>
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="monthly_add">
+    <input type="hidden" name="tab" value="monthly">
+    <input type="hidden" name="monthly_month" value="{{ monthly_month }}">
     <input type="hidden" name="employee" value="{{ monthly_employee }}">
     <div class="table-scroll">
       <table style="table-layout:fixed">
@@ -132,7 +151,9 @@
   </form>
   {% endif %}
 </div>
+{% endif %}
 
+{% if tab == 'daily' %}
 <div class="card">
   <h2 style="margin-top:0">Daily Add</h2>
   <p class="small muted">One date, every employee in {{ company.name }} at once. Pick the date, load the employees, then fill in the hours and clock in/out for the ones who worked — blank rows are skipped. Exact duplicates are skipped too.</p>
@@ -151,6 +172,7 @@
   <p class="small" style="margin-top:16px"><strong>{{ daily_date }}</strong> · {{ names|length }} employee{{ 's' if names|length != 1 else '' }}</p>
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="daily_add">
+    <input type="hidden" name="tab" value="daily">
     <input type="hidden" name="date" value="{{ daily_date }}">
     <div class="table-scroll">
       <table style="table-layout:fixed">
@@ -186,7 +208,9 @@
   {% endif %}
   {% endif %}
 </div>
+{% endif %}
 
+{% if tab == 'import' %}
 <div class="card">
   <h2 style="margin-top:0">Import CSV</h2>
   <p class="small muted">Columns: Employee, Date, Payroll Hours, Notes + optional Clock-In, Clock-Out, Site. Re-importing the same file skips exact duplicates.</p>
@@ -198,6 +222,7 @@
     <div class="btn-row" style="margin-top:12px"><button class="btn secondary" type="submit">Import CSV</button></div>
   </form>
 </div>
+{% endif %}
 
 {% if jobsites %}
 <div class="card">
