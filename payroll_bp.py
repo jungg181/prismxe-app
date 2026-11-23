@@ -3150,12 +3150,15 @@ def entries(company):
             _flash_bulk_result(added, skipped)
         elif action == "monthly_add":
             # Monthly Add: one employee, one whole month. The employee
-            # is picked once; each day of the month is a row. Same
-            # skip/dedup rules as Bulk Add — blank days are ignored,
-            # days without parseable hours are skipped, exact
-            # duplicates are skipped.
+            # is picked once; each day of the month is a row. Rows
+            # already entered for that employee+date (e.g. via Daily
+            # Add) come prefilled, so saving a changed row UPDATES
+            # the existing entry in place (never a second row for the
+            # same employee+date); an unchanged row is skipped.
+            # Blank days are ignored.
             employee = (request.form.get("employee") or "").strip()
             candidates = []
+            updated = skipped = 0
             for i in range(31):
                 p = f"days[{i}]"
                 raw_date = (request.form.get(p + "[date]") or "").strip()
@@ -3176,12 +3179,68 @@ def entries(company):
                     hours = float(raw_hours) if raw_hours else None
                 except ValueError:
                     hours = None
+                if hours is None:
+                    skipped += 1
+                    continue
+                _existing = next(
+                    (e for e in DB.get("entries", [])
+                     if e.get("company") == co["name"]
+                     and (e.get("employee") or "") == employee
+                     and (e.get("date") or "") == day),
+                    None)
+                if _existing is not None:
+                    # Only the fields the form edits; everything
+                    # else (id, jobsite, gross) stays. The
+                    # clock-out date is re-derived from the times,
+                    # so a day shift that becomes a night shift
+                    # (or the reverse) records the right date.
+                    _in_m = _clock_minutes(clock_in)
+                    _out_m = _clock_minutes(clock_out)
+                    _out_date = None
+                    if (_in_m is not None and _out_m is not None
+                            and _out_m <= _in_m):
+                        try:
+                            _out_date = (
+                                date.fromisoformat(day)
+                                + timedelta(days=1)).isoformat()
+                        except ValueError:
+                            _out_date = None
+                    _changed = (
+                        float(_existing.get("payroll_hours") or 0) != hours
+                        or (_existing.get("clock_in") or "") != clock_in
+                        or (_existing.get("clock_out") or "") != clock_out
+                        or (_existing.get("clock_out_date") or "")
+                        != (_out_date or "")
+                        or (_existing.get("site") or "") != site
+                        or (_existing.get("notes") or "") != notes
+                        or bool(_existing.get("meal_break")) != meal_break)
+                    if not _changed:
+                        skipped += 1
+                        continue
+                    _existing["payroll_hours"] = round(hours, 2)
+                    _existing["clock_in"] = clock_in
+                    _existing["clock_out"] = clock_out
+                    _existing["clock_out_date"] = _out_date
+                    _existing["site"] = site
+                    _existing["notes"] = notes
+                    _existing["meal_break"] = meal_break
+                    updated += 1
+                    continue
                 candidates.append((employee, day, hours, clock_in,
                                    clock_out, site, notes, meal_break))
-            added, skipped = _insert_entries(co, candidates)
-            if added:
+            added, _sk = _insert_entries(co, candidates)
+            skipped += _sk
+            if added or updated:
                 save_db()
-            _flash_bulk_result(added, skipped)
+            _parts = []
+            if added:
+                _parts.append(f"Added {added} entries")
+            if updated:
+                _parts.append(f"Updated {updated} entries")
+            if skipped:
+                _parts.append(f"{skipped} skipped")
+            flash(". ".join(_parts) + "." if _parts
+                  else "No entries to add.")
         elif action == "daily_add":
             # Daily Add: one date, every employee in the company.
             # The date is picked once; each employee is a row with
@@ -3371,6 +3430,7 @@ def entries(company):
     monthly_month = (request.args.get("monthly_month") or "").strip()
     monthly_employee = (request.args.get("monthly_employee") or "").strip()
     monthly_days = []
+    monthly_existing = {}
     if monthly_month:
         try:
             _y, _m = int(monthly_month[:4]), int(monthly_month[5:7])
@@ -3382,6 +3442,17 @@ def entries(company):
         except (ValueError, IndexError):
             monthly_month = ""
             monthly_days = []
+    # Monthly Add: rows already entered for that employee+month
+    # come PREFILLED (same as Daily Add), so hours entered via
+    # Daily Add show here too — and saving a changed row updates
+    # the existing entry in place instead of skipping it as a
+    # duplicate.
+    if monthly_month and monthly_employee:
+        for _e in DB.get("entries", []):
+            if (_e.get("company") == co["name"]
+                    and (_e.get("employee") or "") == monthly_employee
+                    and (_e.get("date") or "").startswith(monthly_month)):
+                monthly_existing.setdefault((_e.get("date") or ""), _e)
     # Daily Add: if a date was picked, list every employee with a
     # rate row for this company so the template can render one row
     # per employee. Employees who already have an entry on that date
@@ -3449,6 +3520,7 @@ def entries(company):
         names=names, unmatched=unmatched,
         unmatched_notes=unmatched_notes,
         monthly_days=monthly_days,
+        monthly_existing=monthly_existing,
         monthly_employee=monthly_employee,
         monthly_month=monthly_month,
         daily_date=daily_date,
