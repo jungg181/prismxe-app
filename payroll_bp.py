@@ -3131,14 +3131,17 @@ def entries(company):
         elif action == "daily_add":
             # Daily Add: one date, every employee in the company.
             # The date is picked once; each employee is a row with
-            # hours + clock in/out. Same skip/dedup rules as Bulk
-            # Add — blank rows are ignored, exact duplicates are
-            # skipped. The roster is re-read here (the GET list is
-            # not available in the POST branch).
+            # hours + clock in/out. Rows already entered for that
+            # date come prefilled, so saving a changed row UPDATES
+            # the existing entry in place (never a second row for
+            # the same employee+date); an unchanged row is skipped.
+            # Blank rows are ignored. The roster is re-read here
+            # (the GET list is not available in the POST branch).
             day = _parse_entry_date(request.form.get("date"))
             _roster = sorted({r["name"] for r in DB.get("rates", [])
                               if r.get("company") == co["name"]})
             candidates = []
+            updated = skipped = 0
             for i in range(len(_roster)):
                 p = f"rows[{i}]"
                 employee = (request.form.get(p + "[employee]") or "").strip()
@@ -3154,12 +3157,49 @@ def entries(company):
                     hours = float(raw_hours) if raw_hours else None
                 except ValueError:
                     hours = None
+                if hours is None:
+                    skipped += 1
+                    continue
+                _existing = next(
+                    (e for e in DB.get("entries", [])
+                     if e.get("company") == co["name"]
+                     and (e.get("employee") or "") == employee
+                     and (e.get("date") or "") == day),
+                    None)
+                if _existing is not None:
+                    # Only the 5 fields the form edits; everything
+                    # else (id, jobsite, clock-out date, gross) stays.
+                    _changed = (
+                        float(_existing.get("payroll_hours") or 0) != hours
+                        or (_existing.get("clock_in") or "") != clock_in
+                        or (_existing.get("clock_out") or "") != clock_out
+                        or (_existing.get("site") or "") != site
+                        or (_existing.get("notes") or "") != notes)
+                    if not _changed:
+                        skipped += 1
+                        continue
+                    _existing["payroll_hours"] = round(hours, 2)
+                    _existing["clock_in"] = clock_in
+                    _existing["clock_out"] = clock_out
+                    _existing["site"] = site
+                    _existing["notes"] = notes
+                    updated += 1
+                    continue
                 candidates.append((employee, day, hours, clock_in,
                                    clock_out, site, notes))
-            added, skipped = _insert_entries(co, candidates)
-            if added:
+            added, _sk = _insert_entries(co, candidates)
+            skipped += _sk
+            if added or updated:
                 save_db()
-            _flash_bulk_result(added, skipped)
+            _parts = []
+            if added:
+                _parts.append(f"Added {added} entries")
+            if updated:
+                _parts.append(f"Updated {updated} entries")
+            if skipped:
+                _parts.append(f"{skipped} skipped")
+            flash(". ".join(_parts) + "." if _parts
+                  else "No entries to add.")
         else:
             employee = (request.form.get("employee") or "").strip()
             day = _parse_entry_date(request.form.get("date"))
@@ -3265,8 +3305,10 @@ def entries(company):
     # Daily Add: if a date was picked, list every employee with a
     # rate row for this company so the template can render one row
     # per employee. Employees who already have an entry on that date
-    # are flagged (their hours shown) — re-entering them is skipped
-    # as a duplicate by _insert_entries.
+    # carry the entry itself, so the form PREFILLS their hours +
+    # clock in/out — the entered time shows, and saving a changed
+    # row updates that entry in place (never a second row for the
+    # same employee+date).
     daily_date = (request.args.get("daily_date") or "").strip()
     daily_existing = {}
     if daily_date:
@@ -3278,8 +3320,10 @@ def entries(company):
             for _e in DB.get("entries", []):
                 if (_e.get("company") == co["name"]
                         and (_e.get("date") or "") == daily_date):
-                    daily_existing[(_e.get("employee") or "")] = \
-                        _e.get("payroll_hours")
+                    # First entry per employee wins (an employee
+                    # normally has one row per date).
+                    daily_existing.setdefault(
+                        (_e.get("employee") or ""), _e)
     # The Jobsite dropdown lists top-level jobsites only; locations
     # are picked by tapping a button (see the template). When editing
     # an entry tagged to a location, the dropdown shows its parent and
