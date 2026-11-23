@@ -186,7 +186,7 @@
       <button class="btn secondary" type="button" id="daily-next" title="Next day" aria-label="Next day">&#8250;</button>
       <button class="btn secondary" type="submit">Load Employees</button>
       {% if daily_date and daily_names %}
-      <button class="btn" type="submit" form="daily-add-form" style="margin-left:auto">Save Entries</button>
+      <button class="btn" type="submit" form="daily-add-form">Save Entries</button>
       {% endif %}
     </div>
   </form>
@@ -224,9 +224,6 @@
           {% endfor %}
         </tbody>
       </table>
-    </div>
-    <div class="btn-row" style="margin-top:12px">
-      <button class="btn" type="submit">Save Entries</button>
     </div>
   </form>
   {% else %}
