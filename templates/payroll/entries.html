@@ -3,9 +3,10 @@
 {% block content %}
 <style>
 /* Entry tables: every column except the name is the same width,
-   and all text sits in the middle of its cell. */
-.entry-input-table th, .entry-input-table td { text-align: center; }
-.entry-input-table input { text-align: center; }
+   and all text sits in the middle of its cell. Rows are compact
+   so a full day's roster fits on screen without scrolling. */
+.entry-input-table th, .entry-input-table td { text-align: center; padding: 4px 8px; }
+.entry-input-table input { text-align: center; padding: 6px 8px; font-size: .92rem; }
 /* Single Add/Edit form: same centred input text. */
 .form-grid input, .form-grid select { text-align: center; }
 </style>
