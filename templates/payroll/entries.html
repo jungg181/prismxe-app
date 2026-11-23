@@ -184,6 +184,9 @@
       <button class="btn secondary" type="button" id="daily-prev" title="Previous day" aria-label="Previous day">&#8249;</button>
       <button class="btn secondary" type="button" id="daily-next" title="Next day" aria-label="Next day">&#8250;</button>
       <button class="btn secondary" type="submit">Load Employees</button>
+      {% if daily_date and daily_names %}
+      <button class="btn" type="submit" form="daily-add-form" style="margin-left:auto">Save Entries</button>
+      {% endif %}
     </div>
   </form>
   {% if daily_date %}
@@ -194,9 +197,6 @@
     <input type="hidden" name="tab" value="daily">
     <input type="hidden" name="date" value="{{ daily_date }}">
     <input type="hidden" name="next_date" id="daily-next-date" value="">
-    <div class="btn-row" style="margin-bottom:12px">
-      <button class="btn" type="submit">Save Entries</button>
-    </div>
     <div class="table-scroll">
       <table class="entry-input-table" style="table-layout:fixed">
         <colgroup>
