@@ -3288,8 +3288,16 @@ def entries(company):
             # Blank rows are ignored. The roster is re-read here
             # (the GET list is not available in the POST branch).
             day = _parse_entry_date(request.form.get("date"))
+            # Same roster as the GET list: rate rows plus anyone
+            # with time entries in this company, so no-rate rows
+            # save too (the form renders one row per roster entry,
+            # in this same sorted order).
             _roster = sorted({r["name"] for r in DB.get("rates", [])
-                              if r.get("company") == co["name"]})
+                              if r.get("company") == co["name"]}
+                             | {(e.get("employee") or "").strip()
+                                for e in DB.get("entries", [])
+                                if e.get("company") == co["name"]
+                                and (e.get("employee") or "").strip()})
             candidates = []
             updated = skipped = 0
             for i in range(len(_roster)):
@@ -3447,6 +3455,15 @@ def entries(company):
                       None)
     names = sorted({r["name"] for r in DB.get("rates", [])
                     if r.get("company") == co["name"]})
+    # Daily Add lists every employee known to the company — rate
+    # rows AND anyone with time entries here — so hours can be
+    # entered even before a rate is set. Pay and billing stay
+    # blank for the no-rate rows until a rate is added.
+    daily_names = sorted(set(names) | {
+        (e.get("employee") or "").strip()
+        for e in DB.get("entries", [])
+        if e.get("company") == co["name"]
+        and (e.get("employee") or "").strip()})
     unmatched = find_unmatched(
         [e for e in DB.get("entries", [])
          if start.isoformat() <= (e.get("date") or "") <= end.isoformat()],
@@ -3554,7 +3571,7 @@ def entries(company):
     return render_template(
         "payroll/entries.html", company=co, start=start.isoformat(),
         end=end.isoformat(), rows=rows, edit_entry=edit_entry,
-        names=names, unmatched=unmatched,
+        names=names, daily_names=daily_names, unmatched=unmatched,
         unmatched_notes=unmatched_notes,
         monthly_days=monthly_days,
         monthly_existing=monthly_existing,
