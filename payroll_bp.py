@@ -4291,22 +4291,16 @@ def _history_period_args():
     return start, end
 
 
-@bp.get("/employees/<person>/history")
-def employee_history(person):
-    """One worker's work across every company: which day they worked
-    where, and how many hours. One row per day, newest first, with a
-    per-company hours breakdown for the shown period. Entries filed
-    under an alias of this person are included too."""
-    p = _find_person(person)
-    if p is None:
-        return "Unknown employee", 404
-    start, end = _history_period_args()
-    rates, _entries, aliases = _person_db_rows(p)
-    names = {p.get("name") or ""}
+def _history_data(person, start, end):
+    """One worker's work in a period: (rows, total hours, per-company
+    hours). Rows are one per day, newest first, with a weekday label.
+    Entries filed under an alias of this person are included too."""
+    _rates, _entries, aliases = _person_db_rows(person)
+    names = {person.get("name") or ""}
     for a in aliases:
-        if (a.get("canonical") or "") == (p.get("name") or ""):
+        if (a.get("canonical") or "") == (person.get("name") or ""):
             names.add((a.get("alias") or "").strip())
-        if (a.get("alias") or "") == (p.get("name") or ""):
+        if (a.get("alias") or "") == (person.get("name") or ""):
             names.add((a.get("canonical") or "").strip())
     names.discard("")
     rows = [e for e in DB.get("entries", [])
@@ -4314,7 +4308,6 @@ def employee_history(person):
             and start.isoformat() <= (e.get("date") or "")
             <= end.isoformat()]
     rows.sort(key=lambda e: (e.get("date") or ""), reverse=True)
-    # Weekday label per row (Mon, Tue, …) for the table.
     display = []
     for e in rows:
         try:
@@ -4334,11 +4327,45 @@ def employee_history(person):
     by_company = sorted(((co, round(h, 2))
                          for co, h in by_company.items()),
                         key=lambda x: -x[1])
+    return rows, total, by_company
+
+
+@bp.get("/employees/<person>/history")
+def employee_history(person):
+    """One worker's work across every company: which day they worked
+    where, and how many hours. One row per day, newest first, with a
+    per-company hours breakdown for the shown period."""
+    p = _find_person(person)
+    if p is None:
+        return "Unknown employee", 404
+    start, end = _history_period_args()
+    rows, total, by_company = _history_data(p, start, end)
     companies = sorted(DB.get("companies", []),
                        key=lambda c: (c.get("name") or "").lower())
     return render_template(
         "payroll/employee_history.html", person=p, rows=rows,
         start=start, end=end, total_hours=total,
+        by_company=by_company, companies=companies,
+        money=_money, fmt_hours=_fmt_hours)
+
+
+@bp.get("/work-history")
+def work_history():
+    """Work History, front and centre: pick any employee and see
+    which day they worked where, and how many hours. Same table as
+    the per-employee history page, with the picker on top so it is
+    one click from the top nav."""
+    persons = _group_employees()
+    key = (request.args.get("employee") or "").strip()
+    p = _find_person(key) if key else None
+    start, end = _history_period_args()
+    rows, total, by_company = _history_data(p, start, end) if p \
+        else ([], 0.0, [])
+    companies = sorted(DB.get("companies", []),
+                       key=lambda c: (c.get("name") or "").lower())
+    return render_template(
+        "payroll/work_history.html", persons=persons, person=p,
+        rows=rows, start=start, end=end, total_hours=total,
         by_company=by_company, companies=companies,
         money=_money, fmt_hours=_fmt_hours)
 
