@@ -135,6 +135,7 @@
 </div>
 
 <div class="btn-row">
+  <a class="btn" href="{{ url_for('.employee_history', person=person.employee_id or person.name) }}">Work History</a>
   <a class="btn secondary" href="{{ url_for('.employees') }}">All employees</a>
   <a class="btn secondary" href="{{ url_for('.rates') }}">Rates</a>
   <a class="btn secondary" href="{{ url_for('.index') }}">All companies</a>
