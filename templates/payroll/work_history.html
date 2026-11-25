@@ -1,0 +1,64 @@
+{% extends "payroll/base.html" %}
+{% block title %}Work History{% endblock %}
+{% block content %}
+<h1>Work History</h1>
+<p class="sub">Pick an employee to see which day they worked where, and how many hours — across every company.</p>
+
+<div class="card">
+  <form method="get" action="{{ url_for('.work_history') }}">
+    <div class="btn-row">
+      <div><label for="employee">Employee</label><select id="employee" name="employee" style="width:260px" required><option value="">— Pick an employee —</option>{% for p in persons %}<option value="{{ p.employee_id or p.name }}"{{ ' selected' if person and (p.employee_id or p.name) == (person.employee_id or person.name) else '' }}>{{ p.name }}{% if p.employee_id %} ({{ p.employee_id }}){% endif %}</option>{% endfor %}</select></div>
+      <div><label for="from">From</label><input id="from" name="from" type="date" value="{{ start }}" style="width:170px"></div>
+      <div><label for="to">To</label><input id="to" name="to" type="date" value="{{ end }}" style="width:170px"></div>
+      <button class="btn" type="submit" style="align-self:flex-end">Show</button>
+    </div>
+  </form>
+</div>
+
+{% if person %}
+<p class="sub">{% if person.employee_id %}ID {{ person.employee_id }} · {% endif %}{{ rows | length }} work day{{ 's' if rows | length != 1 else '' }} · {{ fmt_hours(total_hours) }}h total · {{ start }} – {{ end }}</p>
+
+{% if by_company %}
+<div class="stat-row">
+  <div class="stat"><div class="k">Total</div><div class="v">{{ fmt_hours(total_hours) }}h</div></div>
+  {% for co, h in by_company %}
+  <div class="stat"><div class="k">{{ co }}</div><div class="v">{{ fmt_hours(h) }}h</div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 style="margin-top:0">{{ person.name }} — work by day, newest first</h2>
+  {% if rows %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Day</th><th>Company</th><th class="num">Hours</th><th>Clock-In</th><th>Clock-Out</th><th>Site</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        {% for e in rows %}
+        <tr>
+          <td style="white-space:nowrap">{{ e.date }}</td>
+          <td>{{ e.weekday }}</td>
+          <td>{{ e.company }}</td>
+          <td class="num">{{ e.payroll_hours }}</td>
+          <td>{{ e.clock_in or '—' }}</td>
+          <td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
+          <td>{{ e.site or '—' }}</td>
+          <td>{{ e.notes or '—' }}</td>
+          <td style="white-space:nowrap"><a class="btn secondary small" href="{{ url_for('.entries', company=companies | selectattr('name', 'equalto', e.company) | map(attribute='slug') | first, **{'from': e.date, 'to': e.date, 'edit': e.id}) }}">Edit</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No work in this period for {{ person.name }}.</p>
+  {% endif %}
+</div>
+
+<div class="btn-row">
+  <a class="btn secondary" href="{{ url_for('.employee_detail', person=person.employee_id or person.name) }}">← {{ person.name }} details</a>
+</div>
+{% else %}
+<p class="muted">Pick an employee above to see their work history.</p>
+{% endif %}
+{% endblock %}
