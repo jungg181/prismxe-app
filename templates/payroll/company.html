@@ -128,7 +128,7 @@
           <td class="num">{{ '—' if r.billing is none else money(r.billing) }}</td>
           <td class="num">{{ '—' if r.billing_gross is none else money(r.billing_gross) }}</td>
           <td id="paid-summary-{{ loop.index }}" style="white-space:nowrap">{% if ps and ps.worked > 0 %}{% if ps.paid == ps.worked %}<span class="badge ok">Paid</span> <span class="small muted">{{ ps.paid }}/{{ ps.worked }}</span>{% elif ps.paid > 0 %}<span class="small">{{ ps.paid }}/{{ ps.worked }}</span>{% else %}<span class="small muted">0/{{ ps.worked }}</span>{% endif %}{% else %}<span class="small muted">—</span>{% endif %}</td>
-          <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}<a class="btn secondary small" href="{{ url_for('.employee_history', person=r.employee) }}">History</a> {% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
+          <td style="white-space:nowrap">{% if r.no_rate %}<span class="badge">No rate</span> {% endif %}{% if days_by_employee.get(r.employee) %}<button class="btn secondary small" type="button" onclick="var el=document.getElementById('days-{{ loop.index }}');var open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'▾ Days':'▸ Days';if(open){var sc=this.closest('.table-scroll');if(sc)sc.scrollLeft=0;}">▸ Days</button>{% endif %}</td>
         </tr>
         {% if days_by_employee.get(r.employee) %}
         {% set emp_idx = loop.index %}
