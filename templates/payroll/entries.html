@@ -128,8 +128,7 @@
   </form>
   {% if monthly_days %}
   <p class="small" style="margin-top:16px"><strong>{{ monthly_employee }}</strong> · {{ monthly_month }}</p>
-  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
-    <input type="hidden" name="action" value="monthly_add">
+  <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" id="monthly-add-form">
     <input type="hidden" name="tab" value="monthly">
     <input type="hidden" name="monthly_month" value="{{ monthly_month }}">
     <input type="hidden" name="employee" value="{{ monthly_employee }}">
@@ -166,6 +165,7 @@
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Save Entries</button>
+      <span id="monthly-total" class="small" style="margin-left:auto;font-weight:600">Total: 0h</span>
     </div>
   </form>
   {% endif %}
@@ -393,6 +393,26 @@ function formatClock(s) {
   var m = mins % 60;
   return h + ':' + (m < 10 ? '0' : '') + m;
 }
+// Monthly Add total: sum of the Payroll Hours inputs in the monthly
+// form, shown next to the bottom save button. Updates live
+// as hours are typed or auto-calculated from the times.
+function updateMonthlyTotal() {
+  var form = document.getElementById('monthly-add-form');
+  var el = document.getElementById('monthly-total');
+  if (!form || !el) return;
+  var total = 0;
+  var inputs = form.querySelectorAll('input[name$="[payroll_hours]"]');
+  for (var i = 0; i < inputs.length; i++) {
+    var v = parseFloat(inputs[i].value);
+    if (!isNaN(v)) total += v;
+  }
+  total = Math.round(total * 100) / 100;
+  el.textContent = 'Total: ' + total + 'h';
+}
+document.addEventListener('input', function (ev) {
+  var t = ev.target;
+  if (t && t.name && /\[payroll_hours\]$/.test(t.name)) updateMonthlyTotal();
+});
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (!t || !t.name || !t.form) return;
@@ -428,7 +448,10 @@ document.addEventListener('change', function (ev) {
   }
   var h = calcHours(ci.value, co.value, mb && mb.checked);
   if (h !== null) hours.value = h;
+  updateMonthlyTotal();
 });
+// Show the loaded monthly total on page load (prefilled hours count).
+updateMonthlyTotal();
 // Location picker: direct-click buttons, not a dropdown. When the
 // picked jobsite has locations under it, one button per location
 // appears (plus "Parent only"). Tapping a button stores the location
