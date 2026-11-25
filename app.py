@@ -222,25 +222,33 @@ def portal():
 def qr_codes():
     """Printable page with every timecard QR code in one place, so it
     can be printed and posted at a site. Public — the clock pages the
-    codes open are public too. The COA per-site codes are read live
-    from data_coa.json, so a new active site shows up automatically."""
+    codes open are public too.
+
+    The list is built from live state, not hardcoded, so a new QR
+    shows up automatically: new COA sites are read from
+    data_coa.json, and new patrol companies from the patrol
+    factory's PATROL_INSTANCES registry."""
+    from patrol_bp import PATROL_INSTANCES
     base = os.environ.get("BASE_URL", "https://app.prismxe.com").rstrip("/")
-    codes = [
-        {"title": "PrismXE Staffing — On Site",
-         "url": base + "/staffing/onsite",
-         "img": "/static/cm/onsite-qr.png",
-         "note": "CM crew clock in / out. New workers register once, "
-                 "then clock in and out from here."},
-        {"title": "COA — Clock",
-         "url": base + "/coa/clock",
-         "img": "/coa/qr/clock.png",
-         "note": "COA cleaners clock in / out. Workers pick their site "
-                 "on the page."},
-    ]
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    codes = []
+    # CM onsite QR — include it only while the file exists.
+    if os.path.exists(os.path.join(app_dir, "static", "cm",
+                                   "onsite-qr.png")):
+        codes.append({
+            "title": "PrismXE Staffing — On Site",
+            "url": base + "/staffing/onsite",
+            "img": "/static/cm/onsite-qr.png",
+            "note": "CM crew clock in / out. New workers register once, "
+                    "then clock in and out from here."})
+    codes.append({
+        "title": "COA — Clock",
+        "url": base + "/coa/clock",
+        "img": "/coa/qr/clock.png",
+        "note": "COA cleaners clock in / out. Workers pick their site "
+                "on the page."})
     try:
-        with open(os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                "data_coa.json")) as f:
+        with open(os.path.join(app_dir, "data_coa.json")) as f:
             coa = json.load(f)
         sites = [s for s in coa.get("sites", [])
                  if s.get("status") == "active"]
@@ -255,16 +263,17 @@ def qr_codes():
             "note": "COA clock with the site fixed to "
                     + (s.get("name") or sid) + " — workers skip the "
                     "site picker."})
-    codes.append({
-        "title": "Hanseong Patrol — Clock",
-        "url": base + "/Hanseong/patrol/patrol-clock",
-        "img": "/Hanseong/patrol/qr.png",
-        "note": "Hanseong patrol crew clock in / out."})
-    codes.append({
-        "title": "Patrol-COA — Clock",
-        "url": base + "/patrol-coa/patrol-clock",
-        "img": "/patrol-coa/qr.png",
-        "note": "Patrol-COA crew clock in / out."})
+    # Every patrol company, from the factory registry — a new patrol
+    # company appears here with no change to this page.
+    for inst in PATROL_INSTANCES:
+        bp = inst.get("bp")
+        prefix = (bp.url_prefix if bp is not None else "") or ""
+        name = inst.get("company_display_name") or inst.get("company_id")
+        codes.append({
+            "title": name + " Patrol — Clock",
+            "url": base + prefix + "/patrol-clock",
+            "img": prefix + "/qr.png",
+            "note": name + " patrol crew clock in / out."})
     return render_template("qr_codes.html", codes=codes)
 
 
