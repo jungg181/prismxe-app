@@ -148,15 +148,18 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
     # ---- Per-visit password gate for Timecard / Settings ----
     # When the PATROL_ADMIN_PASSWORD env var is set, every visit (GET) of
-    # /timecard or /settings shows a password form — even with an existing
-    # login session. POSTing the correct password unlocks just that page
-    # view; a short-lived session flag authorizes the page's own action
-    # POSTs (edits, saves). When the env var is unset, behavior is
-    # unchanged (session login only).
-    # Hanseong: admin login alone is sufficient — the per-visit page
-    # password is NOT used (removed per user request 2026-11-07; it was a
-    # redundant second prompt on top of the admin login). Other companies
-    # keep the original per-page, per-visit gate.
+    # a gated page shows a password form — even with an existing login
+    # session. POSTing the correct password unlocks the view; a
+    # short-lived session flag authorizes the page's own action POSTs
+    # (edits, saves). When the env var is unset, behavior is unchanged
+    # (session login only). The Dashboard (/) is NEVER gated — admin
+    # login alone opens it (user, repeated 2026-11-25).
+    # Hanseong: one unlock opens all gated pages for 15 minutes.
+    # (The 2026-11-07 removal — admin login alone sufficed — was
+    # reverted per user request 2026-11-25: the Dashboard stays
+    # password-free, but Timecard / Email hours / Schedule / Settings
+    # need the page password on entry.) Other companies keep the
+    # original per-page, per-visit gate (30 minutes per page).
     PAGE_PASSWORD = os.environ.get('PATROL_ADMIN_PASSWORD', '')
     VISIT_AUTH_KEY = f'patrol_{company_id}_visit_auth'
     VISIT_AUTH_TTL = 1800  # seconds an unlocked page view stays usable
@@ -166,12 +169,15 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     def _visit_authed(page):
         if not PAGE_PASSWORD:
             return bool(session.get(ADMIN_SESSION_KEY))
-        if company_id == 'hanseong':
-            # Hanseong: admin login alone is sufficient (user request
-            # 2026-11-07 — the per-visit page password was a redundant
-            # second prompt on top of the admin login).
-            return bool(session.get(ADMIN_SESSION_KEY))
         auth = session.get(VISIT_AUTH_KEY) or {}
+        if company_id == 'hanseong':
+            # Hanseong: one unlock opens all gated pages for 15
+            # minutes (the Dashboard is never gated — it needs the
+            # admin login only). The per-visit password is back on
+            # per user request 2026-11-25; the 2026-11-07 removal
+            # (admin login alone sufficed) is reverted.
+            ts = auth.get(UNLOCK_ALL_KEY)
+            return bool(ts) and (time.time() - ts < HANSEONG_UNLOCK_TTL)
         ts = auth.get(page)
         return bool(ts) and (time.time() - ts < VISIT_AUTH_TTL)
 
@@ -208,7 +214,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                         _mark_visit_authed(page)
                         return fn(*a, **k)
                     flash('Wrong password.')
-                elif company_id == 'hanseong' and _visit_authed(page):
+                elif _visit_authed(page):
                     return fn(*a, **k)
                 else:
                     _clear_visit_auth(page)
