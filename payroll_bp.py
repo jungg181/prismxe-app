@@ -4280,6 +4280,69 @@ def employee_detail(person):
         total_hours=total_hours, money=_money, fmt_hours=_fmt_hours)
 
 
+def _history_period_args():
+    """(start, end) for the work history; default = last 30 days."""
+    today = datetime.now(PHOENIX).date()
+    start = _parse_date(request.args.get("from"),
+                        today - timedelta(days=29))
+    end = _parse_date(request.args.get("to"), today)
+    if start > end:
+        start, end = end, start
+    return start, end
+
+
+@bp.get("/employees/<person>/history")
+def employee_history(person):
+    """One worker's work across every company: which day they worked
+    where, and how many hours. One row per day, newest first, with a
+    per-company hours breakdown for the shown period. Entries filed
+    under an alias of this person are included too."""
+    p = _find_person(person)
+    if p is None:
+        return "Unknown employee", 404
+    start, end = _history_period_args()
+    rates, _entries, aliases = _person_db_rows(p)
+    names = {p.get("name") or ""}
+    for a in aliases:
+        if (a.get("canonical") or "") == (p.get("name") or ""):
+            names.add((a.get("alias") or "").strip())
+        if (a.get("alias") or "") == (p.get("name") or ""):
+            names.add((a.get("canonical") or "").strip())
+    names.discard("")
+    rows = [e for e in DB.get("entries", [])
+            if (e.get("employee") or "") in names
+            and start.isoformat() <= (e.get("date") or "")
+            <= end.isoformat()]
+    rows.sort(key=lambda e: (e.get("date") or ""), reverse=True)
+    # Weekday label per row (Mon, Tue, …) for the table.
+    display = []
+    for e in rows:
+        try:
+            _wd = date.fromisoformat(e.get("date") or "").strftime("%a")
+        except ValueError:
+            _wd = ""
+        d = dict(e)
+        d["weekday"] = _wd
+        display.append(d)
+    rows = display
+    total = round(sum(float(e.get("payroll_hours") or 0) for e in rows), 2)
+    by_company = {}
+    for e in rows:
+        co = e.get("company") or ""
+        by_company[co] = (by_company.get(co, 0.0)
+                          + float(e.get("payroll_hours") or 0))
+    by_company = sorted(((co, round(h, 2))
+                         for co, h in by_company.items()),
+                        key=lambda x: -x[1])
+    companies = sorted(DB.get("companies", []),
+                       key=lambda c: (c.get("name") or "").lower())
+    return render_template(
+        "payroll/employee_history.html", person=p, rows=rows,
+        start=start, end=end, total_hours=total,
+        by_company=by_company, companies=companies,
+        money=_money, fmt_hours=_fmt_hours)
+
+
 @bp.post("/employees/<person>")
 def employee_detail_post(person):
     """Save changes for one worker: their name/ID, one company's rate,
