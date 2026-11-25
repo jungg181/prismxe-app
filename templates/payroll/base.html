@@ -111,5 +111,98 @@ tr.zero td{color:var(--faint)}
   {% endwith %}
   {% block content %}{% endblock %}
 </main>
+<div id="unsaved-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:20px;max-width:380px;width:90%">
+    <p style="margin:0 0 6px;font-weight:600">Unsaved changes</p>
+    <p class="small muted" style="margin:0 0 16px">You have unsaved changes on this page. Save them before leaving?</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn secondary" type="button" id="unsaved-discard">Leave Without Saving</button>
+      <button class="btn secondary" type="button" id="unsaved-cancel">Cancel</button>
+      <button class="btn" type="button" id="unsaved-save">Save &amp; Leave</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  // Unsaved-changes guard (payroll-wide): if a manual-save form has
+  // unsaved edits and the user navigates to another page, ask
+  // whether to save first. Auto-save forms (Days list) and GET
+  // navigation forms are excluded — they save (or navigate) on
+  // their own.
+  var dirtyForm = null;
+  var modal = document.getElementById('unsaved-modal');
+  var saveBtn = document.getElementById('unsaved-save');
+  var discardBtn = document.getElementById('unsaved-discard');
+  var cancelBtn = document.getElementById('unsaved-cancel');
+  var pendingUrl = null;
+  if (!modal) return;
+  function isGuarded(form){
+    return form && form.method
+      && form.method.toLowerCase() === 'post'
+      && !form.hasAttribute('data-autosave');
+  }
+  function markDirty(form){ if (isGuarded(form)) dirtyForm = form; }
+  function clearDirty(form){
+    if (!form || dirtyForm === form) dirtyForm = null;
+  }
+  document.addEventListener('input', function(ev){
+    if (ev.target && ev.target.form) markDirty(ev.target.form);
+  });
+  document.addEventListener('change', function(ev){
+    if (ev.target && ev.target.form) markDirty(ev.target.form);
+  });
+  document.addEventListener('submit', function(ev){ clearDirty(ev.target); });
+  // Auto-save forms call this once their save completes.
+  window.__payrollFormSaved = function(form){ clearDirty(form); };
+  function showModal(url){ pendingUrl = url; modal.style.display = 'flex'; }
+  function hideModal(){
+    pendingUrl = null;
+    modal.style.display = 'none';
+    if (saveBtn){ saveBtn.disabled = false; saveBtn.textContent = 'Save & Leave'; }
+  }
+  function go(url){ hideModal(); window.location.href = url; }
+  document.addEventListener('click', function(ev){
+    if (!dirtyForm) return;
+    var a = ev.target && ev.target.closest
+      ? ev.target.closest('a[href]') : null;
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (!href || href.charAt(0) === '#'
+        || href.indexOf('javascript:') === 0) return;
+    ev.preventDefault();
+    showModal(a.href);
+  });
+  if (saveBtn) saveBtn.addEventListener('click', function(){
+    var form = dirtyForm, url = pendingUrl;
+    if (!form || !url){ hideModal(); return; }
+    // Browser validation first (required fields); if the form is
+    // incomplete, stay on the page so the user can finish it.
+    if (form.reportValidity && !form.reportValidity()){
+      hideModal();
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    fetch(form.action, {method: 'POST', body: new FormData(form),
+      headers: {'X-Requested-With': 'fetch'}})
+      .then(function(r){ if (!r.ok) throw new Error('save failed'); })
+      .then(function(){ clearDirty(form); go(url); })
+      .catch(function(){
+        hideModal();
+        alert('Could not save — please save on this page first, then leave.');
+      });
+  });
+  if (discardBtn) discardBtn.addEventListener('click', function(){
+    var url = pendingUrl;
+    clearDirty(dirtyForm);
+    go(url);
+  });
+  if (cancelBtn) cancelBtn.addEventListener('click', hideModal);
+  // Browser back / refresh / close: native warning as a fallback.
+  window.addEventListener('beforeunload', function(ev){
+    if (dirtyForm) ev.preventDefault();
+  });
+})();
+</script>
 </body>
 </html>
