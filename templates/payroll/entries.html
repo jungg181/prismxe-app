@@ -165,7 +165,12 @@
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Save Entries</button>
-      <span id="monthly-total" class="small" style="margin-left:auto;font-weight:600">Total: 0h</span>
+      <label class="small" for="monthly-sort" style="margin-left:auto">Sort</label>
+      <select id="monthly-sort" style="width:130px">
+        <option value="asc">Oldest first</option>
+        <option value="desc">Newest first</option>
+      </select>
+      <span id="monthly-total" class="small" style="font-weight:600">Total: 0h</span>
     </div>
   </form>
   {% endif %}
@@ -452,6 +457,40 @@ document.addEventListener('change', function (ev) {
 });
 // Show the loaded monthly total on page load (prefilled hours count).
 updateMonthlyTotal();
+// Monthly Add sort: flip the day rows between oldest-first and
+// newest-first. Reorders the table rows by their hidden date;
+// the Total is order-independent, and the choice persists.
+var MONTHLY_SORT_KEY = 'monthlySort';
+function applyMonthlySort() {
+  var form = document.getElementById('monthly-add-form');
+  var sel = document.getElementById('monthly-sort');
+  if (!form || !sel) return;
+  var tbody = form.querySelector('tbody');
+  if (!tbody) return;
+  var desc = sel.value === 'desc';
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+  rows.sort(function (a, b) {
+    var da = a.querySelector('input[name$="[date]"]').value;
+    var db = b.querySelector('input[name$="[date]"]').value;
+    if (da === db) return 0;
+    return desc ? (db < da ? -1 : 1) : (da < db ? -1 : 1);
+  });
+  rows.forEach(function (r) { tbody.appendChild(r); });
+  try { localStorage.setItem(MONTHLY_SORT_KEY, sel.value); } catch (e) {}
+}
+document.addEventListener('change', function (ev) {
+  if (ev.target && ev.target.id === 'monthly-sort') applyMonthlySort();
+});
+// Restore the saved sort on page load.
+(function () {
+  var sel = document.getElementById('monthly-sort');
+  if (!sel) return;
+  try {
+    var saved = localStorage.getItem(MONTHLY_SORT_KEY);
+    if (saved === 'desc' || saved === 'asc') sel.value = saved;
+  } catch (e) {}
+  applyMonthlySort();
+})();
 // Location picker: direct-click buttons, not a dropdown. When the
 // picked jobsite has locations under it, one button per location
 // appears (plus "Parent only"). Tapping a button stores the location
