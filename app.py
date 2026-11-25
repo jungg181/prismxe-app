@@ -218,6 +218,56 @@ def portal():
     return render_template("portal.html", companies=build_catalog())
 
 
+@app.get("/qr-codes")
+def qr_codes():
+    """Printable page with every timecard QR code in one place, so it
+    can be printed and posted at a site. Public — the clock pages the
+    codes open are public too. The COA per-site codes are read live
+    from data_coa.json, so a new active site shows up automatically."""
+    base = os.environ.get("BASE_URL", "https://app.prismxe.com").rstrip("/")
+    codes = [
+        {"title": "PrismXE Staffing — On Site",
+         "url": base + "/staffing/onsite",
+         "img": "/static/cm/onsite-qr.png",
+         "note": "CM crew clock in / out. New workers register once, "
+                 "then clock in and out from here."},
+        {"title": "COA — Clock",
+         "url": base + "/coa/clock",
+         "img": "/coa/qr/clock.png",
+         "note": "COA cleaners clock in / out. Workers pick their site "
+                 "on the page."},
+    ]
+    try:
+        with open(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "data_coa.json")) as f:
+            coa = json.load(f)
+        sites = [s for s in coa.get("sites", [])
+                 if s.get("status") == "active"]
+    except Exception:
+        sites = []
+    for s in sites:
+        sid = s.get("id") or ""
+        codes.append({
+            "title": "COA — " + (s.get("name") or sid),
+            "url": base + "/coa/clock?site=" + sid,
+            "img": "/coa/qr/" + sid + ".png",
+            "note": "COA clock with the site fixed to "
+                    + (s.get("name") or sid) + " — workers skip the "
+                    "site picker."})
+    codes.append({
+        "title": "Hanseong Patrol — Clock",
+        "url": base + "/Hanseong/patrol/patrol-clock",
+        "img": "/Hanseong/patrol/qr.png",
+        "note": "Hanseong patrol crew clock in / out."})
+    codes.append({
+        "title": "Patrol-COA — Clock",
+        "url": base + "/patrol-coa/patrol-clock",
+        "img": "/patrol-coa/qr.png",
+        "note": "Patrol-COA crew clock in / out."})
+    return render_template("qr_codes.html", codes=codes)
+
+
 @app.get("/manage")
 def portal_manage():
     from patrol_bp import login_required as patrol_login_required
