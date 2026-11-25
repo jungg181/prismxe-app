@@ -105,13 +105,16 @@ try:
     check("picker history links to employee details",
           "Isaac Marino details" in t)
 
-    # ---- 4. Company page has a History link per employee ----
+    # ---- 4. Company page has NO History link per employee (user
+    # 2026-11-25: "여기는 필요 없어 History") — Work History lives
+    # in the top nav only. ----
     t = c.get("/payroll/m-solution?from=2026-11-01&to=2026-11-30"
               ).get_data(as_text=True)
     check("company page renders", "M-Solution Payroll" in t)
-    check("company employee row has History link",
-          'href="/payroll/employees/Isaac%20Marino/history"' in t
-          and ">History<" in t)
+    check("company employee rows have no History link",
+          ">History<" not in t)
+    check("company employee rows still have Days",
+          "Days" in t)
 
     # ---- 5. Per-employee history page still works ----
     t = c.get("/payroll/employees/Isaac%20Marino/history"
