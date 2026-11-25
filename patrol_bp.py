@@ -60,10 +60,20 @@ def worker_color(key):
     h = int(hashlib.md5(k.encode('utf-8')).hexdigest(), 16)
     return WORKER_COLORS[h % len(WORKER_COLORS)]
 
+# Every patrol company created by the factory, in creation order.
+# The /qr-codes page reads this so a new patrol company's QR shows
+# up there automatically — no edit to the QR page needed.
+PATROL_INSTANCES = []
+
+
 def create_patrol_blueprint(company_id, url_prefix, db_filename,
                                sheets_env_var, app_version_filename,
                                blueprint_name, company_display_name):
     """Create an isolated Patrol app instance for one company.
+
+    Every instance is recorded in PATROL_INSTANCES (below) so pages
+    like /qr-codes can discover all patrol companies automatically —
+    a new patrol company shows up there with no edit to the QR page.
 
     company_id: 'hanseong' | 'coa'  (used for session keys, log messages)
     url_prefix: '/Hanseong/patrol' | '/patrol-coa'
@@ -2637,8 +2647,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 save_db(sync=False)  # GPS pings every ~60s; not worth a Sheets sync
                 return jsonify({'ok': True})
         return jsonify({'ok': False, 'error': 'Unknown worker'}), 404
-    return {'bp': bp, 'DB': DB, 'login_required': login_required,
-            'company_id': company_id, 'company_display_name': company_display_name}
+    inst = {'bp': bp, 'DB': DB, 'login_required': login_required,
+            'company_id': company_id,
+            'company_display_name': company_display_name}
+    PATROL_INSTANCES.append(inst)
+    return inst
 
 
 # ================= COMPANY INSTANCES =================
