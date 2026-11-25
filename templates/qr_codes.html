@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timecard QR Codes — PrismXE</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #fff; color: #111;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    max-width: 900px; margin: 0 auto 20px;
+  }
+  .toolbar h1 { font-size: 22px; margin: 0; flex: 1; }
+  .toolbar p { margin: 0; color: #555; font-size: 14px; }
+  .print-btn {
+    background: #111; color: #fff; border: none; border-radius: 8px;
+    padding: 10px 18px; font-size: 15px; cursor: pointer;
+  }
+  .grid {
+    max-width: 900px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .card {
+    border: 1.5px solid #111; border-radius: 12px; padding: 20px;
+    text-align: center; break-inside: avoid; page-break-inside: avoid;
+  }
+  .card h2 { font-size: 17px; margin: 0 0 12px; }
+  .card img { width: 220px; height: 220px; display: block; margin: 0 auto 12px; }
+  .card .url { font-size: 13px; font-family: monospace; word-break: break-all; margin: 0 0 8px; }
+  .card .note { font-size: 13px; color: #444; margin: 0; }
+  @media print {
+    body { padding: 0; }
+    .toolbar .print-btn { display: none; }
+    .toolbar { margin-bottom: 12px; }
+    .grid { gap: 12px; }
+    .card img { width: 200px; height: 200px; }
+  }
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    .toolbar { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <h1>Timecard QR Codes</h1>
+  <p>Scan a code with a phone camera to open that clock-in page.</p>
+  <button class="print-btn" onclick="window.print()">Print</button>
+</div>
+<div class="grid">
+  {% for c in codes %}
+  <div class="card">
+    <h2>{{ c.title }}</h2>
+    <img src="{{ c.img }}" alt="QR code for {{ c.title }}">
+    <p class="url">{{ c.url }}</p>
+    <p class="note">{{ c.note }}</p>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>
