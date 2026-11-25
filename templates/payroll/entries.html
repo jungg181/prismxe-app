@@ -8,8 +8,9 @@
 .entry-input-table th, .entry-input-table td { text-align: center; padding: 4px 8px; }
 .entry-input-table input { text-align: center; padding: 6px 8px; font-size: .92rem; }
 /* A day that already has a value shows it in red, so entered days
-   stand out from empty rows at a glance. */
-.entry-input-table input.filled { color: #ff5c5c; font-weight: 600; }
+   stand out from empty rows at a glance. Applies to every entry
+   form on this page (single, bulk, monthly, daily). */
+.entry-input-table input.filled, .form-grid input.filled { color: #ff5c5c; font-weight: 600; }
 /* Single Add/Edit form: same centred input text. */
 .form-grid input, .form-grid select { text-align: center; }
 </style>
@@ -47,12 +48,12 @@
     <div class="form-grid">
       <div><label for="employee">Employee</label><input id="employee" name="employee" list="names" value="{{ edit_entry.employee if edit_entry else '' }}" placeholder="Exact name" required><datalist id="names">{% for n in names %}<option value="{{ n }}">{% endfor %}</datalist></div>
       <div><label for="date">Date</label><input id="date" name="date" type="date" value="{{ edit_entry.date if edit_entry else '' }}" required></div>
-      <div><label for="clock_in">Clock-In (optional)</label><input id="clock_in" name="clock_in" value="{{ edit_entry.clock_in if edit_entry else '' }}" placeholder="e.g. 7:00 AM"></div>
-      <div><label for="clock_out">Clock-Out (optional)</label><input id="clock_out" name="clock_out" value="{{ edit_entry.clock_out if edit_entry else '' }}" placeholder="e.g. 3:30 PM"></div>
+      <div><label for="clock_in">Clock-In (optional)</label><input id="clock_in" name="clock_in" value="{{ edit_entry.clock_in if edit_entry else '' }}"{{ (' class="filled"' if edit_entry and edit_entry.clock_in else '') | safe }}></div>
+      <div><label for="clock_out">Clock-Out (optional)</label><input id="clock_out" name="clock_out" value="{{ edit_entry.clock_out if edit_entry else '' }}"{{ (' class="filled"' if edit_entry and edit_entry.clock_out else '') | safe }}></div>
       <div><label for="meal_break">Meal Break (−1h)</label><input id="meal_break" name="meal_break" type="checkbox" value="1"{{ ' checked' if edit_entry and edit_entry.meal_break else '' }} style="width:auto;height:20px"></div>
-      <div><label for="payroll_hours">Payroll Hours</label><input id="payroll_hours" name="payroll_hours" type="number" step="0.01" min="0" value="{{ edit_entry.payroll_hours if edit_entry else '' }}" placeholder="e.g. 7" required></div>
-      <div><label for="site">Site (optional)</label><input id="site" name="site" value="{{ edit_entry.site if edit_entry else '' }}" placeholder="e.g. LGES"></div>
-      <div><label for="notes">Notes (optional)</label><input id="notes" name="notes" value="{{ edit_entry.notes if edit_entry else '' }}" placeholder="e.g. KB"></div>
+      <div><label for="payroll_hours">Payroll Hours</label><input id="payroll_hours" name="payroll_hours" type="number" step="0.01" min="0" value="{{ edit_entry.payroll_hours if edit_entry else '' }}"{{ (' class="filled"' if edit_entry and edit_entry.payroll_hours is not none else '') | safe }} required></div>
+      <div><label for="site">Site (optional)</label><input id="site" name="site" value="{{ edit_entry.site if edit_entry else '' }}"{{ (' class="filled"' if edit_entry and edit_entry.site else '') | safe }}></div>
+      <div><label for="notes">Notes (optional)</label><input id="notes" name="notes" value="{{ edit_entry.notes if edit_entry else '' }}"{{ (' class="filled"' if edit_entry and edit_entry.notes else '') | safe }}></div>
       <div><label for="jobsite_id">Jobsite (optional)</label><select id="jobsite_id" name="jobsite_id"><option value="">— Unassigned —</option>{% for j in jobsites %}<option value="{{ j.id }}"{{ ' selected' if edit_entry and (edit_jobsite_id or '') == j.id else '' }}>{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
     </div>
     <div id="location-picker" style="display:none;margin-top:4px">
@@ -96,12 +97,12 @@
           <tr>
             <td><input name="rows[{{i}}][employee]" list="names" placeholder="Exact name"></td>
             <td><input type="date" name="rows[{{i}}][date]" value="{{ start }}"></td>
-            <td><input name="rows[{{i}}][clock_in]" placeholder="e.g. 7:00 AM"></td>
-            <td><input name="rows[{{i}}][clock_out]" placeholder="e.g. 3:30 PM"></td>
+            <td><input name="rows[{{i}}][clock_in]"></td>
+            <td><input name="rows[{{i}}][clock_out]"></td>
             <td style="text-align:center"><input type="checkbox" name="rows[{{i}}][meal_break]" value="1" title="Meal break — deducts 1h" style="width:auto;height:20px"></td>
-            <td><input type="number" name="rows[{{i}}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7"></td>
-            <td><input name="rows[{{i}}][site]" placeholder="e.g. LGES"></td>
-            <td><input name="rows[{{i}}][notes]" placeholder="e.g. KB"></td>
+            <td><input type="number" name="rows[{{i}}][payroll_hours]" step="0.01" min="0"></td>
+            <td><input name="rows[{{i}}][site]"></td>
+            <td><input name="rows[{{i}}][notes]"></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -222,12 +223,12 @@
           {% for name in daily_names %}
           <tr>
             <td>{{ name }}{% if name not in names %} <span class="muted small">(no rate)</span>{% endif %}<input type="hidden" name="rows[{{ loop.index0 }}][employee]" value="{{ name }}"></td>
-            <td><input name="rows[{{ loop.index0 }}][clock_in]" placeholder="e.g. 7:00 AM" value="{{ daily_existing[name].clock_in if name in daily_existing else '' }}"></td>
-            <td><input name="rows[{{ loop.index0 }}][clock_out]" placeholder="e.g. 3:30 PM" value="{{ daily_existing[name].clock_out if name in daily_existing else '' }}"></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_in]" value="{{ daily_existing[name].clock_in if name in daily_existing else '' }}"{{ (' class="filled"' if name in daily_existing and daily_existing[name].clock_in else '') | safe }}></td>
+            <td><input name="rows[{{ loop.index0 }}][clock_out]" value="{{ daily_existing[name].clock_out if name in daily_existing else '' }}"{{ (' class="filled"' if name in daily_existing and daily_existing[name].clock_out else '') | safe }}></td>
             <td style="text-align:center"><input type="checkbox" name="rows[{{ loop.index0 }}][meal_break]" value="1" title="Meal break — deducts 1h" style="width:auto;height:20px"{{ ' checked' if name in daily_existing and daily_existing[name].meal_break else '' }}></td>
-            <td><input type="number" name="rows[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" placeholder="e.g. 7" value="{{ daily_existing[name].payroll_hours if name in daily_existing else '' }}"></td>
-            <td><input name="rows[{{ loop.index0 }}][site]" placeholder="e.g. LGES" value="{{ daily_existing[name].site if name in daily_existing else '' }}"></td>
-            <td><input name="rows[{{ loop.index0 }}][notes]" placeholder="e.g. KB" value="{{ daily_existing[name].notes if name in daily_existing else '' }}"></td>
+            <td><input type="number" name="rows[{{ loop.index0 }}][payroll_hours]" step="0.01" min="0" value="{{ daily_existing[name].payroll_hours if name in daily_existing else '' }}"{{ (' class="filled"' if name in daily_existing and daily_existing[name].payroll_hours is not none else '') | safe }}></td>
+            <td><input name="rows[{{ loop.index0 }}][site]" value="{{ daily_existing[name].site if name in daily_existing else '' }}"{{ (' class="filled"' if name in daily_existing and daily_existing[name].site else '') | safe }}></td>
+            <td><input name="rows[{{ loop.index0 }}][notes]" value="{{ daily_existing[name].notes if name in daily_existing else '' }}"{{ (' class="filled"' if name in daily_existing and daily_existing[name].notes else '') | safe }}></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -421,13 +422,14 @@ document.addEventListener('input', function (ev) {
   var t = ev.target;
   if (t && t.name && /\[payroll_hours\]$/.test(t.name)) updateMonthlyTotal();
 });
-// Monthly Add: an input with a value shows it in red. Toggle the
-// class as the user types, so a newly entered value turns red too.
+// An input with a value shows it in red. Toggle the class as the
+// user types, so a newly entered value turns red too. Applies to
+// every entry form on this page (single, bulk, monthly, daily).
 document.addEventListener('input', function (ev) {
   var t = ev.target;
-  if (!t || !t.form || t.form.id !== 'monthly-add-form') return;
-  if (t.tagName !== 'INPUT' || t.type === 'checkbox'
+  if (!t || t.tagName !== 'INPUT' || t.type === 'checkbox'
       || t.type === 'hidden') return;
+  if (!t.closest('.entry-input-table') && !t.closest('.form-grid')) return;
   t.classList.toggle('filled', t.value !== '');
 });
 document.addEventListener('change', function (ev) {
@@ -465,10 +467,10 @@ document.addEventListener('change', function (ev) {
   }
   var h = calcHours(ci.value, co.value, mb && mb.checked);
   if (h !== null) hours.value = h;
-  // Auto-calculated hours count as entered too (red) on Monthly Add.
-  if (t.form.id === 'monthly-add-form') {
-    hours.classList.toggle('filled', hours.value !== '');
-  }
+  // Auto-calculated hours count as entered too (red). The red
+  // style only applies inside an entry table or the single form,
+  // so toggling here is safe for every form on this page.
+  hours.classList.toggle('filled', hours.value !== '');
   updateMonthlyTotal();
 });
 // Show the loaded monthly total on page load (prefilled hours count).
