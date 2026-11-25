@@ -75,6 +75,18 @@ def parse_local(value):
     return dt.astimezone(PHOENIX)
 
 
+def _time_only(value):
+    """Clock-in/out times are stored as times only ("7:00", "19:00"),
+    never as full datetimes — the date lives in the entry's `date`
+    (and `clock_out_date` for overnight shifts). An ISO timestamp
+    from a punch is reduced to its local time, "H:MM" (24h). A value
+    that is already a plain time passes through unchanged."""
+    dt = parse_local(value)
+    if dt is None:
+        return (value or "").strip()
+    return "%d:%02d" % (dt.hour, dt.minute)
+
+
 def compute_hours_mirrored(clock_in_iso, clock_out_iso):
     """Mirror of cm_bp.compute_hours / coa_bp.compute_hours:
     shift hours, 1h meal break auto-deducted for shifts >= 5h."""
@@ -148,8 +160,8 @@ def timecard_rows(data, start, end):
             "date": day.isoformat(),
             "hours": compute_hours_mirrored(t.get("clock_in"),
                                             t.get("clock_out")),
-            "clock_in": t.get("clock_in") or "",
-            "clock_out": t.get("clock_out") or "",
+            "clock_in": _time_only(t.get("clock_in")),
+            "clock_out": _time_only(t.get("clock_out")),
             "clock_out_date": co.date().isoformat(),
             "site": sites.get(t.get("site_id"), ""),
             "notes": t.get("notes") or "",
@@ -242,8 +254,8 @@ def patrol_rows(data, start, end):
             "employee": name_by_email.get(email, email),
             "date": day,
             "hours": round(min(12.0, sum(hours_list)), 2),
-            "clock_in": first_in.get((email, day), ""),
-            "clock_out": last_out.get((email, day), ""),
+            "clock_in": _time_only(first_in.get((email, day), "")),
+            "clock_out": _time_only(last_out.get((email, day), "")),
             "clock_out_date": (parse_local(last_out.get((email, day)))
                                .date().isoformat()
                                if last_out.get((email, day)) else None),
