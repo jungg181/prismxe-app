@@ -324,15 +324,20 @@ def _fmt_hhmm(minutes):
 def _closed_pairs_for_day(punches, email, day_iso):
     """Closed (in, out) punch pairs for one worker whose clock-in
     date is day_iso, plus orphan in-punches on that date (taps with
-    no clock-out — e.g. a second tap minutes after the first).
-    Mirrors the pairing walk in patrol_rows. Returns
-    (pairs, orphans)."""
+    no clock-out — e.g. a second tap minutes after the first) and
+    stray out-punches dated that day (a clock-out with no clock-in
+    before it — e.g. a double-tap, or the second out after a
+    double clock-in). Mirrors the pairing walk in patrol_rows.
+    Returns (pairs, orphans, stray_outs). A stray out belongs to no
+    pair at all, so removing it on a rewrite cannot break another
+    day's shift (an overnight pair's out is paired with its own
+    clock-in, never stray)."""
     ordered = sorted(
         (p for p in punches
          if (p.get("email") or "").strip() == email
          and parse_local(p.get("ts")) is not None),
         key=lambda p: parse_local(p.get("ts")))
-    pairs, orphans = [], []
+    pairs, orphans, stray_outs = [], [], []
     open_in = None
     for p in ordered:
         ts = parse_local(p.get("ts"))
@@ -348,7 +353,11 @@ def _closed_pairs_for_day(punches, email, day_iso):
                 open_in = p
         elif action == "out":
             if open_in is None:
-                continue  # stray clock-out; not this day's pair
+                # Stray clock-out; it pairs with nothing. Keep it
+                # only when it is dated another day.
+                if ts.date().isoformat() == day_iso:
+                    stray_outs.append(p)
+                continue
             in_ts = parse_local(open_in.get("ts"))
             if in_ts.date().isoformat() == day_iso:
                 pairs.append((open_in, p))
@@ -357,7 +366,7 @@ def _closed_pairs_for_day(punches, email, day_iso):
         if (parse_local(open_in.get("ts")).date().isoformat()
                 == day_iso):
             orphans.append(open_in)
-    return pairs, orphans
+    return pairs, orphans, stray_outs
 
 
 def reverse_sync_patrol_punches(patrol_data, entry):
@@ -373,12 +382,14 @@ def reverse_sync_patrol_punches(patrol_data, entry):
 
     Only closed pairs whose clock-in date is the entry's date are
     replaced, plus orphan in-taps from before the day's first pair
-    (accidental double-taps). An in-punch that is still open (the
-    worker is clocked in right now) is never touched, and neither is
-    a pair belonging to another day (e.g. a night shift that started
-    the day before). When the day has no closed pairs there is
-    nothing to rewrite, so manual entries for punch-less days stay
-    payroll-only.
+    (accidental double-taps) and stray out-taps dated that day (a
+    stray out would otherwise steal the corrected clock-in's pairing
+    and show the wrong hours on the board — e.g. 11.98 instead of
+    12.00). An in-punch that is still open (the worker is clocked in
+    right now) is never touched, and neither is a pair belonging to
+    another day (e.g. a night shift that started the day before).
+    When the day has no closed pairs there is nothing to rewrite, so
+    manual entries for punch-less days stay payroll-only.
 
     Returns (changed, detail). Never raises on bad input; it just
     reports why nothing was done.
@@ -416,11 +427,13 @@ def reverse_sync_patrol_punches(patrol_data, entry):
     if not email:
         return False, "worker not found in Patrol"
 
-    pairs, orphans = _closed_pairs_for_day(punches, email, day)
+    pairs, orphans, stray_outs = _closed_pairs_for_day(
+        punches, email, day)
     if not pairs:
         return False, "no closed punches for that day"
-    # Already correct: one pair, times match to the minute.
-    if (len(pairs) == 1 and not orphans
+    # Already correct: one pair, times match to the minute, and no
+    # orphan taps or stray outs left over on the day.
+    if (len(pairs) == 1 and not orphans and not stray_outs
             and (pairs[0][0].get("ts") or "")[:16] == new_in_ts[:16]
             and (pairs[0][1].get("ts") or "")[:16] == new_out_ts[:16]):
         return False, "punches already match"
@@ -435,6 +448,9 @@ def reverse_sync_patrol_punches(patrol_data, entry):
               and first_in_ts is not None
               and parse_local(o.get("ts")) < first_in_ts]
     replaced.extend(doomed)
+    # Stray outs dated this day pair with nothing; leaving one
+    # behind would steal the corrected clock-in's pairing.
+    replaced.extend(stray_outs)
     replaced_ids = {p.get("id") for p in replaced}
     used_ids = {p.get("id") for p in punches}
 
