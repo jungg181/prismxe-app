@@ -127,11 +127,9 @@
   <form method="get" action="{{ url_for('.entries', company=company.slug) }}">
     <input type="hidden" name="from" value="{{ start }}">
     <input type="hidden" name="to" value="{{ end }}">
-    <div class="form-grid">
-      <div><label for="monthly_employee">Employee</label><select id="monthly_employee" name="monthly_employee" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}"{{ ' selected' if monthly_employee == n }}>{{ n }}</option>{% endfor %}</select></div>
-      <div><label for="monthly_month">Month</label><input id="monthly_month" name="monthly_month" type="month" value="{{ monthly_month or start[:7] }}" required></div>
-    </div>
-    <div class="btn-row" style="margin-top:12px">
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="width:280px"><label for="monthly_employee">Employee</label><select id="monthly_employee" name="monthly_employee" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}"{{ ' selected' if monthly_employee == n }}>{{ n }}</option>{% endfor %}</select></div>
+      <div style="width:180px"><label for="monthly_month">Month</label><input id="monthly_month" name="monthly_month" type="month" value="{{ monthly_month or start[:7] }}" required></div>
       <button class="btn secondary" type="submit">Load Days</button>
     </div>
   </form>
@@ -279,7 +277,7 @@
   <form method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="action" value="assign_jobsite">
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-      <div style="flex:1;min-width:180px"><label style="margin-top:0" for="assign_jobsite_id">Jobsite</label><select id="assign_jobsite_id" name="jobsite_id" required><option value="">— pick —</option>{% for j in jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
+      <div style="width:280px"><label style="margin-top:0" for="assign_jobsite_id">Jobsite</label><select id="assign_jobsite_id" name="jobsite_id" required><option value="">— pick —</option>{% for j in jobsites %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></div>
       <button class="btn" type="submit">Tag untagged entries</button>
     </div>
     <div id="assign-location-picker" style="display:none;margin-top:10px">
@@ -304,8 +302,8 @@
   <form method="post" action="{{ url_for('.save_alias', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="alias" value="{{ name }}">
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
-      <div style="flex:1;min-width:140px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
-      <div style="flex:1;min-width:180px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
+      <div style="width:220px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
+      <div style="width:280px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
       <button class="btn small" type="submit">Map</button>
       <a class="btn secondary small" href="{{ url_for('.rates', name=name, company=company.name) }}">Add as new rate</a>
     </div>
@@ -314,8 +312,8 @@
     <input type="hidden" name="action" value="move_company">
     <input type="hidden" name="employee" value="{{ name }}">
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
-      <div style="flex:1;min-width:180px"><label style="margin-top:0">Move to another company</label><select name="to_company" required><option value="">— pick a company —</option>{% for c in companies %}{% if c.name != company.name %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
-      <div style="flex:1;min-width:180px"><label style="margin-top:0">Note</label><input name="notes" value="{{ unmatched_notes.get(name, '') }}"></div>
+      <div style="width:280px"><label style="margin-top:0">Move to another company</label><select name="to_company" required><option value="">— pick a company —</option>{% for c in companies %}{% if c.name != company.name %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
+      <div style="width:280px"><label style="margin-top:0">Note</label><input name="notes" value="{{ unmatched_notes.get(name, '') }}"></div>
       <button class="btn small" type="submit">Move</button>
     </div>
   </form>
