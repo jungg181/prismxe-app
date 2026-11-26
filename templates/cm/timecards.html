@@ -4,11 +4,43 @@
 <style>
   /* This page is 300px wider than the usual 980px container. */
   @media(min-width:900px){ .container{max-width:1280px} }
+  /* The attention badge is a button: same look, clickable. */
+  button.badge{border:0;font:inherit;cursor:pointer}
 </style>
 {% endblock %}
 {% block content %}
-<h1>Timecards &amp; GPS Attendance {% if attention %}<span class="badge big">{{ attention }} need attention</span>{% endif %}</h1>
+<h1>Timecards &amp; GPS Attendance {% if attention %}<button class="badge big" id="attention-badge" onclick="toggleAttention()" title="Show what needs attention">{{ attention }} need attention</button>{% endif %}</h1>
 <p class="muted">Real-time check-in records, GPS locations, and shift hours. Meal break: 1 hr deducted automatically on shifts ≥ 5h.</p>
+
+{% if attention_items %}
+<div id="attention-panel" class="card" style="display:none;margin-bottom:12px">
+  <div class="card-body">
+    <div class="card-title">What needs attention ({{ attention_items|length }})</div>
+    <table>
+      <thead><tr><th>Problem</th><th>Worker</th><th>Detail</th><th></th></tr></thead>
+      <tbody>
+        {% for it in attention_items %}
+        <tr>
+          <td>{{ it.kind }}</td>
+          <td><b>{{ it.worker }}</b></td>
+          <td>{{ it.detail }}</td>
+          <td style="white-space:nowrap">
+            {% if it.timecard_id %}<a class="btn small" href="#tc-{{ it.timecard_id }}">View</a>{% endif %}
+            {% if it.correction_id %}<a class="btn small" href="/payroll/corrections">Review</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+function toggleAttention(){
+  var p = document.getElementById('attention-panel');
+  if (p) p.style.display = (p.style.display === 'none' ? '' : 'none');
+}
+</script>
+{% endif %}
 
 <div class="stats">
   <div class="stat"><div class="num">{{ active_now }}</div><div class="lbl">Active on site</div></div>
@@ -64,7 +96,7 @@
 <div class="table-wrap"><table class="tbl">
 <tr><th>Worker</th><th>Site</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Action</th><th>Sign</th></tr>
 {% for t in rows %}
-<tr>
+<tr id="tc-{{ t.id }}">
   <td><b>{{ worker_name(t.worker_id) }}</b></td>
   <td>{{ site_name(t.site_id) }}</td>
   <td>{{ fmt_dt(t.clock_in) }}{% set gl=gmaps_link(t.clock_in_lat,t.clock_in_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">GPS</a>{% endif %}{% set dist=clock_in_distance_km(t) %}{% if dist is not none %}{% if dist < 0.5 %}<br><span class="pill pill-active small">On site</span>{% else %}<br><span class="pill pill-low small">{{ '%.1f'|format(dist) }} km away</span>{% endif %}{% endif %}</td>
