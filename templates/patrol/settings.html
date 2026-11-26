@@ -168,8 +168,8 @@ function saveDisplay(){
 <div class="card" id="sec-workers" style="display:none">
   <h2><span class="muted">05</span> Workers <button class="btn small primary" onclick="addWorker()" style="float:right">+ Add Worker</button></h2>
   <div id="wk-filter" style="display:flex;gap:.4rem;margin:0 0 .6rem">
-    <button class="btn small primary" data-filter="all" onclick="filterWorkers('all')">ALL</button>
-    <button class="btn small" data-filter="active" onclick="filterWorkers('active')">Active</button>
+    <button class="btn small" data-filter="all" onclick="filterWorkers('all')">ALL</button>
+    <button class="btn small primary" data-filter="active" onclick="filterWorkers('active')">Active</button>
     <button class="btn small" data-filter="inactive" onclick="filterWorkers('inactive')">Inactive</button>
   </div>
   <div style="overflow-x:auto">
@@ -440,7 +440,7 @@ renderShifts();
 // Non-matching rows are hidden completely (display:none) — but they
 // are still saved, because saveWorkers reads every .wk-row, hidden
 // or not. Flipping a worker's Status re-applies the current filter.
-var wkFilter = 'all';
+var wkFilter = 'active';
 function filterWorkers(status){
   wkFilter = status;
   document.querySelectorAll('#wk-filter .btn').forEach(function(b){
@@ -455,6 +455,8 @@ function filterWorkers(status){
 document.getElementById('worker-list').addEventListener('change', function(e){
   if(e.target && e.target.classList.contains('wk-status')) filterWorkers(wkFilter);
 });
+// Active is the default view.
+filterWorkers('active');
 async function saveWorkers(){
   const rows = [...document.querySelectorAll('#worker-list .wk-row')].map(row=>({
     id: row.dataset.id,
