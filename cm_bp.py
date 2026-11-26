@@ -290,6 +290,19 @@ def _load_payroll_jobsites():
     return [j for j in data.get("jobsites", []) if isinstance(j, dict)]
 
 
+def _load_payroll_companies():
+    """Payroll companies from data_payroll.json, fresh each call
+    (same reason as _load_payroll_jobsites). Missing/corrupt -> []."""
+    try:
+        with open(PAYROLL_PATH) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [c for c in data.get("companies", []) if isinstance(c, dict)]
+
+
 def payroll_jobsite_tree():
     """Top-level ACTIVE payroll jobsites with their locations, for the
     On Site clock-in picker: [{id, code, name,
@@ -544,8 +557,17 @@ def sites():
                            if t['site_id'] == s['id'] and (t.get('clock_in') or '').startswith(tdy)),
         })
     counts = {st: sum(1 for s in DB['sites'] if s.get('status') == st) for st in SITE_STATUSES}
+    # Payroll jobsites (the buttons workers tap on the On Site
+    # clock-in page) + companies, for the "Payroll Jobsites" section
+    # below the site cards — the user adds payroll jobsites here.
+    pj_jobs = _load_payroll_jobsites()
+    pj_top = sorted((j for j in pj_jobs if not (j.get("parent_id") or "")),
+                    key=lambda x: (x.get("code") or "").lower())
     return render_template('cm/sites.html', rows=rows, q=request.args.get('q', ''),
-                           status=status, counts=counts, total=len(DB['sites']))
+                           status=status, counts=counts, total=len(DB['sites']),
+                           pj_jobs=sorted(pj_jobs, key=lambda x: (x.get("code") or "").lower()),
+                           pj_top=pj_top,
+                           pj_companies=_load_payroll_companies())
 
 
 @bp.route('/sites/new', methods=['GET', 'POST'])
