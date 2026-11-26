@@ -2910,6 +2910,13 @@ def jobsites():
         company = (request.form.get("company") or "").strip()
         site = (request.form.get("site") or "").strip()
         parent = find_jobsite(request.form.get("parent_id") or "")
+        # Where to go after saving: the Sites page posts here so the
+        # user can add a payroll jobsite without leaving /staffing.
+        # Only that exact page is allowed, so the redirect can never
+        # be pointed elsewhere.
+        nxt = (request.form.get("next") or "").strip()
+        back = ("/staffing/sites" if nxt == "/staffing/sites"
+                else url_for(".jobsites"))
         if not code:
             flash("Jobsite ID is required.")
         elif any((j.get("code") or "").strip().lower() == code.lower()
@@ -2930,7 +2937,7 @@ def jobsites():
             })
             save_db()
             flash(f"Jobsite {code} added.")
-        return redirect(url_for(".jobsites"))
+        return redirect(back)
     top = sorted((j for j in DB.get("jobsites", [])
                   if not (j.get("parent_id") or "")),
                  key=lambda x: (x.get("code") or "").lower())
