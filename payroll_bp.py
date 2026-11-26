@@ -51,7 +51,7 @@ from payroll_calc import (DEFAULT_OT_MULTIPLIER, DEFAULT_OT_THRESHOLD,
                           find_unmatched, invoice_lines, invoice_number,
                           resolve_aliases, variance_report)
 from payroll_import_app import (HOURS_RULE_TEXT, SOURCES, build_preview,
-                                import_rows)
+                                import_rows, reverse_sync_patrol_punches)
 
 bp = Blueprint("payroll", __name__, url_prefix="/payroll",
                template_folder="templates/payroll")
@@ -699,6 +699,126 @@ def _clock_minutes(value):
     return h * 60 + mi
 
 
+def _hours_only_clock_out(clock_in, hours, day):
+    """Clock-out for an hours-only edit: clock-in + hours. Returns
+    (clock_out "H:MM", clock_out_date or None), or (None, None) when
+    the clock-in is blank/unparseable. Overnight spans (clock-out at
+    or before clock-in) record the next day, the same convention the
+    entry forms use."""
+    _in_m = _clock_minutes(clock_in)
+    if _in_m is None or hours is None:
+        return None, None
+    try:
+        total = _in_m + int(round(float(hours) * 60))
+    except (TypeError, ValueError):
+        return None, None
+    out_m = total % (24 * 60)
+    out_date = None
+    if total >= 24 * 60 or out_m <= _in_m:
+        try:
+            out_date = (date.fromisoformat(day)
+                        + timedelta(days=total // (24 * 60) or 1)
+                        ).isoformat()
+        except ValueError:
+            out_date = None
+    return "%d:%02d" % (out_m // 60, out_m % 60), out_date
+
+
+def _prep_entry_edit(existing, day, clock_in, clock_out, hours):
+    """Prepare an edit of an existing entry's times/hours.
+
+    Returns (clock_in, clock_out, clock_out_date, old) where old is
+    a snapshot of the existing entry's times/hours (None when the
+    entry is new). The clock-out date is re-derived from the times
+    only when the times changed; when nothing changed the stored
+    value is kept, never silently "fixed".
+
+    Hours-only rule (user, 2026-11-25): when the clock times are
+    unchanged but the hours changed, move clock-out to clock-in +
+    hours so the entry stays consistent — and so the Patrol punches
+    it corrects land on the same span.
+    """
+    old = None
+    if existing is not None:
+        old = {
+            "clock_in": existing.get("clock_in") or "",
+            "clock_out": existing.get("clock_out") or "",
+            "clock_out_date": existing.get("clock_out_date"),
+            "payroll_hours": float(existing.get("payroll_hours") or 0),
+        }
+    if old is None:
+        # New entry: derive the clock-out date from the times.
+        _in_m = _clock_minutes(clock_in)
+        _out_m = _clock_minutes(clock_out)
+        out_date = None
+        if (_in_m is not None and _out_m is not None
+                and _out_m <= _in_m):
+            try:
+                out_date = (date.fromisoformat(day)
+                            + timedelta(days=1)).isoformat()
+            except ValueError:
+                out_date = None
+        return clock_in, clock_out, out_date, old
+    times_changed = ((clock_in or "") != old["clock_in"]
+                     or (clock_out or "") != old["clock_out"])
+    hours_changed = (hours is not None
+                     and float(hours) != old["payroll_hours"])
+    if times_changed:
+        _in_m = _clock_minutes(clock_in)
+        _out_m = _clock_minutes(clock_out)
+        out_date = None
+        if (_in_m is not None and _out_m is not None
+                and _out_m <= _in_m):
+            try:
+                out_date = (date.fromisoformat(day)
+                            + timedelta(days=1)).isoformat()
+            except ValueError:
+                out_date = None
+        return clock_in, clock_out, out_date, old
+    if hours_changed:
+        moved_out, moved_date = _hours_only_clock_out(
+            clock_in, hours, day)
+        if moved_out is not None:
+            return clock_in, moved_out, moved_date, old
+    return clock_in, clock_out, old["clock_out_date"], old
+
+
+def _patrol_store(source):
+    """(db, save_fn) for a patrol source. Kept behind a function so
+    tests can point it at fixture data instead of the live modules."""
+    if (source or "").strip() == "patrol_coa":
+        from patrol_bp import patrol_coa_db as db
+        from patrol_bp import save_patrol_coa_db as save_fn
+    else:
+        from patrol_bp import DB as db
+        from patrol_bp import save_patrol_db as save_fn
+    return db, save_fn
+
+
+def _apply_patrol_reverse_sync(entry):
+    """Best-effort: rewrite the Patrol punches for a corrected
+    payroll entry so the Patrol Board shows the same times. The
+    payroll save already happened; a Patrol failure must never undo
+    it. Returns True when punches were rewritten."""
+    source = (entry.get("source") or "").strip()
+    if source not in ("patrol", "patrol_coa"):
+        return False
+    try:
+        patrol_db, save_fn = _patrol_store(source)
+        changed, detail = reverse_sync_patrol_punches(patrol_db, entry)
+        if changed:
+            save_fn()
+            print(f"payroll: reverse-synced Patrol punches for "
+                  f"{entry.get('employee')} {entry.get('date')}: "
+                  f"{detail}", flush=True)
+        return changed
+    except Exception as exc:  # noqa: BLE001 - payroll must not fail
+        print(f"payroll: Patrol reverse-sync skipped for "
+              f"{entry.get('employee')} {entry.get('date')}: {exc}",
+              flush=True)
+        return False
+
+
 def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
                        site, notes, jobsite_id="", meal_break=False):
     """Build a payroll entry dict from already-parsed values, the way
@@ -1213,10 +1333,14 @@ def update_entry_hours(company, entry_id):
     clock_out = (request.form.get("clock_out") or "").strip()
     for e in DB["entries"]:
         if e.get("id") == entry_id and e.get("company") == co["name"]:
+            clock_in, clock_out, _out_date, _old = _prep_entry_edit(
+                e, e.get("date"), clock_in, clock_out, hours)
             e["payroll_hours"] = hours
             e["clock_in"] = clock_in
             e["clock_out"] = clock_out
+            e["clock_out_date"] = _out_date
             save_db()
+            _apply_patrol_reverse_sync(e)
             if request.headers.get("X-Requested-With") == "fetch":
                 return jsonify({"ok": True})
             flash(f"Updated for {e.get('employee')} "
@@ -1258,36 +1382,34 @@ def add_day_hours(company):
                          and e.get("employee") == employee
                          and e.get("date") == day), None)
         # A night shift (out at/before in) is one row on the
-        # clock-in date; clock_out_date records the next day.
-        _in_m = _clock_minutes(clock_in)
-        _out_m = _clock_minutes(clock_out)
-        _out_date = None
-        if _in_m is not None and _out_m is not None and _out_m <= _in_m:
-            try:
-                _out_date = (date.fromisoformat(day)
-                             + timedelta(days=1)).isoformat()
-            except ValueError:
-                _out_date = None
+        # clock-in date; clock_out_date records the next day. When
+        # only the hours changed, clock-out moves to clock-in +
+        # hours (see _prep_entry_edit).
+        clock_in, clock_out, _out_date, _old = _prep_entry_edit(
+            existing, day, clock_in, clock_out, hours)
         if existing is not None:
             existing["payroll_hours"] = hours
             existing["clock_in"] = clock_in
             existing["clock_out"] = clock_out
             existing["clock_out_date"] = _out_date
             save_db()
+            _apply_patrol_reverse_sync(existing)
             msg = (f"Updated for {employee} on {day}: {hours}h"
                    + (f" ({clock_in} - {clock_out})"
                       if clock_in or clock_out else "")
                    + ".")
         else:
-            DB["entries"].append({
+            _new = {
                 "id": uuid.uuid4().hex[:12], "company": co["name"],
                 "employee": employee, "date": day,
                 "payroll_hours": hours,
                 "clock_in": clock_in, "clock_out": clock_out,
                 "clock_out_date": _out_date,
                 "gross_hours": None, "site": "", "notes": "",
-            })
+            }
+            DB["entries"].append(_new)
             save_db()
+            _apply_patrol_reverse_sync(_new)
             msg = (f"Hours added for {employee} on {day}: {hours}h"
                    + (f" ({clock_in} - {clock_out})"
                       if clock_in or clock_out else "")
@@ -3289,6 +3411,7 @@ def entries(company):
             employee = (request.form.get("employee") or "").strip()
             candidates = []
             updated = skipped = 0
+            _to_sync = []
             for i in range(31):
                 p = f"days[{i}]"
                 raw_date = (request.form.get(p + "[date]") or "").strip()
@@ -3324,17 +3447,11 @@ def entries(company):
                     # clock-out date is re-derived from the times,
                     # so a day shift that becomes a night shift
                     # (or the reverse) records the right date.
-                    _in_m = _clock_minutes(clock_in)
-                    _out_m = _clock_minutes(clock_out)
-                    _out_date = None
-                    if (_in_m is not None and _out_m is not None
-                            and _out_m <= _in_m):
-                        try:
-                            _out_date = (
-                                date.fromisoformat(day)
-                                + timedelta(days=1)).isoformat()
-                        except ValueError:
-                            _out_date = None
+                    # Hours-only edits move clock-out to clock-in +
+                    # hours (see _prep_entry_edit).
+                    clock_in, clock_out, _out_date, _old = (
+                        _prep_entry_edit(
+                            _existing, day, clock_in, clock_out, hours))
                     _changed = (
                         float(_existing.get("payroll_hours") or 0) != hours
                         or (_existing.get("clock_in") or "") != clock_in
@@ -3355,6 +3472,7 @@ def entries(company):
                     _existing["notes"] = notes
                     _existing["meal_break"] = meal_break
                     updated += 1
+                    _to_sync.append(_existing)
                     continue
                 candidates.append((employee, day, hours, clock_in,
                                    clock_out, site, notes, meal_break))
@@ -3362,6 +3480,8 @@ def entries(company):
             skipped += _sk
             if added or updated:
                 save_db()
+                for _e in _to_sync:
+                    _apply_patrol_reverse_sync(_e)
             _parts = []
             if added:
                 _parts.append(f"Added {added} entries")
@@ -3393,6 +3513,7 @@ def entries(company):
                                 and (e.get("employee") or "").strip()})
             candidates = []
             updated = skipped = 0
+            _to_sync = []
             for i in range(len(_roster)):
                 p = f"rows[{i}]"
                 employee = (request.form.get(p + "[employee]") or "").strip()
@@ -3424,17 +3545,11 @@ def entries(company):
                     # clock-out date is re-derived from the times,
                     # so a day shift that becomes a night shift
                     # (or the reverse) records the right date.
-                    _in_m = _clock_minutes(clock_in)
-                    _out_m = _clock_minutes(clock_out)
-                    _out_date = None
-                    if (_in_m is not None and _out_m is not None
-                            and _out_m <= _in_m):
-                        try:
-                            _out_date = (
-                                date.fromisoformat(day)
-                                + timedelta(days=1)).isoformat()
-                        except ValueError:
-                            _out_date = None
+                    # Hours-only edits move clock-out to clock-in +
+                    # hours (see _prep_entry_edit).
+                    clock_in, clock_out, _out_date, _old = (
+                        _prep_entry_edit(
+                            _existing, day, clock_in, clock_out, hours))
                     _changed = (
                         float(_existing.get("payroll_hours") or 0) != hours
                         or (_existing.get("clock_in") or "") != clock_in
@@ -3455,6 +3570,7 @@ def entries(company):
                     _existing["notes"] = notes
                     _existing["meal_break"] = meal_break
                     updated += 1
+                    _to_sync.append(_existing)
                     continue
                 candidates.append((employee, day, hours, clock_in,
                                    clock_out, site, notes, meal_break))
@@ -3462,6 +3578,8 @@ def entries(company):
             skipped += _sk
             if added or updated:
                 save_db()
+                for _e in _to_sync:
+                    _apply_patrol_reverse_sync(_e)
             _parts = []
             if added:
                 _parts.append(f"Added {added} entries")
@@ -3507,8 +3625,19 @@ def entries(company):
                         # entry date) — never silently "fix" them.
                         entry["clock_out_date"] = e.get("clock_out_date")
                         entry["gross_hours"] = e.get("gross_hours")
+                        # Hours-only rule: unchanged times + changed
+                        # hours move clock-out to clock-in + hours.
+                        # (When the times did change, _prep re-derives
+                        # the clock-out date from the new times.)
+                        _ci, _co, _cod, _old = _prep_entry_edit(
+                            e, entry["date"], entry["clock_in"],
+                            entry["clock_out"], entry["payroll_hours"])
+                        entry["clock_in"] = _ci
+                        entry["clock_out"] = _co
+                        entry["clock_out_date"] = _cod
                         e.update(entry)
                         save_db()
+                        _apply_patrol_reverse_sync(e)
                         flash("Entry updated.")
                         break
             else:
@@ -4748,7 +4877,9 @@ def import_app_confirm(company):
                             start, end)
     to_add, n_dupes, unmatched = import_rows(
         preview["rows"], DB.get("entries", []), co["name"],
-        DB.get("aliases", []), source_label=preview["label"])
+        DB.get("aliases", []), source_label=preview["label"],
+        source=source,
+        dedupe_by_date=(SOURCES[source]["kind"] == "punches"))
     for e in to_add:
         e["id"] = uuid.uuid4().hex[:12]
         DB["entries"].append(e)
