@@ -4457,7 +4457,49 @@ def _group_employees():
     for e in DB.get("entries", []):
         p = _person_for(e.get("employee") or "", None)
         p["entries"].append(e)
-    return sorted(persons.values(), key=lambda p: (p["name"] or "").lower())
+    persons_list = sorted(persons.values(),
+                          key=lambda p: (p["name"] or "").lower())
+    for p in persons_list:
+        p["active"] = _person_active(p)
+    return persons_list
+
+
+def _person_status_key(person):
+    """The durable key for one worker's Active/Inactive status:
+    their employee ID when set, else their name."""
+    eid = (person.get("employee_id") or "").strip()
+    if eid:
+        return "id:" + eid
+    return "name:" + (person.get("name") or "")
+
+
+def _person_active(person):
+    """True unless this worker was marked Inactive. Stored in
+    DB["employee_status"] as {key: False} for inactive workers
+    only; everyone else is Active by default. An ID key wins;
+    a name key still applies when the worker has no ID yet."""
+    status = DB.get("employee_status", {})
+    if person.get("employee_id"):
+        key = "id:" + person["employee_id"]
+        if key in status:
+            return bool(status[key])
+    key = "name:" + (person.get("name") or "")
+    if key in status:
+        return bool(status[key])
+    return True
+
+
+def _set_person_active(person, active):
+    """Mark one worker Active/Inactive. Clears any stale key (ID
+    or name) first, so a worker who gains an ID keeps the status
+    they were given."""
+    status = DB.setdefault("employee_status", {})
+    eid = (person.get("employee_id") or "").strip()
+    if eid:
+        status.pop("id:" + eid, None)
+    status.pop("name:" + (person.get("name") or ""), None)
+    if not active:
+        status[_person_status_key(person)] = False
 
 
 def _person_url_key(person):
@@ -4700,9 +4742,20 @@ def employee_detail_post(person):
     old_name = p["name"]
     old_id = p.get("employee_id")
 
+    if action == "set_status":
+        active = (request.form.get("active") == "1")
+        _set_person_active(p, active)
+        save_db()
+        flash(f"{old_name} is now {'Active' if active else 'Inactive'}.")
+        return redirect(url_for(".employee_detail",
+                                person=_person_url_key(p)))
+
     if action == "save_person":
         new_name = (request.form.get("new_name") or "").strip() or old_name
         new_id = (request.form.get("employee_id") or "").strip() or None
+        # The worker is the same person under the new name/ID: keep
+        # their Active/Inactive status (captured before the rename).
+        was_active = p.get("active", True)
         # Refuse a rename that would collide with a different person,
         # and an ID already used by a different person.
         for other in _group_employees():
@@ -4728,6 +4781,16 @@ def employee_detail_post(person):
                 a["alias"] = new_name
             if (a.get("canonical") or "") == old_name:
                 a["canonical"] = new_name
+        # Move their Active/Inactive status to the new name/ID.
+        _status = DB.setdefault("employee_status", {})
+        if old_id:
+            _status.pop("id:" + old_id, None)
+        _status.pop("name:" + old_name, None)
+        if not was_active:
+            if new_id:
+                _status["id:" + new_id] = False
+            else:
+                _status["name:" + new_name] = False
         if not rates and new_id:
             # No rate row to hold the ID: create one in the company of
             # their earliest entry (or the first company).
