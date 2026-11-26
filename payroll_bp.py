@@ -301,16 +301,64 @@ def _jobsite_parent(job):
     return find_jobsite(pid) if pid else None
 
 
-def _resolve_jobsite_pick(job, sub):
-    """Resolve a jobsite + location pick from the entry forms into the
-    single jobsite id the entry is tagged with. `job` is the picked
-    top-level jobsite, `sub` the picked location (or None). The entry
-    is tagged to the location when one is picked and it belongs to
-    that jobsite; otherwise it is tagged to the jobsite itself.
-    Returns the job dict to tag to, or None when nothing was picked.
+def _jobsite_depth(job):
+    """How deep a jobsite sits: 0 = top-level (a Jobsite ID like
+    LGES), 1 = a company split under it (LGES → Hanseong), 2 = a
+    Sub Site under a company (LGES → Hanseong → Building A). Three
+    levels total — a Sub Site (depth 2) cannot have children."""
+    depth, cur = 0, job
+    seen = set()
+    while True:
+        parent = _jobsite_parent(cur)
+        if parent is None or parent["id"] in seen:
+            return depth
+        seen.add(parent["id"])
+        depth += 1
+        cur = parent
+
+
+def _jobsite_descendants(job):
+    """Every jobsite under this one, at any depth (company splits
+    and their Sub Sites), sorted by code."""
+    out, stack = [], list(_jobsite_children(job))
+    while stack:
+        cur = stack.pop(0)
+        out.append(cur)
+        stack.extend(_jobsite_children(cur))
+    return sorted(out, key=lambda x: (x.get("code") or "").lower())
+
+
+def _jobsite_eligible_parents(exclude=None):
+    """Jobsites a new (or moved) jobsite may sit under: top-level
+    Jobsite IDs (depth 0) and company splits (depth 1). A Sub Site
+    (depth 2) can never be a parent. `exclude` is a jobsite (and its
+    descendants) that must not appear — a jobsite cannot sit under
+    itself or under one of its own children."""
+    banned = set()
+    if exclude is not None:
+        banned.add(exclude["id"])
+        banned |= {d["id"] for d in _jobsite_descendants(exclude)}
+    return sorted((j for j in DB.get("jobsites", [])
+                   if _jobsite_depth(j) < 2 and j.get("id") not in banned),
+                  key=lambda x: (_jobsite_depth(x),
+                                 (x.get("code") or "").lower()))
+
+
+def _resolve_jobsite_pick(job, sub, sub2=None):
+    """Resolve a jobsite + company + sub-site pick from the entry
+    forms into the single jobsite id the entry is tagged with. The
+    entry is tagged to the deepest pick that actually belongs to
+    the chain above it: the Sub Site when it sits under the picked
+    company, the company when it sits under the picked jobsite,
+    otherwise the jobsite itself. Returns the job dict to tag to,
+    or None when nothing was picked.
     """
     if job is None:
         return None
+    if (sub2 is not None and sub is not None
+            and (sub2.get("parent_id") or "") == sub["id"]
+            and (sub.get("parent_id") or "") == job["id"]):
+        return sub2
     if sub is not None and (sub.get("parent_id") or "") == job["id"]:
         return sub
     return job
@@ -324,12 +372,14 @@ def _jobsite_summary(job):
     other-cost rows, and the totals.
 
     A parent jobsite rolls up its own direct entries and costs plus
-    every sub-jobsite under it, so the parent total stays intact
-    while the split by location is visible in `children`. A
-    sub-jobsite's own summary covers only its own entries/costs."""
+    every jobsite under it at any depth (company splits and their
+    Sub Sites), so the parent total stays intact while the split by
+    company and Sub Site is visible in `children`. A company split
+    rolls up its own entries plus its Sub Sites; a Sub Site's own
+    summary covers only its own entries/costs."""
     s = _settings()
     children = _jobsite_children(job)
-    ids = {job["id"]} | {c["id"] for c in children}
+    ids = {job["id"]} | {d["id"] for d in _jobsite_descendants(job)}
     pnl = compute_jobsite_pnl(
         DB.get("entries", []), DB.get("rates", []), job["id"],
         ot_threshold=s["ot_threshold"], ot_multiplier=s["ot_multiplier"],
@@ -2924,10 +2974,10 @@ def jobsites():
             flash(f"A jobsite with ID {code} already exists.")
         elif not company:
             flash("Company is required.")
-        elif parent is not None and _jobsite_parent(parent) is not None:
-            flash(f"{parent['code']} is itself a location — a location "
-                  "cannot have locations of its own. Pick a top-level "
-                  "jobsite as the parent.")
+        elif parent is not None and _jobsite_depth(parent) >= 2:
+            flash(f"{parent['code']} is a Sub Site — a Sub Site "
+                  "cannot have locations of its own. Pick a Jobsite "
+                  "ID or a company split as the parent.")
         else:
             DB["jobsites"].append({
                 "id": "job-" + uuid.uuid4().hex[:8], "code": code,
@@ -2948,6 +2998,7 @@ def jobsites():
     return render_template(
         "payroll/jobsites.html", summaries=summaries,
         companies=DB.get("companies", []),
+        parent_jobsites=_jobsite_eligible_parents(),
         top_jobsites=top,
         total_count=len(DB.get("jobsites", [])))
 
@@ -2961,7 +3012,7 @@ def delete_jobsite(job_id):
                       for e in DB.get("entries", []))
     has_costs = any((c.get("jobsite_id") or "") == job["id"]
                     for c in DB.get("jobsite_costs", []))
-    children = _jobsite_children(job)
+    children = _jobsite_descendants(job)
     if children:
         flash(f"Cannot remove {job['code']}: it still has "
               f"{len(children)} location(s) under it. Remove the "
@@ -2982,16 +3033,15 @@ def edit_jobsite(job_id):
     """Edit a jobsite's ID, name, company, site, or parent. The
     jobsite's id never changes, so tagged time entries and purchase
     costs stay attached. Guards: the code stays globally unique; a
-    jobsite with locations under it cannot become a location itself
-    (two levels only); the parent must be a top-level jobsite and
-    never the jobsite itself."""
+    jobsite with locations under it cannot move under a company
+    split (that would push its children to a fourth level); the
+    parent must be a Jobsite ID or a company split, never a Sub
+    Site, never the jobsite itself or one of its own children."""
     job = find_jobsite(job_id)
     if job is None:
         flash("Unknown jobsite.")
         return redirect(url_for(".jobsites"))
-    top = sorted((j for j in DB.get("jobsites", [])
-                  if not (j.get("parent_id") or "") and j is not job),
-                 key=lambda x: (x.get("code") or "").lower())
+    top = _jobsite_eligible_parents(exclude=job)
     if request.method == "GET":
         return render_template("payroll/edit_jobsite.html", job=job,
                                companies=DB.get("companies", []),
@@ -3010,15 +3060,21 @@ def edit_jobsite(job_id):
         flash("Company is required.")
     elif parent is not None and parent is job:
         flash("A jobsite cannot be its own parent.")
-    elif parent is not None and _jobsite_parent(parent) is not None:
-        flash(f"{parent['code']} is itself a location — a location "
-              "cannot have locations of its own. Pick a top-level "
-              "jobsite as the parent.")
-    elif parent is not None and _jobsite_children(job):
+    elif (parent is not None
+          and parent["id"] in {d["id"]
+                               for d in _jobsite_descendants(job)}):
+        flash("A jobsite cannot sit under one of its own locations.")
+    elif parent is not None and _jobsite_depth(parent) >= 2:
+        flash(f"{parent['code']} is a Sub Site — a Sub Site cannot "
+              "have locations of its own. Pick a Jobsite ID or a "
+              "company split as the parent.")
+    elif (parent is not None and _jobsite_depth(parent) >= 1
+          and _jobsite_children(job)):
         flash(f"{job['code']} still has "
               f"{len(_jobsite_children(job))} location(s) under it — "
-              "a jobsite with locations cannot become a location "
-              "itself. Remove the locations first.")
+              "a jobsite with locations cannot sit under a company "
+              "split. Remove the locations first, or keep it as a "
+              "top-level Jobsite ID.")
     else:
         job["code"] = code
         job["name"] = name or code
@@ -3137,11 +3193,13 @@ def entries(company):
             # Tag every entry in this company + period that has no
             # jobsite yet with the chosen jobsite. Entries already
             # tagged to another jobsite are left alone — reassign
-            # those one by one with Edit. When a location button was
-            # tapped, the entries go to that location instead.
+            # those one by one with Edit. When a company or Sub Site
+            # button was tapped, the entries go to that instead.
             job = find_jobsite(request.form.get("jobsite_id") or "")
             sub = find_jobsite(request.form.get("sub_jobsite_id") or "")
-            job = _resolve_jobsite_pick(job, sub)
+            sub2 = find_jobsite(
+                request.form.get("sub2_jobsite_id") or "")
+            job = _resolve_jobsite_pick(job, sub, sub2)
             if job is None:
                 flash("Pick a jobsite first.")
             else:
@@ -3393,11 +3451,13 @@ def entries(company):
             except ValueError:
                 hours = 0
             jobsite_id = (request.form.get("jobsite_id") or "").strip()
-            # A tapped location button overrides the jobsite dropdown:
-            # the entry is tagged to the location, not the parent.
+            # A tapped company or Sub Site button overrides the
+            # jobsite dropdown: the entry is tagged to the deepest
+            # valid pick, not the parent.
             _picked = _resolve_jobsite_pick(
                 find_jobsite(jobsite_id),
-                find_jobsite(request.form.get("sub_jobsite_id") or ""))
+                find_jobsite(request.form.get("sub_jobsite_id") or ""),
+                find_jobsite(request.form.get("sub2_jobsite_id") or ""))
             if _picked is not None:
                 jobsite_id = _picked["id"]
             entry = _entry_from_values(
@@ -3553,12 +3613,21 @@ def entries(company):
     _by_id = {j.get("id"): j for j in all_jobs}
     edit_jobsite_id = ""
     edit_location_id = ""
+    edit_subsite_id = ""
     if edit_entry and (edit_entry.get("jobsite_id") or ""):
         _ej = _by_id.get(edit_entry["jobsite_id"])
         if _ej is not None:
             if (_ej.get("parent_id") or ""):
-                edit_jobsite_id = _ej["parent_id"]
-                edit_location_id = _ej["id"]
+                _ep = _by_id.get(_ej["parent_id"])
+                if _ep is not None and (_ep.get("parent_id") or ""):
+                    # Tagged to a Sub Site: top-level jobsite, then
+                    # the company split, then the Sub Site.
+                    edit_jobsite_id = _ep["parent_id"]
+                    edit_location_id = _ep["id"]
+                    edit_subsite_id = _ej["id"]
+                else:
+                    edit_jobsite_id = _ej["parent_id"]
+                    edit_location_id = _ej["id"]
             else:
                 edit_jobsite_id = _ej["id"]
     # Add-method tabs: only one add form shows at a time. The tab is
@@ -3594,6 +3663,7 @@ def entries(company):
         subjobsites_by_parent=subjobsites_by_parent,
         edit_jobsite_id=edit_jobsite_id,
         edit_location_id=edit_location_id,
+        edit_subsite_id=edit_subsite_id,
         jobsite_by_id={j.get("id"): j for j in DB.get("jobsites", [])},
         alias_map=_alias_map(co),
         aliases=[a for a in DB.get("aliases", [])
