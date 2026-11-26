@@ -24,6 +24,8 @@ Rules (same as the manual Import from App):
   correction can rewrite the matching Patrol punches
   (see reverse_sync_patrol_punches in payroll_import_app.py).
 - Open shifts (still clocked in) are skipped.
+- Days whose punch pairs total 0.0h (accidental taps only) are
+  skipped, never imported (user decision 2026-11-25).
 - Entries are stored under the CANONICAL rate-row name so payroll
   math matches them without needing a stored alias.
 
@@ -111,6 +113,8 @@ def main():
         for e in to_add:
             e["id"] = uuid.uuid4().hex[:12]
             entries.append(e)
+        n_zero = sum(1 for s in preview["skipped"]
+                     if (s.get("reason") or "").startswith("0.0 hours"))
         summary["companies"][company] = {
             "source": source,
             "added": len(to_add),
@@ -118,7 +122,8 @@ def main():
             "unmatched_rows": len(unmatched),
             "unmatched_names": sorted({(u.get("employee") or "")
                                        for u in unmatched}),
-            "open_shifts_skipped": len(preview["skipped"]),
+            "open_shifts_skipped": len(preview["skipped"]) - n_zero,
+            "zero_hour_rows_skipped": n_zero,
             "added_rows": [{"employee": a["employee"], "date": a["date"],
                             "hours": a["payroll_hours"]} for a in to_add],
         }
