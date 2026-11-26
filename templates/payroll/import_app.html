@@ -53,8 +53,8 @@
     <input type="hidden" name="alias" value="{{ name }}">
     <input type="hidden" name="next" value="{{ preview_url }}">
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
-      <div style="flex:1;min-width:140px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
-      <div style="flex:1;min-width:180px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
+      <div style="width:220px"><label style="margin-top:0">As entered</label><input value="{{ name }}" disabled></div>
+      <div style="width:280px"><label style="margin-top:0">Map to rate row</label><select name="canonical" required><option value="">— pick —</option>{% for n in names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
       <button class="btn small" type="submit">Map</button>
       <a class="btn secondary small" href="{{ url_for('.rates', name=name, company=company.name) }}">Add as new rate</a>
     </div>
