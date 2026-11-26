@@ -71,30 +71,30 @@
   <p class="small muted">A new company shows up here and on the Rates page right away, with its own payroll, invoice and import pages. The invoice prefix goes on its invoice numbers (e.g. KBL11052026).</p>
   <form method="post" action="{{ url_for('.add_company') }}">
     <div class="form-grid">
-      <div><label for="cname">Company name</label><input type="text" id="cname" name="name" placeholder="e.g. Myeongjin" required></div>
-      <div><label for="cprefix">Invoice prefix</label><input type="text" id="cprefix" name="prefix" placeholder="e.g. MJ" maxlength="6" required></div>
-      <div><label for="cpend">Prefix End</label><input type="text" id="cpend" name="prefix_end" placeholder="e.g. A1 — code at the end of invoice numbers" maxlength="6"></div>
-      <div><label for="cvendor">Bill to (vendor)</label><input type="text" id="cvendor" name="vendor" placeholder="Defaults to the company name"></div>
-      <div><label for="cphone">Vendor phone (TEL NUM)</label><input type="text" id="cphone" name="phone" placeholder="213-905-1359"></div>
-      <div><label for="cship">Ship to</label><input type="text" id="cship" name="ship_to" placeholder="e.g. Queen Creek AZ"></div>
-      <div><label for="ccat">Category</label><input type="text" id="ccat" name="category" placeholder="e.g. LG Alpha / Myeongjin"></div>
+      <div><label for="cname">Company name</label><input type="text" id="cname" name="name" required></div>
+      <div><label for="cprefix">Invoice prefix</label><input type="text" id="cprefix" name="prefix" maxlength="6" required></div>
+      <div><label for="cpend">Prefix End</label><input type="text" id="cpend" name="prefix_end" maxlength="6"></div>
+      <div><label for="cvendor">Bill to (vendor)</label><input type="text" id="cvendor" name="vendor"></div>
+      <div><label for="cphone">Vendor phone (TEL NUM)</label><input type="text" id="cphone" name="phone"></div>
+      <div><label for="cship">Ship to</label><input type="text" id="cship" name="ship_to"></div>
+      <div><label for="ccat">Category</label><input type="text" id="ccat" name="category"></div>
     </div>
     <h2 style="margin:16px 0 8px">Bank account</h2>
     <p class="small muted" style="margin:0 0 10px">The deposit account for this company. Leave blank to use the default account.</p>
     <div class="form-grid">
-      <div><label for="cbank">Bank</label><input type="text" id="cbank" name="bank_name" placeholder="JPMorgan Chase Banks, N.A."></div>
-      <div><label for="cbranch">Branch</label><input type="text" id="cbranch" name="bank_branch" placeholder="California Branch - 741611"></div>
-      <div><label for="crouting">Routing</label><input type="text" id="crouting" name="bank_routing" placeholder="122100024"></div>
-      <div><label for="caccount">Account</label><input type="text" id="caccount" name="bank_account" placeholder="717953189"></div>
-      <div><label for="caccountname">Account name</label><input type="text" id="caccountname" name="bank_account_name" placeholder="Prism Multiple Entertainment LLC"></div>
-      <div><label for="ctelephone">Bank telephone</label><input type="text" id="ctelephone" name="bank_telephone" placeholder="+1 562 928 2278"></div>
-      <div><label for="czelle">Zelle</label><input type="text" id="czelle" name="bank_zelle" placeholder=""></div>
+      <div><label for="cbank">Bank</label><input type="text" id="cbank" name="bank_name"></div>
+      <div><label for="cbranch">Branch</label><input type="text" id="cbranch" name="bank_branch"></div>
+      <div><label for="crouting">Routing</label><input type="text" id="crouting" name="bank_routing"></div>
+      <div><label for="caccount">Account</label><input type="text" id="caccount" name="bank_account"></div>
+      <div><label for="caccountname">Account name</label><input type="text" id="caccountname" name="bank_account_name"></div>
+      <div><label for="ctelephone">Bank telephone</label><input type="text" id="ctelephone" name="bank_telephone"></div>
+      <div><label for="czelle">Zelle</label><input type="text" id="czelle" name="bank_zelle"></div>
     </div>
     <h3 style="margin:14px 0 6px">PDF layout</h3>
     <p class="small muted" style="margin:0 0 8px">Margins of the invoice PDF, in millimetres. Leave blank for the defaults.</p>
     <div class="form-grid">
-      <div><label for="ctopmargin">Top margin (mm)</label><input type="text" id="ctopmargin" name="pdf_top_margin" placeholder="5"></div>
-      <div><label for="cbottommargin">Bottom margin (mm)</label><input type="text" id="cbottommargin" name="pdf_bottom_margin" placeholder="5"></div>
+      <div><label for="ctopmargin">Top margin (mm)</label><input type="text" id="ctopmargin" name="pdf_top_margin"></div>
+      <div><label for="cbottommargin">Bottom margin (mm)</label><input type="text" id="cbottommargin" name="pdf_bottom_margin"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Add company</button>
