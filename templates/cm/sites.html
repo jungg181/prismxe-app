@@ -68,9 +68,9 @@
         <form method="post" action="/payroll/jobsites">
           <input type="hidden" name="next" value="/staffing/sites">
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <label style="flex:1;min-width:140px">Jobsite ID <input name="code" required style="width:100%"></label>
-            <label style="flex:1;min-width:140px">Name <input name="name" style="width:100%"></label>
-            <label style="flex:1;min-width:140px">Company <select name="company" required style="width:100%"><option value="">— pick —</option>{% for c in pj_companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></label>
+            <label style="width:180px">Jobsite ID <input name="code" required style="width:100%"></label>
+            <label style="width:220px">Name <input name="name" style="width:100%"></label>
+            <label style="width:280px">Company <select name="company" required style="width:100%"><option value="">— pick —</option>{% for c in pj_companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></label>
             <button class="btn primary" type="submit">Add Payroll Jobsite</button>
           </div>
         </form>
