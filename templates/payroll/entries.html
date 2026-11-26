@@ -61,6 +61,11 @@
       <div class="loc-btns" id="location-btns"></div>
       <input type="hidden" id="sub_jobsite_id" name="sub_jobsite_id" value="{{ edit_location_id or '' }}">
     </div>
+    <div id="subsite-picker" style="display:none;margin-top:4px">
+      <label style="margin-top:0">Sub Site — tap one</label>
+      <div class="loc-btns" id="subsite-btns"></div>
+      <input type="hidden" id="sub2_jobsite_id" name="sub2_jobsite_id" value="{{ edit_subsite_id or '' }}">
+    </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">{{ 'Save Changes' if edit_entry else 'Add Entry' }}</button>
       {% if edit_entry %}<a class="btn secondary" href="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}">Cancel</a>{% endif %}
@@ -282,6 +287,11 @@
       <div class="loc-btns" id="assign-location-btns"></div>
       <input type="hidden" id="assign_sub_jobsite_id" name="sub_jobsite_id" value="">
     </div>
+    <div id="assign-subsite-picker" style="display:none;margin-top:10px">
+      <label style="margin-top:0">Sub Site — tap one</label>
+      <div class="loc-btns" id="assign-subsite-btns"></div>
+      <input type="hidden" id="assign_sub2_jobsite_id" name="sub2_jobsite_id" value="">
+    </div>
   </form>
 </div>
 {% endif %}
@@ -341,7 +351,7 @@
         <tr>
           <td>{{ e.date }}</td><td><a href="{{ url_for('.employee_page', company=company.slug, name=e.employee) }}">{{ e.employee }}</a>{% if alias_map.get(e.employee) %}<br><span class="badge ok">→ {{ alias_map[e.employee] }}</span>{% endif %}</td><td class="num">{{ e.payroll_hours }}</td>
           <td>{{ e.clock_in or '—' }}</td><td>{{ e.clock_out or '—' }}{% if e.clock_out_date and e.clock_out_date != e.date %} · out {{ e.clock_out_date }}{% endif %}</td>
-          <td>{{ e.site or '—' }}</td><td>{% if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) %}{% set _jj = jobsite_by_id[e.jobsite_id] %}{% if _jj.parent_id and jobsite_by_id.get(_jj.parent_id) %}{{ jobsite_by_id[_jj.parent_id].code }} / {% endif %}{{ _jj.code }}{% else %}—{% endif %}</td><td>{{ e.notes or '—' }}</td>
+          <td>{{ e.site or '—' }}</td><td>{% if e.jobsite_id and jobsite_by_id.get(e.jobsite_id) %}{% set _jj = jobsite_by_id[e.jobsite_id] %}{% if _jj.parent_id and jobsite_by_id.get(_jj.parent_id) %}{% set _jp = jobsite_by_id[_jj.parent_id] %}{% if _jp.parent_id and jobsite_by_id.get(_jp.parent_id) %}{{ jobsite_by_id[_jp.parent_id].code }} / {% endif %}{{ _jp.code }} / {% endif %}{{ _jj.code }}{% else %}—{% endif %}</td><td>{{ e.notes or '—' }}</td>
           <td>
             <a class="btn secondary small" href="{{ url_for('.entries', company=company.slug, edit=e.id, **{'from': start, 'to': end}) }}">Edit</a>
             <form class="inline-form" method="post" action="{{ url_for('.entries', company=company.slug, **{'from': start, 'to': end}) }}" onsubmit="return confirm('Delete this entry?')">
@@ -513,8 +523,11 @@ document.addEventListener('change', function (ev) {
 // picked jobsite has locations under it, one button per location
 // appears (plus "Parent only"). Tapping a button stores the location
 // id in the hidden field; the server tags the entry to the location.
+// A second level works the same way: when the picked location has
+// Sub Sites under it, Sub Site buttons appear and the deepest pick
+// wins (see setupSubSitePicker).
 var SUBS_BY_PARENT = {{ subjobsites_by_parent | tojson }};
-function setupLocationPicker(selectId, btnsId, inputId, pickerId) {
+function setupLocationPicker(selectId, btnsId, inputId, pickerId, onLocation) {
   var sel = document.getElementById(selectId);
   var btns = document.getElementById(btnsId);
   var input = document.getElementById(inputId);
@@ -525,11 +538,12 @@ function setupLocationPicker(selectId, btnsId, inputId, pickerId) {
     Array.prototype.forEach.call(btns.children, function (b) {
       b.classList.toggle('on', b.dataset.loc === (id || ''));
     });
+    if (onLocation) onLocation(id || '');
   }
   function render() {
     var subs = SUBS_BY_PARENT[sel.value] || [];
     btns.innerHTML = '';
-    if (!subs.length) { picker.style.display = 'none'; input.value = ''; return; }
+    if (!subs.length) { picker.style.display = 'none'; input.value = ''; if (onLocation) onLocation(''); return; }
     picker.style.display = 'block';
     var all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
     all.forEach(function (s) {
@@ -548,8 +562,43 @@ function setupLocationPicker(selectId, btnsId, inputId, pickerId) {
   sel.addEventListener('change', render);
   render();
 }
-setupLocationPicker('jobsite_id', 'location-btns', 'sub_jobsite_id', 'location-picker');
-setupLocationPicker('assign_jobsite_id', 'assign-location-btns', 'assign_sub_jobsite_id', 'assign-location-picker');
+function setupSubSitePicker(locInputId, btnsId, inputId, pickerId) {
+  var locInput = document.getElementById(locInputId);
+  var btns = document.getElementById(btnsId);
+  var input = document.getElementById(inputId);
+  var picker = document.getElementById(pickerId);
+  if (!locInput || !btns || !input || !picker) return function () {};
+  function setSubSite(id) {
+    input.value = id || '';
+    Array.prototype.forEach.call(btns.children, function (b) {
+      b.classList.toggle('on', b.dataset.loc === (id || ''));
+    });
+  }
+  function render(locId) {
+    var subs = (locId && SUBS_BY_PARENT[locId]) || [];
+    btns.innerHTML = '';
+    if (!subs.length) { picker.style.display = 'none'; input.value = ''; return; }
+    picker.style.display = 'block';
+    var all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
+    all.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'loc-btn';
+      b.dataset.loc = s.id;
+      b.textContent = s.code + (s.name && s.name !== s.code ? ' — ' + s.name : '');
+      b.addEventListener('click', function () { setSubSite(s.id); });
+      btns.appendChild(b);
+    });
+    var cur = input.value || '';
+    if (cur && !subs.some(function (s) { return s.id === cur; })) cur = '';
+    setSubSite(cur);
+  }
+  return render;
+}
+var renderSubSite = setupSubSitePicker('sub_jobsite_id', 'subsite-btns', 'sub2_jobsite_id', 'subsite-picker');
+var renderAssignSubSite = setupSubSitePicker('assign_sub_jobsite_id', 'assign-subsite-btns', 'assign_sub2_jobsite_id', 'assign-subsite-picker');
+setupLocationPicker('jobsite_id', 'location-btns', 'sub_jobsite_id', 'location-picker', renderSubSite);
+setupLocationPicker('assign_jobsite_id', 'assign-location-btns', 'assign_sub_jobsite_id', 'assign-location-picker', renderAssignSubSite);
 
 // Daily Add: compact date row with prev/next arrows, and a
 // prompt when moving to another day with unsaved edits.
