@@ -1,6 +1,12 @@
 {% extends "patrol/base.html" %}
 {% set nav='settings' %}
 {% block title %}Settings · Equipment Patrol Timetable{% endblock %}
+{% block head %}
+<style>
+  /* This page is 150px wider than the usual 1280px wrap. */
+  .wrap { max-width: 1430px; }
+</style>
+{% endblock %}
 {% block body %}
 <h1 style="margin-top:0">Settings</h1>
 
