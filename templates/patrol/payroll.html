@@ -32,22 +32,6 @@
     <input type="date" name="to" value="{{ days[-1].isoformat() }}" style="flex:0 1 190px;min-width:0;padding:.35rem">
     <button class="btn small" type="submit" style="flex-shrink:0">Show</button>
   </form>
-  <form method="get" action="{{ url_for('.payroll') }}" style="display:flex;gap:.4rem .9rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
-    {% if is_range %}
-    <input type="hidden" name="from" value="{{ from_s }}">
-    <input type="hidden" name="to" value="{{ to_s }}">
-    {% else %}
-    <input type="hidden" name="start" value="{{ monday.isoformat() }}">
-    {% endif %}
-    <b class="small">Workers</b>
-    {% for w in all_workers %}
-    <label class="small" style="white-space:nowrap"><input type="checkbox" name="w" value="{{ w.id }}" {% if w.id in selected_ids %}checked{% endif %}> {{ w.name }}{% if w.active is defined and not w.active %} <span class="muted">(inactive)</span>{% endif %}</label>
-    {% endfor %}
-    <button class="btn small" type="submit">Show selected</button>
-    {% if filter_active %}
-    <a class="btn small" href="{{ url_for('.payroll') }}{% if is_range %}?from={{ from_s }}&to={{ to_s }}{% else %}?start={{ monday.isoformat() }}{% endif %}">Show all</a>
-    {% endif %}
-  </form>
   {% if not rows %}
   <p class="muted">{% if filter_active %}No records for the selected workers in this period.{% elif is_range %}No records in this period.{% else %}No records this week.{% endif %}</p>
   {% else %}
@@ -62,6 +46,7 @@
     .payroll-tbl td.num,.payroll-tbl th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
     .payroll-tbl tr.hrs td{font-family:var(--mono);font-variant-numeric:tabular-nums}
   </style>
+  <p class="muted small" id="pay-edit-status" style="min-height:1.2em;margin:.2rem 0 .5rem"></p>
   <div style="overflow-x:auto">
   <table class="payroll-tbl">
     <tr>
@@ -70,28 +55,30 @@
       <th>Total</th><th>Reg ≤40</th><th>OT &gt;40</th><th>Sign</th>
     </tr>
     {% for r in rows %}
+    <tbody class="pay-worker" data-worker="{{ r.worker_id }}">
     <tr>
       <td rowspan="3">{{ loop.index }}</td>
       <td rowspan="3" class="nm"><b>{{ r.name }}</b></td>
       <td class="muted small lbl">In</td>
-      {% for c in r.days %}<td>{{ c.in if c else '' }}</td>{% endfor %}
-      <td rowspan="3" class="num"><b>{{ '%.2f'|format(r.total) }}</b></td>
-      <td rowspan="3" class="num">{{ '%.2f'|format(r.reg) }}</td>
-      <td rowspan="3" class="num">{{ '%.2f'|format(r.ot) }}</td>
+      {% for c in r.days %}<td><input type="time" class="pay-in" value="{{ c.in if c else '' }}" data-day="{{ days[loop.index0].isoformat() }}" data-worker="{{ r.worker_id }}" data-pair-index="0" data-in-id="{{ c.pairs[0].in_id if c and c.pairs else '' }}" data-out-id="{{ c.pairs[0].out_id if c and c.pairs else '' }}" data-pair-out="{{ c.pairs[0].out if c and c.pairs else '' }}" data-pair-hours="{{ c.pairs[0].hours if c and c.pairs and c.pairs[0].hours is not none else '' }}" style="width:90px;padding:.3rem;text-align:center"></td>{% endfor %}
+      <td rowspan="3" class="num row-total"><b>{{ '%.2f'|format(r.total) }}</b></td>
+      <td rowspan="3" class="num row-reg">{{ '%.2f'|format(r.reg) }}</td>
+      <td rowspan="3" class="num row-ot">{{ '%.2f'|format(r.ot) }}</td>
       <td rowspan="3" style="min-width:150px"></td>
     </tr>
     <tr>
       <td class="muted small lbl">Out</td>
-      {% for c in r.days %}<td>{{ c.out if c else '' }}</td>{% endfor %}
+      {% for c in r.days %}<td><input type="time" class="pay-out" value="{{ c.out if c else '' }}" data-day="{{ days[loop.index0].isoformat() }}" data-worker="{{ r.worker_id }}" data-pair-index="{{ (c.pairs|length - 1) if c and c.pairs else 0 }}" data-in-id="{{ c.pairs[-1].in_id if c and c.pairs else '' }}" data-out-id="{{ c.pairs[-1].out_id if c and c.pairs else '' }}" data-pair-in="{{ c.pairs[-1].in if c and c.pairs else '' }}" data-pair-hours="{{ c.pairs[-1].hours if c and c.pairs and c.pairs[-1].hours is not none else '' }}" style="width:90px;padding:.3rem;text-align:center"></td>{% endfor %}
     </tr>
     <tr class="hrs blk-end">
       <td class="muted small lbl">Hrs</td>
-      {% for c in r.days %}<td>{{ '%.2f'|format(c.hours) if c and c.hours is not none else '' }}</td>{% endfor %}
+      {% for c in r.days %}<td class="hrs-cell" data-day="{{ days[loop.index0].isoformat() }}" data-hours="{{ c.hours if c and c.hours is not none else '' }}" data-pairs='{{ c.pairs|map(attribute="hours")|list|tojson|forceescape if c and c.pairs else "[]" }}'>{{ '%.2f'|format(c.hours) if c and c.hours is not none else '' }}</td>{% endfor %}
     </tr>
+    </tbody>
     {% endfor %}
     <tr>
       <td colspan="{{ 3 + days|length }}" style="text-align:right"><b>Grand total</b></td>
-      <td class="num"><b>{{ '%.2f'|format(grand) }}</b></td>
+      <td class="num" id="grand-total"><b>{{ '%.2f'|format(grand) }}</b></td>
       <td colspan="3"></td>
     </tr>
   </table>
@@ -99,4 +86,180 @@
   <p class="muted small">Times are the recorded clock in/out for each day (overnight shifts count toward the clock-in day). Each worker signs in the Sign column to confirm their hours.</p>
   {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+// Inline editing: In / Out are time inputs. Typing a time updates
+// that day's Hrs immediately (and the worker's Total / Reg / OT /
+// the grand total), then saves automatically — the same punch the
+// Records page edits, so the matching /payroll/ entry follows at
+// once. Out at/before In counts as the next day (overnight rule).
+function payMins(v){
+  if(!v) return null;
+  var p = v.split(':');
+  if(p.length !== 2) return null;
+  var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
+  if(isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+function payPairHours(inM, outM){
+  if(inM === null || outM === null) return null;
+  var o = outM <= inM ? outM + 24 * 60 : outM;
+  return (o - inM) / 60;
+}
+function payNextDay(dayStr){
+  var d = new Date(dayStr + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+function payStatus(msg, isErr){
+  var el = document.getElementById('pay-edit-status');
+  if(el){ el.textContent = msg || ''; el.style.color = isErr ? 'var(--red)' : ''; }
+}
+function payRefreshWorker(tbody){
+  var weekHours = {}, total = 0;
+  tbody.querySelectorAll('.hrs-cell').forEach(function(td){
+    var h = parseFloat(td.dataset.hours);
+    if(isNaN(h)) return;
+    total += h;
+    var d = new Date(td.dataset.day + 'T12:00:00');
+    var dow = (d.getDay() + 6) % 7;
+    var mon = new Date(d); mon.setDate(d.getDate() - dow);
+    var key = mon.toISOString().slice(0, 10);
+    weekHours[key] = (weekHours[key] || 0) + h;
+  });
+  var reg = 0, ot = 0;
+  Object.keys(weekHours).forEach(function(k){
+    reg += Math.min(weekHours[k], 40);
+    ot += Math.max(weekHours[k] - 40, 0);
+  });
+  var b = tbody.querySelector('.row-total b');
+  if(b) b.textContent = total.toFixed(2);
+  var r = tbody.querySelector('.row-reg');
+  if(r) r.textContent = reg.toFixed(2);
+  var o = tbody.querySelector('.row-ot');
+  if(o) o.textContent = ot.toFixed(2);
+  var grand = 0;
+  document.querySelectorAll('.row-total b').forEach(function(el){
+    grand += parseFloat(el.textContent) || 0;
+  });
+  var g = document.querySelector('#grand-total b');
+  if(g) g.textContent = grand.toFixed(2);
+}
+function payDayHours(hrsTd, pairIdx, newPairHours){
+  var arr = [];
+  try { arr = JSON.parse(hrsTd.dataset.pairs || '[]'); } catch(e){ arr = []; }
+  arr[pairIdx] = newPairHours;
+  var closed = arr.filter(function(v){ return v !== null && v !== undefined; });
+  return {arr: arr, total: closed.length ? closed.reduce(function(a, b){ return a + b; }, 0) : null};
+}
+async function payCellChanged(input){
+  var tbody = input.closest('.pay-worker');
+  var day = input.dataset.day;
+  var hrsTd = tbody.querySelector('.hrs-cell[data-day="' + day + '"]');
+  var isIn = input.classList.contains('pay-in');
+  var val = input.value;
+  var prev = input.dataset.prev || '';
+  if(isIn && !val){
+    input.value = prev;
+    payStatus('Clock-in time is required.', true);
+    return;
+  }
+  var pairIdx = parseInt(input.dataset.pairIndex || '0', 10);
+  var oldPairHours = input.dataset.pairHours === '' ? null
+    : parseFloat(input.dataset.pairHours);
+  var newIn, newOut;
+  if(isIn){
+    newIn = val;
+    newOut = input.dataset.pairOut || '';
+  } else {
+    newIn = input.dataset.pairIn || '';
+    newOut = val;
+    if(!newIn){ input.value = prev; payStatus('Clock-in time is required.', true); return; }
+  }
+  var newPairHours = payPairHours(payMins(newIn), payMins(newOut));
+  // Live Hrs: replace the edited pair's hours, keep the rest.
+  var snap = {hrsText: hrsTd.textContent, hrsData: hrsTd.dataset.hours,
+              pairsData: hrsTd.dataset.pairs, pairHours: input.dataset.pairHours,
+              pairOut: input.dataset.pairOut, pairIn: input.dataset.pairIn,
+              inId: input.dataset.inId, outId: input.dataset.outId};
+  var dh = payDayHours(hrsTd, pairIdx, newPairHours);
+  hrsTd.dataset.pairs = JSON.stringify(dh.arr);
+  hrsTd.dataset.hours = dh.total === null ? '' : dh.total.toFixed(2);
+  hrsTd.textContent = dh.total === null ? '' : dh.total.toFixed(2);
+  input.dataset.pairHours = newPairHours === null ? '' : String(newPairHours);
+  if(isIn){ input.dataset.pairOut = newOut; } else { input.dataset.pairIn = newIn; }
+  // Same pair on the other input (single-pair day): keep it in sync.
+  var other = isIn ? tbody.querySelector('.pay-out[data-day="' + day + '"]')
+                   : tbody.querySelector('.pay-in[data-day="' + day + '"]');
+  var otherSnap = null;
+  if(other && dh.arr.length <= 1){
+    otherSnap = {pairHours: other.dataset.pairHours,
+                 pairIn: other.dataset.pairIn,
+                 pairOut: other.dataset.pairOut,
+                 inId: other.dataset.inId, outId: other.dataset.outId};
+    other.dataset.pairHours = input.dataset.pairHours;
+    if(isIn){ other.dataset.pairIn = newIn; } else { other.dataset.pairOut = newOut; }
+  }
+  payRefreshWorker(tbody);
+  payStatus('Saving…');
+  var inDt = day + 'T' + newIn;
+  var outDt = null;
+  if(newOut){
+    var outDay = payMins(newOut) <= payMins(newIn) ? payNextDay(day) : day;
+    outDt = outDay + 'T' + newOut;
+  }
+  try {
+    var url, body;
+    if(input.dataset.inId){
+      url = "{{ url_for('.timecard_punch_edit') }}";
+      body = {in_id: input.dataset.inId, out_id: input.dataset.outId || null,
+              clock_in: inDt, clock_out: outDt};
+    } else {
+      url = "{{ url_for('.timecard_punch_add') }}";
+      body = {worker_id: input.dataset.worker, date: day,
+              clock_in: newIn, clock_out: newOut || null,
+              clock_out_date: outDt ? outDt.slice(0, 10) : null};
+      if(body.clock_out_date === day) body.clock_out_date = null;
+    }
+    var r = await fetch(url, {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)});
+    var j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'Save failed');
+    if(j.in_id) input.dataset.inId = j.in_id;
+    if(j.out_id !== undefined && j.out_id) input.dataset.outId = j.out_id;
+    if(j.out_id === null) input.dataset.outId = '';
+    if(other && dh.arr.length <= 1){
+      if(j.in_id) other.dataset.inId = j.in_id;
+      if(j.out_id !== undefined) other.dataset.outId = j.out_id || '';
+    }
+    input.dataset.prev = input.value;
+    payStatus('Saved');
+  } catch(e){
+    input.value = prev;
+    input.dataset.pairHours = snap.pairHours;
+    input.dataset.pairOut = snap.pairOut;
+    input.dataset.pairIn = snap.pairIn;
+    input.dataset.inId = snap.inId;
+    input.dataset.outId = snap.outId;
+    if(other && otherSnap){
+      other.dataset.pairHours = otherSnap.pairHours;
+      other.dataset.pairIn = otherSnap.pairIn;
+      other.dataset.pairOut = otherSnap.pairOut;
+      other.dataset.inId = otherSnap.inId;
+      other.dataset.outId = otherSnap.outId;
+    }
+    hrsTd.textContent = snap.hrsText;
+    hrsTd.dataset.hours = snap.hrsData;
+    hrsTd.dataset.pairs = snap.pairsData;
+    payRefreshWorker(tbody);
+    payStatus(e.message || 'Save failed', true);
+  }
+}
+document.querySelectorAll('.pay-in, .pay-out').forEach(function(input){
+  input.addEventListener('focus', function(){ input.dataset.prev = input.value; });
+  input.addEventListener('change', function(){ payCellChanged(input); });
+});
+</script>
 {% endblock %}
