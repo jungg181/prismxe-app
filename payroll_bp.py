@@ -819,6 +819,85 @@ def _apply_patrol_reverse_sync(entry):
         return False
 
 
+def _canon_name(name, company):
+    """Canonical name for matching: resolve the company's alias
+    (case-insensitively), then fold case — the same rule import_rows
+    uses, so a Patrol name matches its payroll entry either way."""
+    amap = {}
+    for a in DB.get("aliases", []) or []:
+        if ((a.get("company") or "").strip()
+                == (company or "").strip()):
+            amap[((a.get("alias") or "").strip()).casefold()] = \
+                (a.get("canonical") or "").strip()
+    n = (name or "").strip()
+    return amap.get(n.casefold(), n).casefold()
+
+
+def _apply_patrol_forward_sync(source, email, day_iso):
+    """Best-effort mirror of the reverse-sync: a Patrol punch change
+    (Records edit/add/delete, or the Payroll page inline edit) updates
+    the matching /payroll/ entry immediately, so the two never drift
+    apart. The entry is found by (source, date, canonical employee);
+    its times/hours are re-derived from the punches with patrol_rows
+    — the same 0.5h rounding + 12h/day cap the import uses — and its
+    source_punches link is refreshed. No-op when the day has no
+    closed pairs (open shift, or a 0.0h accidental-taps day — those
+    never import) or no payroll entry exists yet (it imports at the
+    next nightly sync with the corrected times). The payroll save
+    already happened in the caller for the punch change; this never
+    raises, and it never calls the reverse-sync back, so the two
+    directions cannot ping-pong. Returns True when an entry changed.
+    """
+    source = (source or "").strip()
+    if source not in ("patrol", "patrol_coa"):
+        return False
+    try:
+        from datetime import date as _date
+        from payroll_import_app import patrol_rows as _patrol_rows
+        patrol_db, _save_fn = _patrol_store(source)
+        day = _date.fromisoformat(day_iso)
+        rows, _skipped = _patrol_rows(patrol_db, day, day)
+        email_key = (email or "").strip().lower()
+        row = next((r for r in rows
+                    if (r.get("email") or "").strip().lower()
+                    == email_key), None)
+        if row is None:
+            return False
+        changed = False
+        for entry in DB.get("entries", []) or []:
+            if ((entry.get("source") or "").strip() != source
+                    or (entry.get("date") or "").strip() != day_iso):
+                continue
+            company = (entry.get("company") or "").strip()
+            if (_canon_name(entry.get("employee"), company)
+                    != _canon_name(row.get("employee"), company)):
+                continue
+            entry["clock_in"] = row.get("clock_in") or ""
+            entry["clock_out"] = row.get("clock_out") or ""
+            entry["clock_out_date"] = row.get("clock_out_date")
+            entry["payroll_hours"] = round(float(row.get("hours") or 0),
+                                           2)
+            _sp = {}
+            if row.get("first_in_id"):
+                _sp["first_in"] = row["first_in_id"]
+            if row.get("last_out_id"):
+                _sp["last_out"] = row["last_out_id"]
+            if _sp:
+                entry["source_punches"] = _sp
+            changed = True
+            print(f"payroll: forward-synced Patrol change for "
+                  f"{entry.get('employee')} {day_iso}: "
+                  f"{entry['clock_in']}-{entry['clock_out']} "
+                  f"{entry['payroll_hours']}h", flush=True)
+        if changed:
+            save_db()
+        return changed
+    except Exception as exc:  # noqa: BLE001 - patrol must not fail
+        print(f"payroll: Patrol forward-sync skipped for "
+              f"{email} {day_iso}: {exc}", flush=True)
+        return False
+
+
 def _entry_from_values(co, employee, day, hours, clock_in, clock_out,
                        site, notes, jobsite_id="", meal_break=False):
     """Build a payroll entry dict from already-parsed values, the way
