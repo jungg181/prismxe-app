@@ -61,7 +61,7 @@
     <tr>
       <th>No</th><th>Name</th><th></th>
       {% for d in days %}<th>{{ d.strftime('%a') }}<br><span class="muted small">{{ d.strftime('%m/%d') }}</span></th>{% endfor %}
-      <th>Total</th><th>Reg ≤40</th><th>OT &gt;40</th><th>Sign</th>
+      <th>Total</th><th>Reg ≤40</th><th>OT &gt;40</th>
     </tr>
     {% for r in rows %}
     <tbody class="pay-worker" data-worker="{{ r.worker_id }}">
@@ -73,7 +73,6 @@
       <td rowspan="3" class="num row-total"><b>{{ '%.2f'|format(r.total) }}</b></td>
       <td rowspan="3" class="num row-reg">{{ '%.2f'|format(r.reg) }}</td>
       <td rowspan="3" class="num row-ot">{{ '%.2f'|format(r.ot) }}</td>
-      <td rowspan="3" style="min-width:150px"></td>
     </tr>
     <tr>
       <td class="muted small lbl">Out</td>
@@ -88,11 +87,11 @@
     <tr>
       <td colspan="{{ 3 + days|length }}" style="text-align:right"><b>Grand total</b></td>
       <td class="num" id="grand-total"><b>{{ '%.2f'|format(grand) }}</b></td>
-      <td colspan="3"></td>
+      <td colspan="2"></td>
     </tr>
   </table>
   </div>
-  <p class="muted small">Times are the recorded clock in/out for each day (overnight shifts count toward the clock-in day). Each worker signs in the Sign column to confirm their hours.</p>
+  <p class="muted small">Times are the recorded clock in/out for each day (overnight shifts count toward the clock-in day).</p>
   {% endif %}
 </div>
 {% endblock %}
