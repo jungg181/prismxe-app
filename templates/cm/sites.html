@@ -62,7 +62,7 @@
     <thead><tr><th style="text-align:left">Jobsite ID</th><th style="text-align:left">Name</th><th style="text-align:left">Company</th></tr></thead>
     <tbody>
       {% for j in pj_jobs %}
-      <tr><td>{{ j.code }}</td><td>{{ j.name or j.code }}</td><td>{{ j.company or '—' }}</td></tr>
+      <tr><td style="padding-left:{{ j._depth * 20 }}px">{% if j._depth %}{% if j._depth == 2 %}↳ {% else %}↳ {% endif %}{% endif %}{{ j.code }}{% if j._depth == 1 %} <span class="loc-tag">Company</span>{% elif j._depth == 2 %} <span class="loc-tag">Sub Site</span>{% endif %}</td><td>{{ j.name or j.code }}</td><td>{{ j.company or '—' }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -75,7 +75,7 @@
       <label style="flex:1;min-width:140px">Jobsite ID <input name="code" placeholder="e.g. LGES-1026" required style="width:100%"></label>
       <label style="flex:1;min-width:140px">Name <input name="name" placeholder="e.g. Hanseong LGES staffing" style="width:100%"></label>
       <label style="flex:1;min-width:140px">Company <select name="company" required style="width:100%"><option value="">— pick —</option>{% for c in pj_companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></label>
-      <label style="flex:1;min-width:140px">Parent (optional) <select name="parent_id" style="width:100%"><option value="">— Top-level jobsite —</option>{% for j in pj_top %}<option value="{{ j.id }}">{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></label>
+      <label style="flex:1;min-width:140px">Parent (optional) <select name="parent_id" style="width:100%"><option value="">— Top-level Jobsite ID —</option>{% for j in pj_parents %}<option value="{{ j.id }}">{% if j.parent_id %}↳ {% endif %}{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></label>
       <button class="btn primary" type="submit">Add Payroll Jobsite</button>
     </div>
   </form>
