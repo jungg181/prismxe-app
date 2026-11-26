@@ -80,12 +80,12 @@
     <form method="post" action="{{ url_for('.add_employee', company=company.slug, **{'from': start, 'to': end}) }}">
       <div class="form-grid">
         <div><label for="emp-name">Employee name</label><input id="emp-name" name="name" placeholder="Exact name" required></div>
-        <div><label for="emp-staffing">Staffing Rate ($/h)</label><input id="emp-staffing" name="staffing" type="number" step="0.01" min="0" placeholder="e.g. 24" required></div>
-        <div><label for="emp-billing">Billing Rate — Day ($/h)</label><input id="emp-billing" name="billing" type="number" step="0.01" min="0" placeholder="e.g. 39" required></div>
-        <div><label for="emp-billing-night">Billing Rate — Night ($/h)</label><input id="emp-billing-night" name="billing_night" type="number" step="0.01" min="0" placeholder="Blank = day rate"></div>
-        <div><label for="emp-shift">Shift</label><input id="emp-shift" name="shift" type="text" list="shift-list" placeholder="e.g. 7AM-7PM"></div>
-        <div><label for="emp-position">Position</label><input id="emp-position" name="position" type="text" list="position-list" placeholder="e.g. Helper"></div>
-        <div><label for="emp-eid">Employee ID</label><input id="emp-eid" name="employee_id" type="text" placeholder="e.g. E001 (optional)"></div>
+        <div><label for="emp-staffing">Staffing Rate ($/h)</label><input id="emp-staffing" name="staffing" type="number" step="0.01" min="0" required></div>
+        <div><label for="emp-billing">Billing Rate — Day ($/h)</label><input id="emp-billing" name="billing" type="number" step="0.01" min="0" required></div>
+        <div><label for="emp-billing-night">Billing Rate — Night ($/h)</label><input id="emp-billing-night" name="billing_night" type="number" step="0.01" min="0"></div>
+        <div><label for="emp-shift">Shift</label><input id="emp-shift" name="shift" type="text" list="shift-list"></div>
+        <div><label for="emp-position">Position</label><input id="emp-position" name="position" type="text" list="position-list"></div>
+        <div><label for="emp-eid">Employee ID</label><input id="emp-eid" name="employee_id" type="text"></div>
       </div>
       <div class="btn-row" style="margin-top:12px">
         <button class="btn" type="submit">Add Employee</button>
@@ -262,12 +262,12 @@
     <form method="post" action="{{ url_for('.add_employee', company=company.slug, **{'from': start, 'to': end}) }}">
       <div class="form-grid">
         <div><label for="emp-name-empty">Employee name</label><input id="emp-name-empty" name="name" placeholder="Exact name" required></div>
-        <div><label for="emp-staffing-empty">Staffing Rate ($/h)</label><input id="emp-staffing-empty" name="staffing" type="number" step="0.01" min="0" placeholder="e.g. 24" required></div>
-        <div><label for="emp-billing-empty">Billing Rate — Day ($/h)</label><input id="emp-billing-empty" name="billing" type="number" step="0.01" min="0" placeholder="e.g. 39" required></div>
-        <div><label for="emp-billing-night-empty">Billing Rate — Night ($/h)</label><input id="emp-billing-night-empty" name="billing_night" type="number" step="0.01" min="0" placeholder="Blank = day rate"></div>
-        <div><label for="emp-shift-empty">Shift</label><input id="emp-shift-empty" name="shift" type="text" list="shift-list" placeholder="e.g. 7AM-7PM"></div>
-        <div><label for="emp-position-empty">Position</label><input id="emp-position-empty" name="position" type="text" list="position-list" placeholder="e.g. Helper"></div>
-        <div><label for="emp-eid-empty">Employee ID</label><input id="emp-eid-empty" name="employee_id" type="text" placeholder="e.g. E001 (optional)"></div>
+        <div><label for="emp-staffing-empty">Staffing Rate ($/h)</label><input id="emp-staffing-empty" name="staffing" type="number" step="0.01" min="0" required></div>
+        <div><label for="emp-billing-empty">Billing Rate — Day ($/h)</label><input id="emp-billing-empty" name="billing" type="number" step="0.01" min="0" required></div>
+        <div><label for="emp-billing-night-empty">Billing Rate — Night ($/h)</label><input id="emp-billing-night-empty" name="billing_night" type="number" step="0.01" min="0"></div>
+        <div><label for="emp-shift-empty">Shift</label><input id="emp-shift-empty" name="shift" type="text" list="shift-list"></div>
+        <div><label for="emp-position-empty">Position</label><input id="emp-position-empty" name="position" type="text" list="position-list"></div>
+        <div><label for="emp-eid-empty">Employee ID</label><input id="emp-eid-empty" name="employee_id" type="text"></div>
       </div>
       <div class="btn-row" style="margin-top:12px">
         <button class="btn" type="submit">Add Employee</button>
