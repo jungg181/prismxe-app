@@ -4910,6 +4910,20 @@ def employee_detail_post(person):
     return redirect(url_for(".employee_detail", person=_person_url_key(p)))
 
 
+@bp.post("/employees/<person>/status")
+def employee_status(person):
+    """Flip one worker Active/Inactive from the employees index.
+    Same status store as the detail page; returns to the index."""
+    p = _find_person(person)
+    if p is None:
+        return "Unknown employee", 404
+    active = (request.form.get("active") == "1")
+    _set_person_active(p, active)
+    save_db()
+    flash(f"{p['name']} is now {'Active' if active else 'Inactive'}.")
+    return redirect(url_for(".employees"))
+
+
 # ----------------------------------------------------------------- aliases
 @bp.post("/<company>/aliases")
 def save_alias(company):
