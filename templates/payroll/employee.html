@@ -2,6 +2,13 @@
 {% block title %}{{ name }} — {{ company.name }}{% endblock %}
 {% block head %}
 <style>
+.cal-head{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.cal-head h2{margin:0;flex:1;min-width:160px}
+.cal-head .cal-range{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cal-head .cal-range label{display:flex;gap:6px;align-items:center;font-size:.85rem;font-weight:600;color:var(--muted)}
+.cal-head .cal-range input[type=date]{width:150px;box-sizing:border-box}
+.cal-head .cal-total{font-size:.95rem;color:var(--muted);white-space:nowrap}
+.cal-head .cal-total b{color:var(--ink);font-size:1.1rem}
 .cal-wrap{overflow-x:auto}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:540px}
 .cal-dow{font-weight:600;text-align:center;color:var(--muted);padding:4px 0;font-size:.85rem}
@@ -23,16 +30,14 @@
 <p class="sub">{{ company.name }}{% if rate and rate.employee_id %} · ID {{ rate.employee_id }}{% endif %} · {{ entries | length }} time entries · {{ fmt_hours(total_hours) }}h total{% if rate %} · Staffing {{ rate.staffing if rate.staffing is not none else '—' }} / Billing {{ rate.billing if rate.billing is not none else '—' }}{% else %} · <span class="badge">No rate</span>{% endif %}</p>
 
 <div class="card">
-  <h2 style="margin-top:0">Payroll calendar</h2>
-  <p class="small muted">Per-day hours from payroll entries ({{ cal_start }} – {{ cal_end }}). Monday-first, same source as the payroll table — the two can never diverge.</p>
-  <form class="filters row-form" method="get" action="{{ url_for('.employee_page', company=company.slug, name=name) }}">
-    <label>From <input type="date" name="from" value="{{ cal_start }}"></label>
-    <label>To <input type="date" name="to" value="{{ cal_end }}"></label>
-    <button class="btn primary small" type="submit">Show</button>
-  </form>
-  <div class="stat-row">
-    <div class="stat"><div class="k">Total hours</div><div class="v">{{ cal_data.total_hours }}h</div></div>
-    <div class="stat"><div class="k">Days worked</div><div class="v">{{ cal_data.days_worked }}</div></div>
+  <div class="cal-head">
+    <h2>Payroll calendar</h2>
+    <form class="cal-range" method="get" action="{{ url_for('.employee_page', company=company.slug, name=name) }}">
+      <label>From <input type="date" name="from" value="{{ cal_start }}"></label>
+      <label>To <input type="date" name="to" value="{{ cal_end }}"></label>
+      <button class="btn primary small" type="submit">Show</button>
+    </form>
+    <span class="cal-total">Total <b>{{ cal_data.total_hours }}h</b> · {{ cal_data.days_worked }} days</span>
   </div>
   <div class="cal-wrap"><div class="cal">
     <div class="cal-dow">Mon</div><div class="cal-dow">Tue</div><div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div><div class="cal-dow">Sun</div>
