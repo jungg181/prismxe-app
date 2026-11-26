@@ -9,29 +9,29 @@
     <div class="form-grid">
       <div><label for="ename">Company name</label><input type="text" id="ename" name="name" value="{{ company.name }}" required></div>
       <div><label for="eprefix">Invoice prefix</label><input type="text" id="eprefix" name="prefix" value="{{ company.prefix }}" maxlength="6" required></div>
-      <div><label for="epend">Prefix End</label><input type="text" id="epend" name="prefix_end" value="{{ company.prefix_end or '' }}" maxlength="6" placeholder="Code at the end of invoice numbers"></div>
-      <div><label for="evendor">Bill to (vendor)</label><input type="text" id="evendor" name="vendor" value="{{ company.vendor }}" placeholder="Defaults to the company name"></div>
-      <div><label for="ephone">Vendor phone (TEL NUM)</label><input type="text" id="ephone" name="phone" value="{{ company.phone or '' }}" placeholder="213-905-1359"></div>
-      <div><label for="eship">Ship to</label><input type="text" id="eship" name="ship_to" value="{{ company.ship_to }}" placeholder="e.g. Queen Creek AZ"></div>
-      <div><label for="ecat">Category</label><input type="text" id="ecat" name="category" value="{{ company.category }}" placeholder="e.g. LG Alpha / Myeongjin"></div>
+      <div><label for="epend">Prefix End</label><input type="text" id="epend" name="prefix_end" value="{{ company.prefix_end or '' }}" maxlength="6"></div>
+      <div><label for="evendor">Bill to (vendor)</label><input type="text" id="evendor" name="vendor" value="{{ company.vendor }}"></div>
+      <div><label for="ephone">Vendor phone (TEL NUM)</label><input type="text" id="ephone" name="phone" value="{{ company.phone or '' }}"></div>
+      <div><label for="eship">Ship to</label><input type="text" id="eship" name="ship_to" value="{{ company.ship_to }}"></div>
+      <div><label for="ecat">Category</label><input type="text" id="ecat" name="category" value="{{ company.category }}"></div>
       <div><label for="eactive">Status</label><select id="eactive" name="active"><option value="1"{{ ' selected' if company.get('active', True) }}>Active</option><option value="0"{{ ' selected' if not company.get('active', True) }}>Inactive</option></select></div>
     </div>
     <h2 style="margin:16px 0 8px">Bank account</h2>
     <p class="small muted" style="margin:0 0 10px">The deposit account for this company. Leave blank to use the default account.</p>
     <div class="form-grid">
-      <div><label for="ebank">Bank</label><input type="text" id="ebank" name="bank_name" value="{{ company.bank_name or '' }}" placeholder="JPMorgan Chase Banks, N.A."></div>
-      <div><label for="ebranch">Branch</label><input type="text" id="ebranch" name="bank_branch" value="{{ company.bank_branch or '' }}" placeholder="California Branch - 741611"></div>
-      <div><label for="erouting">Routing</label><input type="text" id="erouting" name="bank_routing" value="{{ company.bank_routing or '' }}" placeholder="122100024"></div>
-      <div><label for="eaccount">Account</label><input type="text" id="eaccount" name="bank_account" value="{{ company.bank_account or '' }}" placeholder="717953189"></div>
-      <div><label for="eaccountname">Account name</label><input type="text" id="eaccountname" name="bank_account_name" value="{{ company.bank_account_name or '' }}" placeholder="Prism Multiple Entertainment LLC"></div>
-      <div><label for="etelephone">Bank telephone</label><input type="text" id="etelephone" name="bank_telephone" value="{{ company.bank_telephone or '' }}" placeholder="+1 562 928 2278"></div>
-      <div><label for="ezelle">Zelle</label><input type="text" id="ezelle" name="bank_zelle" value="{{ company.bank_zelle or '' }}" placeholder=""></div>
+      <div><label for="ebank">Bank</label><input type="text" id="ebank" name="bank_name" value="{{ company.bank_name or '' }}"></div>
+      <div><label for="ebranch">Branch</label><input type="text" id="ebranch" name="bank_branch" value="{{ company.bank_branch or '' }}"></div>
+      <div><label for="erouting">Routing</label><input type="text" id="erouting" name="bank_routing" value="{{ company.bank_routing or '' }}"></div>
+      <div><label for="eaccount">Account</label><input type="text" id="eaccount" name="bank_account" value="{{ company.bank_account or '' }}"></div>
+      <div><label for="eaccountname">Account name</label><input type="text" id="eaccountname" name="bank_account_name" value="{{ company.bank_account_name or '' }}"></div>
+      <div><label for="etelephone">Bank telephone</label><input type="text" id="etelephone" name="bank_telephone" value="{{ company.bank_telephone or '' }}"></div>
+      <div><label for="ezelle">Zelle</label><input type="text" id="ezelle" name="bank_zelle" value="{{ company.bank_zelle or '' }}"></div>
     </div>
     <h2 style="margin:16px 0 8px">PDF layout</h2>
     <p class="small muted" style="margin:0 0 10px">Margins of the invoice PDF, in millimetres. Smaller margins leave more room for the table. Leave blank for the defaults.</p>
     <div class="form-grid">
-      <div><label for="etopmargin">Top margin (mm)</label><input type="text" id="etopmargin" name="pdf_top_margin" value="{{ company.pdf_top_margin or '' }}" placeholder="5"></div>
-      <div><label for="ebottommargin">Bottom margin (mm)</label><input type="text" id="ebottommargin" name="pdf_bottom_margin" value="{{ company.pdf_bottom_margin or '' }}" placeholder="5"></div>
+      <div><label for="etopmargin">Top margin (mm)</label><input type="text" id="etopmargin" name="pdf_top_margin" value="{{ company.pdf_top_margin or '' }}"></div>
+      <div><label for="ebottommargin">Bottom margin (mm)</label><input type="text" id="ebottommargin" name="pdf_bottom_margin" value="{{ company.pdf_bottom_margin or '' }}"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Save changes</button>
