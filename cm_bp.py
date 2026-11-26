@@ -970,6 +970,18 @@ def onsite():
                            payroll_jobsites=payroll_jobsite_tree())
 
 
+@bp.route('/api/sites')
+def api_sites():
+    """Active CM sites, live. The On Site page fetches this on load
+    (it is NOT cached by the service worker), so a site added on
+    /staffing/sites shows up on the worker's clock-in list
+    immediately — even when the phone serves the page from its
+    offline cache. Public: the clock-in page is public too."""
+    return jsonify({'sites': [
+        {'id': s.get('id'), 'name': s.get('name')}
+        for s in DB.get('sites', []) if s.get('status') == 'active']})
+
+
 def _phone_match(a, b):
     """Lenient phone match: same digits, or one ends with the other
     (handles missing/extra country codes)."""
