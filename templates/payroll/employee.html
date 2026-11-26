@@ -63,7 +63,7 @@
     <input type="hidden" name="end" value="{{ cal_end }}">
     <h3>Email this payroll</h3>
     <p class="small muted">Sends this calendar summary to the worker, with a link to review or correct it. Nothing is sent until you tap Send.</p>
-    <label>To <input type="email" name="to" value="" placeholder="worker email" required></label>
+    <label>To <input type="email" name="to" value="" required></label>
     <label>Subject <input type="text" name="subject" value="{{ email_subject }}"></label>
     <label>Message <textarea name="body" rows="10">{{ email_body }}</textarea></label>
     <button class="btn primary small" type="submit">Send email</button>
@@ -78,11 +78,11 @@
     <div class="form-grid">
       <div><label for="ename">Name</label><input type="text" id="ename" name="new_name" value="{{ name }}" required></div>
       <div><label for="ecompany">Company (department)</label><select id="ecompany" name="to_company">{% for c in companies %}<option value="{{ c.slug }}"{{ ' selected' if c.name == company.name else '' }}>{{ c.name }}</option>{% endfor %}</select></div>
-      <div><label for="eid">Employee ID</label><input type="text" id="eid" name="employee_id" value="{{ rate.employee_id if rate and rate.employee_id else '' }}" placeholder="Unique number for this employee"></div>
-      <div><label for="estaffing">Staffing rate ($/h)</label><input type="number" id="estaffing" name="staffing" step="0.01" min="0" value="{{ rate.staffing if rate and rate.staffing is not none else '' }}" placeholder="What the worker is paid"></div>
-      <div><label for="ebilling">Billing rate ($/h)</label><input type="number" id="ebilling" name="billing" step="0.01" min="0" value="{{ rate.billing if rate and rate.billing is not none else '' }}" placeholder="What the client is charged"></div>
-      <div><label for="eshift">Shift</label><input type="text" id="eshift" name="shift" list="shift-list" value="{{ rate.shift if rate and rate.shift else '' }}" placeholder="e.g. 4AM-12PM"></div>
-      <div><label for="eposition">Position</label><input type="text" id="eposition" name="position" list="position-list" value="{{ rate.position if rate and rate.position else '' }}" placeholder="e.g. F"></div>
+      <div><label for="eid">Employee ID</label><input type="text" id="eid" name="employee_id" value="{{ rate.employee_id if rate and rate.employee_id else '' }}"></div>
+      <div><label for="estaffing">Staffing rate ($/h)</label><input type="number" id="estaffing" name="staffing" step="0.01" min="0" value="{{ rate.staffing if rate and rate.staffing is not none else '' }}"></div>
+      <div><label for="ebilling">Billing rate ($/h)</label><input type="number" id="ebilling" name="billing" step="0.01" min="0" value="{{ rate.billing if rate and rate.billing is not none else '' }}"></div>
+      <div><label for="eshift">Shift</label><input type="text" id="eshift" name="shift" list="shift-list" value="{{ rate.shift if rate and rate.shift else '' }}"></div>
+      <div><label for="eposition">Position</label><input type="text" id="eposition" name="position" list="position-list" value="{{ rate.position if rate and rate.position else '' }}"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Save changes</button>
