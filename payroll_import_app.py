@@ -281,6 +281,7 @@ def patrol_rows(data, start, end):
             continue
         rows.append({
             "employee": name_by_email.get(email, email),
+            "email": email,
             "date": day,
             "hours": hours,
             "clock_in": _time_only(first_in.get((email, day), "")),
