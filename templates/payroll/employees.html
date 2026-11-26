@@ -16,13 +16,13 @@
   <h2 style="margin-top:0">Add employee</h2>
   <form method="post" action="{{ url_for('.employees_add') }}">
     <div class="form-grid">
-      <div><label for="aname">Name</label><input type="text" id="aname" name="name" required placeholder="Employee name"></div>
+      <div><label for="aname">Name</label><input type="text" id="aname" name="name" required></div>
       <div><label for="acompany">Company</label><select id="acompany" name="to_company">{% for c in companies %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endfor %}</select></div>
-      <div><label for="aid">Employee ID</label><input type="text" id="aid" name="employee_id" placeholder="Unique number (optional)"></div>
-      <div><label for="astaffing">Staffing rate ($/h)</label><input type="number" id="astaffing" name="staffing" step="0.01" min="0" placeholder="What the worker is paid"></div>
-      <div><label for="abilling">Billing rate ($/h)</label><input type="number" id="abilling" name="billing" step="0.01" min="0" placeholder="What the client is charged"></div>
-      <div><label for="ashift">Shift</label><input type="text" id="ashift" name="shift" list="shift-list" placeholder="e.g. 4AM-12PM"></div>
-      <div><label for="aposition">Position</label><input type="text" id="aposition" name="position" list="position-list" placeholder="e.g. F"></div>
+      <div><label for="aid">Employee ID</label><input type="text" id="aid" name="employee_id"></div>
+      <div><label for="astaffing">Staffing rate ($/h)</label><input type="number" id="astaffing" name="staffing" step="0.01" min="0"></div>
+      <div><label for="abilling">Billing rate ($/h)</label><input type="number" id="abilling" name="billing" step="0.01" min="0"></div>
+      <div><label for="ashift">Shift</label><input type="text" id="ashift" name="shift" list="shift-list"></div>
+      <div><label for="aposition">Position</label><input type="text" id="aposition" name="position" list="position-list"></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn" type="submit">Add employee</button>
