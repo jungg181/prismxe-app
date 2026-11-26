@@ -63,7 +63,7 @@
   {% endif %}
 
   {% if preview.skipped %}
-  <h2>Skipped — Still Clocked In</h2>
+  <h2>Skipped</h2>
   <div class="table-scroll">
     <table>
       <thead><tr><th>Employee</th><th>Clock-In</th><th>Reason</th></tr></thead>
@@ -80,7 +80,7 @@
   {% if n_matched %}
   <form method="post" action="{{ url_for('.import_app_confirm', company=company.slug, **{'from': start, 'to': end}) }}">
     <input type="hidden" name="source" value="{{ source }}">
-    <p class="small muted">Confirming imports the {{ n_matched }} matched row(s). Exact duplicates (same employee, date and hours) are skipped. Unmatched rows are not imported.</p>
+    <p class="small muted">Confirming imports the {{ n_matched }} matched row(s). Duplicates are skipped (same employee and date for Patrol rows). Rows with 0.0 hours are not imported. Unmatched rows are not imported.</p>
     <div class="btn-row"><button class="btn" type="submit">Import {{ n_matched }} Matched Row(s)</button></div>
   </form>
   {% elif preview.rows %}
