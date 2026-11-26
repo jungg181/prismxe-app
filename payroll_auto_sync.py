@@ -15,7 +15,14 @@ Rules (same as the manual Import from App):
   case-insensitive name match) are imported. Unmatched rows are
   skipped and listed in the report — never imported silently.
 - Exact duplicates (company + canonical employee + date + hours)
-  are skipped.
+  are skipped for timecard sources. For punch sources (Patrol —
+  one derived row per employee + date by construction) the key is
+  company + canonical employee + date, so a day corrected in
+  payroll never re-imports its old hours as a second row.
+- Imported entries keep `source` (the app module they came from)
+  plus the first-in / last-out punch ids, so a later payroll
+  correction can rewrite the matching Patrol punches
+  (see reverse_sync_patrol_punches in payroll_import_app.py).
 - Open shifts (still clocked in) are skipped.
 - Entries are stored under the CANONICAL rate-row name so payroll
   math matches them without needing a stored alias.
@@ -48,7 +55,7 @@ from zoneinfo import ZoneInfo
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
-from payroll_import_app import build_preview, import_rows  # noqa: E402
+from payroll_import_app import SOURCES, build_preview, import_rows  # noqa: E402
 
 PHOENIX = ZoneInfo("America/Phoenix")
 GO_LIVE = date(2026, 11, 11)
@@ -98,7 +105,9 @@ def main():
                                 aliases, start, end)
         to_add, n_dupes, unmatched = import_rows(
             preview["rows"], entries, company, aliases,
-            source_label=preview["label"], use_canonical=True)
+            source_label=preview["label"], use_canonical=True,
+            source=source,
+            dedupe_by_date=(SOURCES[source]["kind"] == "punches"))
         for e in to_add:
             e["id"] = uuid.uuid4().hex[:12]
             entries.append(e)
