@@ -167,6 +167,11 @@ function saveDisplay(){
 
 <div class="card" id="sec-workers" style="display:none">
   <h2><span class="muted">05</span> Workers <button class="btn small primary" onclick="addWorker()" style="float:right">+ Add Worker</button></h2>
+  <div id="wk-filter" style="display:flex;gap:.4rem;margin:0 0 .6rem">
+    <button class="btn small primary" data-filter="all" onclick="filterWorkers('all')">ALL</button>
+    <button class="btn small" data-filter="active" onclick="filterWorkers('active')">Active</button>
+    <button class="btn small" data-filter="inactive" onclick="filterWorkers('inactive')">Inactive</button>
+  </div>
   <div style="overflow-x:auto">
   <table class="fixed" style="min-width:1100px">
     <colgroup><col style="width:48px"><col style="width:170px"><col style="width:200px"><col style="width:140px"><col style="width:130px"><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:90px"></colgroup>
@@ -431,6 +436,25 @@ async function saveShifts(){
 }
 renderShifts();
 // --- workers ---
+// Workers filter: only one of ALL / Active / Inactive at a time.
+// Non-matching rows are hidden completely (display:none) — but they
+// are still saved, because saveWorkers reads every .wk-row, hidden
+// or not. Flipping a worker's Status re-applies the current filter.
+var wkFilter = 'all';
+function filterWorkers(status){
+  wkFilter = status;
+  document.querySelectorAll('#wk-filter .btn').forEach(function(b){
+    b.classList.toggle('primary', b.dataset.filter === status);
+  });
+  document.querySelectorAll('#worker-list .wk-row').forEach(function(row){
+    var st = row.querySelector('.wk-status');
+    var v = st ? st.value : 'active';
+    row.style.display = (status === 'all' || v === status) ? '' : 'none';
+  });
+}
+document.getElementById('worker-list').addEventListener('change', function(e){
+  if(e.target && e.target.classList.contains('wk-status')) filterWorkers(wkFilter);
+});
 async function saveWorkers(){
   const rows = [...document.querySelectorAll('#worker-list .wk-row')].map(row=>({
     id: row.dataset.id,
