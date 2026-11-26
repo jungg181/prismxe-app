@@ -4,15 +4,17 @@
 {% block body %}
 <h1 style="margin-top:0">Settings</h1>
 
-<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem">
-  <button class="btn small primary" onclick="toggleSec('sec-display', this)">00 Display</button>
-  <button class="btn small" onclick="toggleSec('sec-equipment', this)">01 Equipment</button>
-  <button class="btn small" onclick="toggleSec('sec-checks', this)">02 Patrol Checks</button>
-  <button class="btn small" onclick="toggleSec('sec-slots', this)">03 Time Slots &amp; Shifts</button>
-  <button class="btn small" onclick="toggleSec('sec-shifts', this)">04 Shifts</button>
-  <button class="btn small" onclick="toggleSec('sec-workers', this)">05 Workers</button>
-  <button class="btn small" onclick="toggleSec('sec-data', this)">06 Data</button>
-</div>
+<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+  <div id="settings-nav" style="display:flex;flex-direction:column;gap:.4rem;width:200px;flex-shrink:0">
+    <button class="btn small primary" style="text-align:left" onclick="toggleSec('sec-display', this)">00 Display</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-equipment', this)">01 Equipment</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-checks', this)">02 Patrol Checks</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-slots', this)">03 Time Slots &amp; Shifts</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-shifts', this)">04 Shifts</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-workers', this)">05 Workers</button>
+    <button class="btn small" style="text-align:left" onclick="toggleSec('sec-data', this)">06 Data</button>
+  </div>
+  <div style="flex:1;min-width:280px">
 
 <div class="card" id="sec-display">
   <h2><span class="muted">00</span> Display</h2>
@@ -212,15 +214,23 @@ function saveDisplay(){
     <button class="btn danger">Reset timetable to defaults</button>
   </form>
 </div>
+  </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script>
 const SHIFTS = {{ shifts|tojson }};
 function toggleSec(id, btn){
-  var el = document.getElementById(id);
-  var show = el.style.display === 'none';
-  el.style.display = show ? '' : 'none';
-  if(btn) btn.classList.toggle('primary', show);
+  // One section at a time: close the rest, clear every button,
+  // then open only the one that was clicked.
+  document.querySelectorAll('[id^="sec-"]').forEach(function(el){
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('#settings-nav .btn').forEach(function(b){
+    b.classList.remove('primary');
+  });
+  document.getElementById(id).style.display = '';
+  if(btn) btn.classList.add('primary');
 }
 async function post(url, data){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
