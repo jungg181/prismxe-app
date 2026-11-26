@@ -189,7 +189,10 @@ def patrol_rows(data, start, end):
     each pair to the nearest 0.5h, and caps each (worker, clock-in
     date) at 12h. One row per (employee, date). Unpaired in-punches
     are skipped as open shifts; out-punches with no clock-in are
-    skipped as stray."""
+    skipped as stray; days whose pairs total 0.0h (accidental taps
+    only) are skipped and never imported (user decision 2026-11-25)
+    — they are listed under Skipped in the preview instead of
+    vanishing silently."""
     workers = {w.get("email"): (w.get("name") or "").strip()
                for w in data.get("workers", [])}
     by_email = {}
@@ -265,10 +268,21 @@ def patrol_rows(data, start, end):
                     "reason": "still clocked in"})
     rows = []
     for (email, day), hours_list in sorted(pairs.items()):
+        hours = round(min(12.0, sum(hours_list)), 2)
+        if hours == 0:
+            # Accidental taps only (a seconds-long in/out pair) — a
+            # 0.0h row carries no payable hours, so it is never
+            # imported (user decision 2026-11-25). Listed under
+            # Skipped in the preview instead of vanishing silently.
+            skipped.append({
+                "employee": name_by_email.get(email, email),
+                "clock_in": first_in.get((email, day), ""),
+                "reason": "0.0 hours — accidental taps only"})
+            continue
         rows.append({
             "employee": name_by_email.get(email, email),
             "date": day,
-            "hours": round(min(12.0, sum(hours_list)), 2),
+            "hours": hours,
             "clock_in": _time_only(first_in.get((email, day), "")),
             "clock_out": _time_only(last_out.get((email, day), "")),
             "clock_out_date": (parse_local(last_out.get((email, day)))
