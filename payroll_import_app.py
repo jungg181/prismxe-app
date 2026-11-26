@@ -166,6 +166,7 @@ def timecard_rows(data, start, end):
             "site": sites.get(t.get("site_id"), ""),
             "notes": t.get("notes") or "",
             "jobsite_id": (t.get("jobsite_id") or "") or None,
+            "company_pick": (t.get("company") or "") or None,
         })
     rows.sort(key=lambda r: (r["date"], r["employee"].lower()))
     return rows, skipped
@@ -282,18 +283,31 @@ def build_preview(app_dir, source, company, rates, aliases, start, end):
         rows, skipped = patrol_rows(data, start, end)
     else:
         rows, skipped = timecard_rows(data, start, end)
-    rate_names = {(r.get("name") or "").strip(): r
-                  for r in rates or []
-                  if (r.get("company") or "").strip() == company}
-    alias_map = {(a.get("alias") or "").strip(): (a.get("canonical") or "").strip()
-                 for a in aliases or []
-                 if (a.get("company") or "").strip() == company}
+    # Rate + alias lookups per company. A CM timecard can carry a
+    # Company pick (LGES > Company, set at clock-in); that row's
+    # hours go to the picked company and the rate is looked up
+    # there. Without a pick, the target company (the mapping)
+    # applies. `rates` / `aliases` are the full lists.
+    rates_by_co = {}
+    for r in rates or []:
+        co = (r.get("company") or "").strip()
+        if co:
+            rates_by_co.setdefault(co, {})[(r.get("name") or "").strip()] = r
+    aliases_by_co = {}
+    for a in aliases or []:
+        co = (a.get("company") or "").strip()
+        if co:
+            aliases_by_co.setdefault(co, {})[(a.get("alias") or "").strip()] = (a.get("canonical") or "").strip()
     # Case-insensitive lookup: source files spell some names with
     # different capitalisation ("Argenis cabana" vs rate "Argenis
     # Cabana"). A case difference is never a different person.
-    rate_by_fold = {_fold(n): n for n in rate_names}
-    alias_by_fold = {_fold(a): c for a, c in alias_map.items()}
     for row in rows:
+        eff = ((row.get("company_pick") or "").strip() or company)
+        row["entry_company"] = eff
+        rate_names = rates_by_co.get(eff, {})
+        alias_map = aliases_by_co.get(eff, {})
+        rate_by_fold = {_fold(n): n for n in rate_names}
+        alias_by_fold = {_fold(a): c for a, c in alias_map.items()}
         name = (row["employee"] or "").strip()
         fold = _fold(name)
         canonical = None
@@ -329,23 +343,26 @@ def import_rows(preview_rows, existing_entries, company, aliases,
     math matches it without needing a stored alias. The source label
     is kept in Notes so the origin stays traceable.
     """
-    alias_map = {(a.get("alias") or "").strip(): (a.get("canonical") or "").strip()
-                 for a in aliases or []
-                 if (a.get("company") or "").strip() == company}
-    alias_by_fold = {_fold(a): c for a, c in alias_map.items()}
+    alias_by_co = {}
+    for a in aliases or []:
+        co = (a.get("company") or "").strip()
+        if co:
+            alias_by_co.setdefault(co, {})[(a.get("alias") or "").strip()] = (a.get("canonical") or "").strip()
 
-    def fold_canon(name):
+    def fold_canon(name, co):
         """Canonical name for duplicate comparison: resolve the alias
-        (case-insensitively), then fold case."""
+        (case-insensitively) in that company's alias map, then fold
+        case."""
         n = (name or "").strip()
-        return alias_by_fold.get(_fold(n), n).casefold()
+        amap = alias_by_co.get(co or "", {})
+        by_fold = {_fold(a): c for a, c in amap.items()}
+        return by_fold.get(_fold(n), n).casefold()
 
     seen = set()
     for e in existing_entries or []:
-        if (e.get("company") or "").strip() != company:
-            continue
+        eco = (e.get("company") or "").strip()
         name = (e.get("employee") or "").strip()
-        seen.add((company, fold_canon(name),
+        seen.add((eco, fold_canon(name, eco),
                   (e.get("date") or "").strip(),
                   float(e.get("payroll_hours") or 0)))
     to_add, unmatched = [], []
@@ -354,7 +371,8 @@ def import_rows(preview_rows, existing_entries, company, aliases,
         if not row.get("matched"):
             unmatched.append(row)
             continue
-        key = (company, (row["matched"] or "").strip().casefold(),
+        eco = (row.get("entry_company") or company or "").strip()
+        key = (eco, (row["matched"] or "").strip().casefold(),
                row["date"], float(row["hours"] or 0))
         if key in seen:
             n_dupes += 1
@@ -363,7 +381,7 @@ def import_rows(preview_rows, existing_entries, company, aliases,
         employee = ((row["matched"] if use_canonical else
                      (row["employee"] or "").strip()))
         to_add.append({
-            "company": company,
+            "company": eco,
             "employee": employee,
             "date": row["date"],
             "payroll_hours": round(float(row["hours"] or 0), 2),
