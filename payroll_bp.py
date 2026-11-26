@@ -2962,18 +2962,25 @@ def jobsites():
         parent = find_jobsite(request.form.get("parent_id") or "")
         # Where to go after saving: the Sites page posts here so the
         # user can add a payroll jobsite without leaving /staffing.
-        # Only that exact page is allowed, so the redirect can never
-        # be pointed elsewhere.
+        # The Sites card and a site's Edit page both post here, and
+        # the user should land back where they were adding from.
+        # Only a path inside /staffing/sites is allowed, so the
+        # redirect can never be pointed elsewhere.
         nxt = (request.form.get("next") or "").strip()
-        back = ("/staffing/sites" if nxt == "/staffing/sites"
+        back = (nxt if nxt == "/staffing/sites"
+                or nxt.startswith("/staffing/sites/")
                 else url_for(".jobsites"))
         if not code:
             flash("Jobsite ID is required.")
-        elif any((j.get("code") or "").strip().lower() == code.lower()
-                 for j in DB.get("jobsites", [])):
-            flash(f"A jobsite with ID {code} already exists.")
         elif not company:
             flash("Company is required.")
+        elif any((j.get("code") or "").strip().lower() == code.lower()
+                 and (j.get("company") or "").strip() == company
+                 for j in DB.get("jobsites", [])):
+            # One Jobsite ID (e.g. LGES) can have a row per Company —
+            # the ID + Company together is what must be unique.
+            flash(f"A jobsite with ID {code} already exists "
+                  f"for {company}.")
         elif parent is not None and _jobsite_depth(parent) >= 2:
             flash(f"{parent['code']} is a Sub Site — a Sub Site "
                   "cannot have locations of its own. Pick a Jobsite "
@@ -3041,11 +3048,20 @@ def edit_jobsite(job_id):
     if job is None:
         flash("Unknown jobsite.")
         return redirect(url_for(".jobsites"))
+    # Where to go after saving: the Sites card and a site's Edit
+    # page link here with ?next=..., so the user lands back where
+    # they were editing from. Only a path inside /staffing/sites
+    # is allowed, so the redirect can never be pointed elsewhere.
+    raw_next = ((request.form.get("next") if request.method == "POST"
+                 else request.args.get("next")) or "").strip()
+    back = (raw_next if raw_next == "/staffing/sites"
+            or raw_next.startswith("/staffing/sites/")
+            else None)
     top = _jobsite_eligible_parents(exclude=job)
     if request.method == "GET":
         return render_template("payroll/edit_jobsite.html", job=job,
                                companies=DB.get("companies", []),
-                               top_jobsites=top)
+                               top_jobsites=top, back_url=back)
     code = (request.form.get("code") or "").strip()
     name = (request.form.get("name") or "").strip()
     company = (request.form.get("company") or "").strip()
@@ -3053,11 +3069,15 @@ def edit_jobsite(job_id):
     parent = find_jobsite(request.form.get("parent_id") or "")
     if not code:
         flash("Jobsite ID is required.")
-    elif any((j.get("code") or "").strip().lower() == code.lower()
-             for j in DB.get("jobsites", []) if j is not job):
-        flash(f"A jobsite with ID {code} already exists.")
     elif not company:
         flash("Company is required.")
+    elif any((j.get("code") or "").strip().lower() == code.lower()
+             and (j.get("company") or "").strip() == company
+             for j in DB.get("jobsites", []) if j is not job):
+        # One Jobsite ID (e.g. LGES) can have a row per Company —
+        # the ID + Company together is what must be unique.
+        flash(f"A jobsite with ID {code} already exists "
+              f"for {company}.")
     elif parent is not None and parent is job:
         flash("A jobsite cannot be its own parent.")
     elif (parent is not None
@@ -3083,10 +3103,11 @@ def edit_jobsite(job_id):
         job["parent_id"] = parent["id"] if parent else None
         save_db()
         flash(f"Jobsite {code} updated.")
-        return redirect(url_for(".jobsite_detail", job_id=job["id"]))
+        return redirect(back or url_for(".jobsite_detail",
+                                        job_id=job["id"]))
     return render_template("payroll/edit_jobsite.html", job=job,
                            companies=DB.get("companies", []),
-                           top_jobsites=top)
+                           top_jobsites=top, back_url=back)
 
 
 @bp.route("/jobsites/<job_id>")
