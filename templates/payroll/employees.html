@@ -47,15 +47,15 @@
 </datalist>
 
 <div id="emp-filter" style="display:flex;align-items:center;gap:8px;margin:0 0 .6rem">
-  <span class="small muted">Companies:</span>
-  <button class="btn small" data-filter="active" onclick="filterEmpCompanies('active')">Active</button>
-  <button class="btn secondary small" data-filter="inactive" onclick="filterEmpCompanies('inactive')">Inactive</button>
-  <button class="btn secondary small" data-filter="all" onclick="filterEmpCompanies('all')">ALL</button>
+  <span class="small muted">Employees:</span>
+  <button class="btn small" data-filter="active" onclick="filterEmployees('active')">Active</button>
+  <button class="btn secondary small" data-filter="inactive" onclick="filterEmployees('inactive')">Inactive</button>
+  <button class="btn secondary small" data-filter="all" onclick="filterEmployees('all')">ALL</button>
 </div>
 
 {% for c in companies %}
-<div class="card emp-company" data-active="{{ 'true' if c.get('active', True) else 'false' }}">
-  <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a>{% if not c.get('active', True) %} <span class="badge">Inactive</span>{% endif %}</h2>
+<div class="card emp-company">
+  <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a></h2>
   {% if by_company[c.name] %}
   <div class="table-scroll">
     <table class="emp-table">
@@ -63,8 +63,8 @@
       <thead><tr><th>Employee</th><th>Employee ID</th><th class="num">Staffing</th><th class="num">Billing</th><th class="num">Entries</th><th class="num">Hours</th></tr></thead>
       <tbody>
         {% for row in by_company[c.name] %}
-        <tr>
-          <td><a href="{{ url_for('.employee_detail', person=row.person.employee_id or row.person.name) }}">{{ row.person.name }}</a>{% if row.rate is none %} <span class="badge">No rate</span>{% endif %}</td>
+        <tr data-active="{{ 'true' if row.person.get('active', True) else 'false' }}">
+          <td><a href="{{ url_for('.employee_detail', person=row.person.employee_id or row.person.name) }}">{{ row.person.name }}</a>{% if row.rate is none %} <span class="badge">No rate</span>{% endif %}{% if not row.person.get('active', True) %} <span class="badge">Inactive</span>{% endif %}</td>
           <td>{{ row.person.employee_id or '—' }}</td>
           <td class="num">{{ row.rate.staffing if row.rate and row.rate.staffing is not none else '—' }}</td>
           <td class="num">{{ row.rate.billing if row.rate and row.rate.billing is not none else '—' }}</td>
@@ -81,19 +81,28 @@
 </div>
 {% endfor %}
 <script>
-// Companies filter: only one of Active / Inactive / ALL at a time,
+// Employees filter: only one of Active / Inactive / ALL at a time,
 // Active is the default (same as the payroll index). Non-matching
-// company cards are hidden completely.
+// employee rows are hidden completely; a company card with no
+// matching rows is hidden too (under ALL, empty companies still
+// show their "No employees" line).
 var empFilter = 'active';
-function filterEmpCompanies(status){
+function filterEmployees(status){
   empFilter = status;
   document.querySelectorAll('#emp-filter .btn').forEach(function(b){
     b.classList.toggle('secondary', b.dataset.filter !== status);
   });
   document.querySelectorAll('.emp-company').forEach(function(card){
-    card.style.display = (status === 'all' || card.dataset.active === (status === 'active' ? 'true' : 'false')) ? '' : 'none';
+    var rows = card.querySelectorAll('tbody tr');
+    var shown = 0;
+    rows.forEach(function(tr){
+      var match = (status === 'all' || tr.dataset.active === (status === 'active' ? 'true' : 'false'));
+      tr.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    card.style.display = (rows.length === 0) ? (status === 'all' ? '' : 'none') : (shown ? '' : 'none');
   });
 }
-filterEmpCompanies('active');
+filterEmployees('active');
 </script>
 {% endblock %}
