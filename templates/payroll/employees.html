@@ -8,6 +8,9 @@
 .emp-table { table-layout: fixed; }
 .emp-table th, .emp-table td { text-align: center; }
 .emp-table th:first-child, .emp-table td:first-child { text-align: left; }
+/* Add employee: 5 fields on the first row, so Billing sits next to
+   Staffing instead of wrapping below it. */
+.form-grid.add-emp-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 </style>
 <h1>Employees</h1>
 <p class="sub">{{ total }} employees · grouped by company — one worker can belong to several companies. Click a name to manage everything about them: name, employee ID, rates per company, and time entries.</p>
@@ -15,7 +18,7 @@
 <div class="card">
   <h2 style="margin-top:0">Add employee</h2>
   <form method="post" action="{{ url_for('.employees_add') }}">
-    <div class="form-grid">
+    <div class="form-grid add-emp-grid">
       <div><label for="aname">Name</label><input type="text" id="aname" name="name" required></div>
       <div><label for="acompany">Company</label><select id="acompany" name="to_company">{% for c in companies %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endfor %}</select></div>
       <div><label for="aid">Employee ID</label><input type="text" id="aid" name="employee_id"></div>
@@ -43,9 +46,16 @@
   <option value="Supervisor"></option>
 </datalist>
 
+<div id="emp-filter" style="display:flex;align-items:center;gap:8px;margin:0 0 .6rem">
+  <span class="small muted">Companies:</span>
+  <button class="btn small" data-filter="active" onclick="filterEmpCompanies('active')">Active</button>
+  <button class="btn secondary small" data-filter="inactive" onclick="filterEmpCompanies('inactive')">Inactive</button>
+  <button class="btn secondary small" data-filter="all" onclick="filterEmpCompanies('all')">ALL</button>
+</div>
+
 {% for c in companies %}
-<div class="card">
-  <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a></h2>
+<div class="card emp-company" data-active="{{ 'true' if c.get('active', True) else 'false' }}">
+  <h2 style="margin-top:0"><a href="{{ url_for('.company_payroll', company=c.slug) }}">{{ c.name }}</a>{% if not c.get('active', True) %} <span class="badge">Inactive</span>{% endif %}</h2>
   {% if by_company[c.name] %}
   <div class="table-scroll">
     <table class="emp-table">
@@ -70,4 +80,20 @@
   {% endif %}
 </div>
 {% endfor %}
+<script>
+// Companies filter: only one of Active / Inactive / ALL at a time,
+// Active is the default (same as the payroll index). Non-matching
+// company cards are hidden completely.
+var empFilter = 'active';
+function filterEmpCompanies(status){
+  empFilter = status;
+  document.querySelectorAll('#emp-filter .btn').forEach(function(b){
+    b.classList.toggle('secondary', b.dataset.filter !== status);
+  });
+  document.querySelectorAll('.emp-company').forEach(function(card){
+    card.style.display = (status === 'all' || card.dataset.active === (status === 'active' ? 'true' : 'false')) ? '' : 'none';
+  });
+}
+filterEmpCompanies('active');
+</script>
 {% endblock %}
