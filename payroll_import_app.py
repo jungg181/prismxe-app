@@ -18,6 +18,15 @@ Hours rules (stated in the UI next to the preview):
   date. An in-punch with no matching out-punch is an open shift:
   skipped and listed as "still clocked in".
 
+Two-way sync with Patrol (2026-11-25): imported entries keep
+`source` ("patrol" / "patrol_coa") plus the first-in / last-out
+punch ids, and punch rows dedupe by employee + date (not hours),
+so a day corrected in payroll never re-imports its old hours.
+`reverse_sync_patrol_punches` rewrites that day's closed punch
+pairs to the corrected entry times (originals archived in
+punch_corrections) — the Patrol timecard, hours summary and weekly
+email then show the corrected times.
+
 Name matching: employee name + company against the rates first,
 then the stored alias map (same system as CSV import). Matching is
 case-insensitive: source files spell some names with different
@@ -31,6 +40,7 @@ can be unit-tested with synthetic fixture files.
 """
 import json
 import os
+import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -202,6 +212,8 @@ def patrol_rows(data, start, end):
     pairs = {}   # (email, date_iso) -> [rounded pair hours]
     first_in = {}  # (email, date_iso) -> in ISO
     last_out = {}  # (email, date_iso) -> out ISO
+    first_in_id = {}  # (email, date_iso) -> in punch id
+    last_out_id = {}  # (email, date_iso) -> out punch id
     skipped = []
     for email, punches in by_email.items():
         name = name_by_email[email]
@@ -240,7 +252,9 @@ def patrol_rows(data, start, end):
                     pairs.setdefault(key, []).append(
                         _round_half(max(elapsed, 0.0)))
                     first_in.setdefault(key, open_in.get("ts") or "")
+                    first_in_id.setdefault(key, open_in.get("id") or "")
                     last_out[key] = p.get("ts") or ""
+                    last_out_id[key] = p.get("id") or ""
                 open_in = None
         if open_in is not None:
             prev = parse_local(open_in.get("ts"))
@@ -260,6 +274,8 @@ def patrol_rows(data, start, end):
             "clock_out_date": (parse_local(last_out.get((email, day)))
                                .date().isoformat()
                                if last_out.get((email, day)) else None),
+            "first_in_id": first_in_id.get((email, day), ""),
+            "last_out_id": last_out_id.get((email, day), ""),
             "site": "",
             "notes": "",
         })
@@ -267,6 +283,174 @@ def patrol_rows(data, start, end):
     skipped.sort(key=lambda s: (s.get("clock_in") or "",
                                 s.get("employee", "")))
     return rows, skipped
+
+
+def _parse_hhmm(value):
+    """'H:MM' (24h) -> minutes since midnight, or None."""
+    if value is None:
+        return None
+    parts = str(value).strip().split(":")
+    if len(parts) != 2:
+        return None
+    try:
+        h, m = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return None
+    return h * 60 + m
+
+
+def _fmt_hhmm(minutes):
+    """Minutes since midnight -> zero-padded 'HH:MM' (24h), the
+    format punch timestamps use."""
+    return "%02d:%02d" % (minutes // 60, minutes % 60)
+
+
+def _closed_pairs_for_day(punches, email, day_iso):
+    """Closed (in, out) punch pairs for one worker whose clock-in
+    date is day_iso, plus orphan in-punches on that date (taps with
+    no clock-out — e.g. a second tap minutes after the first).
+    Mirrors the pairing walk in patrol_rows. Returns
+    (pairs, orphans)."""
+    ordered = sorted(
+        (p for p in punches
+         if (p.get("email") or "").strip() == email
+         and parse_local(p.get("ts")) is not None),
+        key=lambda p: parse_local(p.get("ts")))
+    pairs, orphans = [], []
+    open_in = None
+    for p in ordered:
+        ts = parse_local(p.get("ts"))
+        action = (p.get("action") or "").strip().lower()
+        if action == "in":
+            if open_in is not None:
+                # Previous clock-in never got a clock-out.
+                if (parse_local(open_in.get("ts")).date().isoformat()
+                        == day_iso):
+                    orphans.append(open_in)
+                open_in = p
+            else:
+                open_in = p
+        elif action == "out":
+            if open_in is None:
+                continue  # stray clock-out; not this day's pair
+            in_ts = parse_local(open_in.get("ts"))
+            if in_ts.date().isoformat() == day_iso:
+                pairs.append((open_in, p))
+            open_in = None
+    if open_in is not None:
+        if (parse_local(open_in.get("ts")).date().isoformat()
+                == day_iso):
+            orphans.append(open_in)
+    return pairs, orphans
+
+
+def reverse_sync_patrol_punches(patrol_data, entry):
+    """Rewrite one worker-day's closed Patrol punch pairs to match a
+    corrected payroll entry, archiving the replaced punches.
+
+    The payroll entry is the manager's corrected record; the Patrol
+    timecard, hours summary and weekly email all derive from the
+    punches, so they pick the corrected times up automatically, and
+    the nightly auto-sync re-derives the same hours and skips the
+    row as a duplicate. The replaced punches are kept in
+    punch_corrections on the same file — nothing is lost.
+
+    Only closed pairs whose clock-in date is the entry's date are
+    replaced, plus orphan in-taps from before the day's first pair
+    (accidental double-taps). An in-punch that is still open (the
+    worker is clocked in right now) is never touched, and neither is
+    a pair belonging to another day (e.g. a night shift that started
+    the day before). When the day has no closed pairs there is
+    nothing to rewrite, so manual entries for punch-less days stay
+    payroll-only.
+
+    Returns (changed, detail). Never raises on bad input; it just
+    reports why nothing was done.
+    """
+    employee = (entry.get("employee") or "").strip()
+    day = (entry.get("date") or "").strip()
+    in_m = _parse_hhmm(entry.get("clock_in"))
+    out_m = _parse_hhmm(entry.get("clock_out"))
+    if not employee or not day or in_m is None or out_m is None:
+        return False, "entry has no employee, date or clock times"
+    try:
+        day_d = date.fromisoformat(day)
+    except ValueError:
+        return False, "bad entry date"
+    # Overnight shifts (clock-out at/before clock-in) end the next day.
+    out_day = day_d if out_m > in_m else day_d + timedelta(days=1)
+    new_in_ts = "%sT%s:00" % (day_d.isoformat(), _fmt_hhmm(in_m))
+    new_out_ts = "%sT%s:00" % (out_day.isoformat(), _fmt_hhmm(out_m))
+
+    workers = patrol_data.get("workers", []) or []
+    email = None
+    name = None
+    for w in workers:
+        if _fold(w.get("name")) == _fold(employee):
+            email = (w.get("email") or "").strip()
+            name = (w.get("name") or "").strip()
+            break
+    punches = patrol_data.get("punches", []) or []
+    if not email:
+        for p in punches:
+            if _fold(p.get("name")) == _fold(employee):
+                email = (p.get("email") or "").strip()
+                name = (p.get("name") or "").strip()
+                break
+    if not email:
+        return False, "worker not found in Patrol"
+
+    pairs, orphans = _closed_pairs_for_day(punches, email, day)
+    if not pairs:
+        return False, "no closed punches for that day"
+    # Already correct: one pair, times match to the minute.
+    if (len(pairs) == 1 and not orphans
+            and (pairs[0][0].get("ts") or "")[:16] == new_in_ts[:16]
+            and (pairs[0][1].get("ts") or "")[:16] == new_out_ts[:16]):
+        return False, "punches already match"
+
+    replaced = [p for pair in pairs for p in pair]
+    first_in_ts = parse_local(pairs[0][0].get("ts"))
+    # Orphan taps from before the day's first real clock-in are
+    # accidental double-taps; later orphans may be a shift still
+    # open right now, so they stay.
+    doomed = [o for o in orphans
+              if parse_local(o.get("ts")) is not None
+              and first_in_ts is not None
+              and parse_local(o.get("ts")) < first_in_ts]
+    replaced.extend(doomed)
+    replaced_ids = {p.get("id") for p in replaced}
+    used_ids = {p.get("id") for p in punches}
+
+    def _new_id():
+        nid = uuid.uuid4().hex[:8]
+        while nid in used_ids:
+            nid = uuid.uuid4().hex[:8]
+        used_ids.add(nid)
+        return nid
+
+    new_in = {"id": _new_id(), "email": email,
+              "name": name or employee, "action": "in",
+              "ts": new_in_ts, "source": "payroll-correction"}
+    new_out = {"id": _new_id(), "email": email,
+               "name": name or employee, "action": "out",
+               "ts": new_out_ts, "source": "payroll-correction"}
+    patrol_data["punches"] = [p for p in punches
+                              if p.get("id") not in replaced_ids]
+    patrol_data["punches"].extend([new_in, new_out])
+    patrol_data.setdefault("punch_corrections", []).append({
+        "entry_id": entry.get("id") or "",
+        "employee": employee, "email": email, "date": day,
+        "corrected_at": datetime.now(PHOENIX).isoformat(
+            timespec="seconds"),
+        "corrected_via": "payroll",
+        "original_punches": replaced,
+        "new_punches": [new_in, new_out],
+    })
+    return True, ("replaced %d punch(es) with corrected %s-%s"
+                  % (len(replaced), _fmt_hhmm(in_m), _fmt_hhmm(out_m)))
 
 
 def build_preview(app_dir, source, company, rates, aliases, start, end):
@@ -328,15 +512,30 @@ def build_preview(app_dir, source, company, rates, aliases, start, end):
 
 
 def import_rows(preview_rows, existing_entries, company, aliases,
-                source_label="", use_canonical=False):
+                source_label="", use_canonical=False, source="",
+                dedupe_by_date=False):
     """Decide what a confirmed app-import would add.
 
     Only rows with a matched rate row are imported (unmatched rows are
     returned separately so the summary can count them — they are never
-    imported silently). Exact duplicates — same company + canonical
-    employee + date + hours — are skipped; the employee comparison is
-    case-insensitive so a source spelling ("Argenis cabana") does not
-    re-add a row already stored as "Argenis Cabana". Returns
+    imported silently). Duplicates are skipped; the employee comparison
+    is case-insensitive so a source spelling ("Argenis cabana") does
+    not re-add a row already stored as "Argenis Cabana".
+
+    Duplicate key: for punch sources (Patrol — one derived row per
+    employee + date by construction) the key is company + canonical
+    employee + date, so a day that was already imported never gets a
+    second row even when its hours were later corrected in payroll
+    (the old hours would otherwise re-import as a "new" row).
+    For timecard sources (CM / COA — one row per timecard, and a
+    worker can hold two timecards on one date) the key stays
+    company + canonical employee + date + hours. Pass
+    dedupe_by_date=True only for punch sources.
+
+    Imported entries keep their origin: `source` is the SOURCES key
+    ("patrol", "cm", ...) and `source_punches` records the first-in /
+    last-out punch ids a punch row came from, so a later payroll
+    correction can find the punches it corrects. Returns
     (entries_to_add, n_duplicates, unmatched_rows). Entries keep the
     RAW as-entered name, unless use_canonical is set: the nightly
     auto-sync stores the canonical rate-row name instead, so payroll
@@ -359,12 +558,18 @@ def import_rows(preview_rows, existing_entries, company, aliases,
         return by_fold.get(_fold(n), n).casefold()
 
     seen = set()
+
+    def _dup_key(eco, name, day, hours):
+        base = (eco, fold_canon(name, eco), (day or "").strip())
+        if dedupe_by_date:
+            return base
+        return base + (float(hours or 0),)
+
     for e in existing_entries or []:
         eco = (e.get("company") or "").strip()
         name = (e.get("employee") or "").strip()
-        seen.add((eco, fold_canon(name, eco),
-                  (e.get("date") or "").strip(),
-                  float(e.get("payroll_hours") or 0)))
+        seen.add(_dup_key(eco, name, e.get("date"),
+                          e.get("payroll_hours")))
     to_add, unmatched = [], []
     n_dupes = 0
     for row in preview_rows:
@@ -372,15 +577,15 @@ def import_rows(preview_rows, existing_entries, company, aliases,
             unmatched.append(row)
             continue
         eco = (row.get("entry_company") or company or "").strip()
-        key = (eco, (row["matched"] or "").strip().casefold(),
-               row["date"], float(row["hours"] or 0))
+        key = _dup_key(eco, row["matched"], row["date"],
+                       row.get("hours"))
         if key in seen:
             n_dupes += 1
             continue
         seen.add(key)
         employee = ((row["matched"] if use_canonical else
                      (row["employee"] or "").strip()))
-        to_add.append({
+        new_entry = {
             "company": eco,
             "employee": employee,
             "date": row["date"],
@@ -394,5 +599,15 @@ def import_rows(preview_rows, existing_entries, company, aliases,
             "notes": (row.get("notes") or "").strip()
                      or (f"Imported from {source_label}"
                          if source_label else ""),
-        })
+        }
+        if source:
+            new_entry["source"] = source
+            _sp = {}
+            if row.get("first_in_id"):
+                _sp["first_in"] = row["first_in_id"]
+            if row.get("last_out_id"):
+                _sp["last_out"] = row["last_out_id"]
+            if _sp:
+                new_entry["source_punches"] = _sp
+        to_add.append(new_entry)
     return to_add, n_dupes, unmatched
