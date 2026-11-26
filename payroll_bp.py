@@ -1259,7 +1259,7 @@ def company_payroll(company):
             es = _by_emp_date.get((emp, d), [])
             if not es:
                 day_list.append({"id": None, "date": d, "weekday": _wd,
-                                 "payroll_hours": 0,
+                                 "payroll_hours": 0, "meal_break": False,
                                  "clock_in": "", "clock_out": ""})
             else:
                 for e in es:
@@ -1267,6 +1267,7 @@ def company_payroll(company):
                         "id": e.get("id"),
                         "date": d, "weekday": _wd,
                         "payroll_hours": e.get("payroll_hours"),
+                        "meal_break": bool(e.get("meal_break")),
                         "clock_in": e.get("clock_in") or "",
                         "clock_out": e.get("clock_out") or "",
                     })
@@ -1410,6 +1411,7 @@ def update_entry_hours(company, entry_id):
     hours = max(0.0, round(hours, 2))
     clock_in = (request.form.get("clock_in") or "").strip()
     clock_out = (request.form.get("clock_out") or "").strip()
+    meal_break = (request.form.get("meal_break") == "1")
     for e in DB["entries"]:
         if e.get("id") == entry_id and e.get("company") == co["name"]:
             clock_in, clock_out, _out_date, _old = _prep_entry_edit(
@@ -1418,6 +1420,7 @@ def update_entry_hours(company, entry_id):
             e["clock_in"] = clock_in
             e["clock_out"] = clock_out
             e["clock_out_date"] = _out_date
+            e["meal_break"] = meal_break
             save_db()
             _apply_patrol_reverse_sync(e)
             if request.headers.get("X-Requested-With") == "fetch":
@@ -1455,6 +1458,7 @@ def add_day_hours(company):
     hours = max(0.0, round(hours, 2))
     clock_in = (request.form.get("clock_in") or "").strip()
     clock_out = (request.form.get("clock_out") or "").strip()
+    meal_break = (request.form.get("meal_break") == "1")
     if employee and day and (hours > 0 or clock_in or clock_out):
         existing = next((e for e in DB["entries"]
                          if e.get("company") == co["name"]
@@ -1471,6 +1475,7 @@ def add_day_hours(company):
             existing["clock_in"] = clock_in
             existing["clock_out"] = clock_out
             existing["clock_out_date"] = _out_date
+            existing["meal_break"] = meal_break
             save_db()
             _apply_patrol_reverse_sync(existing)
             msg = (f"Updated for {employee} on {day}: {hours}h"
@@ -1481,7 +1486,7 @@ def add_day_hours(company):
             _new = {
                 "id": uuid.uuid4().hex[:12], "company": co["name"],
                 "employee": employee, "date": day,
-                "payroll_hours": hours,
+                "payroll_hours": hours, "meal_break": meal_break,
                 "clock_in": clock_in, "clock_out": clock_out,
                 "clock_out_date": _out_date,
                 "gross_hours": None, "site": "", "notes": "",
