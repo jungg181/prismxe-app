@@ -274,7 +274,8 @@ input,select,textarea{
 input:focus,select:focus,textarea:focus{
   outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring);
 }
-input::placeholder,textarea::placeholder{color:var(--faint)}
+input::placeholder,textarea::placeholder{color:rgba(230,235,242,0.32);opacity:1}
+[data-theme="light"] input::placeholder,[data-theme="light"] textarea::placeholder{color:rgba(30,38,51,0.32);opacity:1}
 textarea{resize:vertical}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
