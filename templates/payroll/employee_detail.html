@@ -18,6 +18,16 @@
       <a class="btn secondary" href="{{ url_for('.employees') }}">Back to employees</a>
     </div>
   </form>
+  <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+    <span class="small"><strong>Status:</strong>
+      {% if person.get('active', True) %}Active{% else %}<span class="badge">Inactive</span>{% endif %}
+    </span>
+    <form method="post" action="{{ url_for('.employee_detail_post', person=person.employee_id or person.name) }}" class="inline-form">
+      <input type="hidden" name="action" value="set_status">
+      <input type="hidden" name="active" value="{{ '0' if person.get('active', True) else '1' }}">
+      <button class="btn secondary small" type="submit">{{ 'Set Inactive' if person.get('active', True) else 'Set Active' }}</button>
+    </form>
+  </div>
 </div>
 
 <div class="card">
