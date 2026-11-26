@@ -608,6 +608,23 @@ def sites():
             cur = pj_by_id.get(pid) if pid else None
         return list(reversed(parts))
     pj_list = sorted(pj_jobs, key=_pj_path)
+    # Payroll jobsites belong to a CM site when their TOP-LEVEL
+    # ancestor's code is the site name (or starts with it + "-"):
+    # LGES-COA, LGES-HS, LGES-MJ, LGES-MS all sit under the LGES
+    # site card. Each site card shows only its own jobsites.
+    def _pj_top_code(j):
+        cur, seen = j, set()
+        while (cur.get("parent_id") or "") and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            cur = pj_by_id.get(cur["parent_id"])
+            if cur is None:
+                break
+        return (cur.get("code") or "").upper()
+    for r in rows:
+        sname = (r["site"].get("name") or "").upper()
+        r["pj_jobs"] = [j for j in pj_list
+                        if _pj_top_code(j) == sname
+                        or _pj_top_code(j).startswith(sname + "-")]
     return render_template('cm/sites.html', rows=rows, q=request.args.get('q', ''),
                            status=status, counts=counts, total=len(DB['sites']),
                            pj_jobs=pj_list,
