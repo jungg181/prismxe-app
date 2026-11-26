@@ -2,6 +2,11 @@
 {% set nav='time' %}
 {% block title %}{% if is_range %}Payroll{% else %}Weekly Payroll{% endif %} · Equipment Patrol Timetable{% endblock %}
 {% block body %}
+<style>
+  /* In/Out are typed times only — hide the browser's clock icon. */
+  .pay-in::-webkit-calendar-picker-indicator,
+  .pay-out::-webkit-calendar-picker-indicator { display: none; }
+</style>
 <h1 style="margin-top:0">Timecard</h1>
 <div style="display:flex;gap:.5rem;margin-bottom:1rem">
   <a class="btn" href="{{ url_for('.timecard') }}" style="text-decoration:none">Records</a>
