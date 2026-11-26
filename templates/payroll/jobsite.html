@@ -34,6 +34,17 @@
           <td class="num">${{ '%.2f' % c.summary.other_total }}</td>
           <td class="num profit-fig">${{ '%.2f' % c.summary.profit }}</td>
         </tr>
+        {% for g in c.summary.children %}
+        <tr>
+          <td style="padding-left:28px"><a href="{{ url_for('.jobsite_detail', job_id=g.job.id) }}">↳ {{ g.job.code }}</a> <span class="loc-tag">Sub Site</span></td>
+          <td>{{ g.job.name }}</td>
+          <td class="num">{{ '%.1f' % g.summary.pnl.total_hours }}h{% if g.summary.pnl.total_hours %}<span class="hours-split">{{ '%.2f' % g.summary.pnl.reg_hours }} reg · {{ '%.2f' % g.summary.pnl.ot_hours }} OT</span>{% endif %}</td>
+          <td class="num">${{ '%.2f' % g.summary.pnl.revenue }}</td>
+          <td class="num">${{ '%.2f' % g.summary.pnl.labor_cost }}</td>
+          <td class="num">${{ '%.2f' % g.summary.other_total }}</td>
+          <td class="num profit-fig">${{ '%.2f' % g.summary.profit }}</td>
+        </tr>
+        {% endfor %}
         {% endfor %}
       </tbody>
     </table>
