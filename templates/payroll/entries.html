@@ -315,7 +315,7 @@
     <input type="hidden" name="employee" value="{{ name }}">
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
       <div style="flex:1;min-width:180px"><label style="margin-top:0">Move to another company</label><select name="to_company" required><option value="">— pick a company —</option>{% for c in companies %}{% if c.name != company.name %}<option value="{{ c.slug }}">{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
-      <div style="flex:1;min-width:180px"><label style="margin-top:0">Note</label><input name="notes" value="{{ unmatched_notes.get(name, '') }}" placeholder="Note for the moved entries"></div>
+      <div style="flex:1;min-width:180px"><label style="margin-top:0">Note</label><input name="notes" value="{{ unmatched_notes.get(name, '') }}"></div>
       <button class="btn small" type="submit">Move</button>
     </div>
   </form>
