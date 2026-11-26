@@ -303,6 +303,60 @@ def _load_payroll_companies():
     return [c for c in data.get("companies", []) if isinstance(c, dict)]
 
 
+def _payroll_jobsites_for_site(site_name):
+    """Payroll jobsites belonging to a CM site, for the Edit Site
+    page: a jobsite belongs when its TOP-LEVEL ancestor's code is
+    the site name (or starts with it + '-'), e.g. LGES-COA,
+    LGES-HS, LGES-MJ, LGES-MS all sit under LGES. Returns
+    (jobsites, companies, parents): the site's jobsites sorted by
+    full path with a _depth key, the payroll companies, and the
+    eligible parents (Jobsite IDs + company splits) for the Add
+    form."""
+    pj_jobs = _load_payroll_jobsites()
+    pj_by_id = {j.get("id"): j for j in pj_jobs}
+
+    def _pj_depth(j):
+        depth, cur, seen = 0, j, set()
+        while (cur.get("parent_id") or "") and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            cur = pj_by_id.get(cur["parent_id"])
+            if cur is None:
+                break
+            depth += 1
+        return depth
+
+    def _pj_top_code(j):
+        cur, seen = j, set()
+        while (cur.get("parent_id") or "") and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            cur = pj_by_id.get(cur["parent_id"])
+            if cur is None:
+                break
+        return (cur.get("code") or "").upper()
+
+    def _pj_path(j):
+        parts, cur, seen = [], j, set()
+        while cur is not None and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            parts.append((cur.get("code") or "").lower())
+            pid = (cur.get("parent_id") or "").strip()
+            cur = pj_by_id.get(pid) if pid else None
+        return list(reversed(parts))
+
+    for j in pj_jobs:
+        j["_depth"] = _pj_depth(j)
+    sname = (site_name or "").upper()
+    mine = sorted(
+        (j for j in pj_jobs
+         if _pj_top_code(j) == sname
+         or _pj_top_code(j).startswith(sname + "-")),
+        key=_pj_path)
+    parents = sorted((j for j in pj_jobs if _pj_depth(j) < 2),
+                     key=lambda x: (_pj_depth(x),
+                                    (x.get("code") or "").lower()))
+    return mine, _load_payroll_companies(), parents
+
+
 def payroll_jobsite_tree():
     """Top-level ACTIVE payroll jobsites with their company splits
     and Sub Sites, for the On Site clock-in picker: [{id, code,
@@ -674,7 +728,15 @@ def site_edit(sid):
         save_db()
         flash(f"Site '{s['name']}' updated.")
         return redirect(url_for('cm.sites'))
-    return render_template('cm/site_form.html', site=s, statuses=SITE_STATUSES)
+    # The site's Payroll Jobsites live on this Edit page: the user
+    # adds/edits them here instead of from the Sites list.
+    pj_jobs, pj_companies, pj_parents = _payroll_jobsites_for_site(
+        s.get("name") or "")
+    return render_template('cm/site_form.html', site=s,
+                           statuses=SITE_STATUSES,
+                           pj_jobs=pj_jobs,
+                           pj_companies=pj_companies,
+                           pj_parents=pj_parents)
 
 
 @bp.route('/sites/<sid>/delete', methods=['POST'])
