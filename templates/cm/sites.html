@@ -72,8 +72,8 @@
   <form method="post" action="/payroll/jobsites">
     <input type="hidden" name="next" value="/staffing/sites">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-      <label style="flex:1;min-width:140px">Jobsite ID <input name="code" placeholder="e.g. LGES-1026" required style="width:100%"></label>
-      <label style="flex:1;min-width:140px">Name <input name="name" placeholder="e.g. Hanseong LGES staffing" style="width:100%"></label>
+      <label style="flex:1;min-width:140px">Jobsite ID <input name="code" required style="width:100%"></label>
+      <label style="flex:1;min-width:140px">Name <input name="name" style="width:100%"></label>
       <label style="flex:1;min-width:140px">Company <select name="company" required style="width:100%"><option value="">— pick —</option>{% for c in pj_companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></label>
       <label style="flex:1;min-width:140px">Parent (optional) <select name="parent_id" style="width:100%"><option value="">— Top-level Jobsite ID —</option>{% for j in pj_parents %}<option value="{{ j.id }}">{% if j.parent_id %}↳ {% endif %}{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></label>
       <button class="btn primary" type="submit">Add Payroll Jobsite</button>
