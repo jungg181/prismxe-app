@@ -2,8 +2,8 @@
 {% block title %}Timecards{% endblock %}
 {% block head %}
 <style>
-  /* This page is 200px wider than the usual 980px container. */
-  @media(min-width:900px){ .container{max-width:1180px} }
+  /* This page is 300px wider than the usual 980px container. */
+  @media(min-width:900px){ .container{max-width:1280px} }
 </style>
 {% endblock %}
 {% block content %}
@@ -62,16 +62,15 @@
 </form>
 
 <div class="table-wrap"><table class="tbl">
-<tr><th>Worker</th><th>Site</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Notes</th><th>Action</th><th>Sign</th></tr>
+<tr><th>Worker</th><th>Site</th><th>Clock In (GPS)</th><th>Clock Out (GPS)</th><th>Hours</th><th>Status</th><th>Action</th><th>Sign</th></tr>
 {% for t in rows %}
 <tr>
   <td><b>{{ worker_name(t.worker_id) }}</b></td>
   <td>{{ site_name(t.site_id) }}</td>
   <td>{{ fmt_dt(t.clock_in) }}{% set gl=gmaps_link(t.clock_in_lat,t.clock_in_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">GPS</a>{% endif %}{% set dist=clock_in_distance_km(t) %}{% if dist is not none %}{% if dist < 0.5 %}<br><span class="pill pill-active small">On site</span>{% else %}<br><span class="pill pill-low small">{{ '%.1f'|format(dist) }} km away</span>{% endif %}{% endif %}</td>
   <td>{% if t.clock_out %}{{ fmt_dt(t.clock_out) }}{% set gl=gmaps_link(t.clock_out_lat,t.clock_out_lng) %}{% if gl %}<br><a target="_blank" href="{{ gl }}" class="small">GPS</a>{% endif %}{% else %}<span class="muted">Still on shift</span>{% endif %}</td>
-  <td>{% set sys_h = t.hours or compute_hours(t.clock_in, t.clock_out) %}{{ sys_h }}{% if t.reported_hours %}{% if (sys_h - t.reported_hours)|abs >= 0.5 %}<br><span class="pill pill-low small">{{ t.reported_hours }}h reported</span>{% else %}<br><span class="small muted">{{ t.reported_hours }}h · match</span>{% endif %}{% endif %}</td>
+  <td>{% set sys_h = t.hours or compute_hours(t.clock_in, t.clock_out) %}{{ sys_h }}{% if t.reported_hours %}{% if (sys_h - t.reported_hours)|abs >= 0.5 %}<br><span class="pill pill-low small">{{ t.reported_hours }}h reported</span>{% else %}<br><span class="small muted">{{ t.reported_hours }}h · match</span>{% endif %}{% endif %}{% if 'meal_break' in t %}<br><span class="small muted">Meal break: {{ 'Yes (1h)' if t.meal_break else 'No' }}</span>{% endif %}</td>
   <td><span class="pill pill-{{ t.status }}">{{ t.status.replace('_',' ').title() }}</span>{% if t.offline %} <span class="pill pill-offline" title="Synced from an offline device">Offline</span>{% endif %}</td>
-  <td class="small muted">{{ t.notes or '' }}{% if t.jobsite_id %}<br>Jobsite: {{ payroll_jobsite_label(t.jobsite_id) }}{% endif %}{% if 'meal_break' in t %}<br>Meal break: {{ 'Yes (1h)' if t.meal_break else 'No' }}{% endif %}</td>
   <td class="nowrap">
     {% if t.status == 'clocked_out' %}
     <form method="post" action="{{ url_for('.timecard_approve', tid=t.id) }}" style="display:inline"><button class="btn small primary">Approve</button></form>
@@ -82,7 +81,7 @@
   <td>{% if t.signature %}<a href="{{ t.signature }}" target="_blank"><img src="{{ t.signature }}" alt="Signature" style="max-width:120px;max-height:36px;border:1px solid var(--line);border-radius:4px;background:#fff;vertical-align:middle"></a>{% endif %}</td>
 </tr>
 {% else %}
-<tr><td colspan="9" class="muted">No timecards.</td></tr>
+<tr><td colspan="8" class="muted">No timecards.</td></tr>
 {% endfor %}
 </table></div>
 {% endblock %}
