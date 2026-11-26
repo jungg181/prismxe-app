@@ -111,12 +111,8 @@
         {% endif %}
       </div>
       <div id="pj-loc-picker" class="hidden" style="margin-top:12px">
-        <b>Location — tap one</b>
+        <b>Company</b>
         <div class="pj-btns" id="pj-loc-btns"></div>
-      </div>
-      <div id="pj-sub-picker" class="hidden" style="margin-top:12px">
-        <b>Sub Site — tap one</b>
-        <div class="pj-btns" id="pj-sub-btns"></div>
       </div>
       <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()" disabled>Clock In</button>
     </div>
@@ -393,32 +389,20 @@ async function refreshTimecards(){
     : '<div class="muted">No timecards in the last 7 days.</div>';
 }
 
-/* ---------- payroll jobsite + location pickers (buttons, not a dropdown) ---------- */
+/* ---------- payroll jobsite + company pickers (buttons, not a dropdown) ----------
+   The site is one Jobsite ID (LGES). Under it, the worker taps the
+   payroll Company they work for — the companies show in the user's
+   set order (COA - Carpenter, COA - Drywall, M-Solution, Hanseong,
+   Myeongjin), never jumbled. No company = the CM crew's own company
+   (PrismXE). */
 const PJ_JOBS = {{ payroll_jobsites | tojson }};
+const PJ_COMPANIES = {{ clockin_companies | tojson }};
 const PJ_JOB_KEY = 'onsite_last_pjob';
-const PJ_LOC_KEY = 'onsite_last_ploc';
-const PJ_SUB_KEY = 'onsite_last_psub';
-let pjJob = null, pjLoc = null, pjSub = null; // selected ids (null = none picked)
-function pjSubs(jobId){
-  const job = PJ_JOBS.find(j => j.id === jobId);
-  return job ? (job.children || []) : [];
-}
-function pjSubSites(locId){
-  for (const j of PJ_JOBS) {
-    const loc = (j.children || []).find(c => c.id === locId);
-    if (loc) return loc.children || [];
-  }
-  return [];
-}
+const PJ_COMPANY_KEY = 'onsite_last_company';
+let pjJob = null, pjCompany = null; // selected jobsite id / company name
 function pjLabel(id){
   for (const j of PJ_JOBS) {
     if (j.id === id) return j.code;
-    for (const c of (j.children || [])) {
-      if (c.id === id) return j.code + ' / ' + c.code;
-      for (const g of (c.children || [])) {
-        if (g.id === id) return j.code + ' / ' + c.code + ' / ' + g.code;
-      }
-    }
   }
   return '';
 }
@@ -428,8 +412,6 @@ function renderPjButtons(){
   wrap.innerHTML = '';
   // restore last pick when it still exists
   if (pjJob && !PJ_JOBS.some(j => j.id === pjJob)) pjJob = null;
-  if (pjLoc && !pjSubs(pjJob).some(c => c.id === pjLoc)) pjLoc = null;
-  if (pjSub && !pjSubSites(pjLoc).some(g => g.id === pjSub)) pjSub = null;
   const all = [{id: '', code: 'No jobsite', name: ''}].concat(PJ_JOBS);
   all.forEach(function (j) {
     const b = document.createElement('button');
@@ -439,82 +421,48 @@ function renderPjButtons(){
     b.textContent = j.code + (j.name && j.name !== j.code ? ' — ' + j.name : '');
     b.addEventListener('click', function () {
       pjJob = j.id || null;
-      pjLoc = null;
-      pjSub = null;
-      localStorage.setItem(PJ_JOB_KEY, pjJob || '');
-      localStorage.setItem(PJ_LOC_KEY, '');
-      localStorage.setItem(PJ_SUB_KEY, '');
+      try { localStorage.setItem(PJ_JOB_KEY, pjJob || ''); } catch (e) {}
       renderPjButtons();
     });
     wrap.appendChild(b);
   });
-  renderPjLocations();
+  renderPjCompanies();
 }
-function renderPjLocations(){
+function renderPjCompanies(){
   const picker = $('pj-loc-picker');
   const btns = $('pj-loc-btns');
   if (!picker || !btns) return;
-  const subs = pjJob ? pjSubs(pjJob) : [];
   btns.innerHTML = '';
-  if (!subs.length) { picker.classList.add('hidden'); pjLoc = null; renderPjSubSites(); return; }
+  if (!pjJob || !PJ_COMPANIES.length) { picker.classList.add('hidden'); pjCompany = null; return; }
   picker.classList.remove('hidden');
-  const all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
-  all.forEach(function (s) {
+  if (pjCompany && !PJ_COMPANIES.some(c => c.name === pjCompany)) pjCompany = null;
+  const all = [{name: ''}].concat(PJ_COMPANIES);
+  all.forEach(function (c) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'pj-btn' + ((pjLoc || '') === s.id ? ' on' : '');
-    b.dataset.loc = s.id;
-    b.textContent = s.code + (s.name && s.name !== s.code ? ' — ' + s.name : '');
+    b.className = 'pj-btn' + ((pjCompany || '') === c.name ? ' on' : '');
+    b.textContent = c.name || 'No company (PrismXE)';
     b.addEventListener('click', function () {
-      pjLoc = s.id || null;
-      pjSub = null;
-      localStorage.setItem(PJ_LOC_KEY, pjLoc || '');
-      localStorage.setItem(PJ_SUB_KEY, '');
-      renderPjLocations();
-    });
-    btns.appendChild(b);
-  });
-  renderPjSubSites();
-}
-function renderPjSubSites(){
-  const picker = $('pj-sub-picker');
-  const btns = $('pj-sub-btns');
-  if (!picker || !btns) return;
-  const subs = pjLoc ? pjSubSites(pjLoc) : [];
-  btns.innerHTML = '';
-  if (!subs.length) { picker.classList.add('hidden'); pjSub = null; return; }
-  picker.classList.remove('hidden');
-  const all = [{id: '', code: 'Parent only', name: ''}].concat(subs);
-  all.forEach(function (s) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'pj-btn' + ((pjSub || '') === s.id ? ' on' : '');
-    b.dataset.loc = s.id;
-    b.textContent = s.code + (s.name && s.name !== s.code ? ' — ' + s.name : '');
-    b.addEventListener('click', function () {
-      pjSub = s.id || null;
-      localStorage.setItem(PJ_SUB_KEY, pjSub || '');
-      renderPjSubSites();
+      pjCompany = c.name || null;
+      try { localStorage.setItem(PJ_COMPANY_KEY, pjCompany || ''); } catch (e) {}
+      renderPjCompanies();
     });
     btns.appendChild(b);
   });
 }
 function pjSelectedId(){
-  // The deepest pick wins when it belongs to the chain above it;
-  // otherwise the level above it; null when nothing is picked.
-  if (pjSub && pjSubSites(pjLoc).some(g => g.id === pjSub)) return pjSub;
-  if (pjLoc && pjSubs(pjJob).some(c => c.id === pjLoc)) return pjLoc;
   return pjJob;
 }
 (function initPjPickers(){
   try {
     pjJob = localStorage.getItem(PJ_JOB_KEY) || null;
-    pjLoc = localStorage.getItem(PJ_LOC_KEY) || null;
-    pjSub = localStorage.getItem(PJ_SUB_KEY) || null;
-  } catch (e) { pjJob = null; pjLoc = null; pjSub = null; }
+    pjCompany = localStorage.getItem(PJ_COMPANY_KEY) || null;
+  } catch (e) { pjJob = null; pjCompany = null; }
   renderPjButtons();
 })();
-
+  });
+  renderPjSubSites();
+}
 /* ---------- direct clock in/out (no QR) ---------- */
 /* Jobsite picker: direct-click buttons, not a dropdown. The list is
    fetched live from /staffing/api/sites on every load, so a site
@@ -595,7 +543,7 @@ async function directClockIn(){
   $('dc-geo').textContent = pos ? 'Location captured' : 'Location unavailable — clocking in anyway.';
   const payload = {worker_id: curWorker, site_id: siteId, action: 'clock_in',
                    lat: pos ? pos.lat : null, lng: pos ? pos.lng : null,
-                   jobsite_id: pjSelectedId()};
+                   jobsite_id: pjSelectedId(), company: pjCompany};
   if (!isOnline()) {
     const q = loadQueue(QUEUE_KEY);
     q.push(Object.assign({client_at: new Date().toISOString()}, payload));
