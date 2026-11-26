@@ -304,10 +304,12 @@ def _load_payroll_companies():
 
 
 def payroll_jobsite_tree():
-    """Top-level ACTIVE payroll jobsites with their locations, for the
-    On Site clock-in picker: [{id, code, name,
-    children: [{id, code, name}]}]. Jobsites without a status are
-    treated as active (older records predate the field)."""
+    """Top-level ACTIVE payroll jobsites with their company splits
+    and Sub Sites, for the On Site clock-in picker: [{id, code,
+    name, children: [{id, code, name, children: [{id, code,
+    name}]}]}]. Three levels: a Jobsite ID (e.g. LGES) -> the
+    companies working there -> their Sub Sites. Jobsites without a
+    status are treated as active (older records predate the field)."""
     all_jobs = _load_payroll_jobsites()
 
     def _active(j):
@@ -316,17 +318,23 @@ def payroll_jobsite_tree():
     def _label(j):
         return {"id": j.get("id"), "code": j.get("code") or "",
                 "name": j.get("name") or j.get("code") or ""}
+
+    def _kids(parent_id):
+        return sorted((c for c in all_jobs
+                       if (c.get("parent_id") or "") == parent_id
+                       and _active(c)),
+                      key=lambda x: (x.get("code") or "").lower())
     top = sorted((j for j in all_jobs
                   if not (j.get("parent_id") or "") and _active(j)),
                  key=lambda x: (x.get("code") or "").lower())
     out = []
     for j in top:
-        kids = sorted((c for c in all_jobs
-                       if (c.get("parent_id") or "") == j.get("id")
-                       and _active(c)),
-                      key=lambda x: (x.get("code") or "").lower())
         node = _label(j)
-        node["children"] = [_label(c) for c in kids]
+        node["children"] = []
+        for c in _kids(j.get("id")):
+            child = _label(c)
+            child["children"] = [_label(g) for g in _kids(c.get("id"))]
+            node["children"].append(child)
         out.append(node)
     return out
 
@@ -344,23 +352,26 @@ def _valid_payroll_jobsite(jobsite_id):
 
 
 def payroll_jobsite_label(jobsite_id):
-    """Display label for a payroll jobsite id on a timecard:
-    'CODE' for a top-level jobsite, 'Parent / CODE' for a location.
-    Unknown/blank id -> ''."""
+    """Display label for a payroll jobsite id on a timecard: the
+    full path, e.g. 'LGES / Hanseong / Building A' for a Sub Site,
+    'LGES / Hanseong' for a company split, 'LGES' for a top-level
+    Jobsite ID. Unknown/blank id -> ''."""
     jid = (jobsite_id or "").strip()
     if not jid:
         return ""
     jobs = _load_payroll_jobsites()
-    job = next((j for j in jobs if (j.get("id") or "") == jid), None)
+    by_id = {j.get("id"): j for j in jobs}
+    job = by_id.get(jid)
     if not job:
         return ""
-    pid = (job.get("parent_id") or "").strip()
-    if not pid:
-        return job.get("code") or ""
-    parent = next((j for j in jobs if (j.get("id") or "") == pid), None)
-    if parent:
-        return f"{parent.get('code') or ''} / {job.get('code') or ''}"
-    return job.get("code") or ""
+    parts, cur = [], job
+    seen = set()
+    while cur is not None and cur.get("id") not in seen:
+        seen.add(cur.get("id"))
+        parts.append(cur.get("code") or "")
+        pid = (cur.get("parent_id") or "").strip()
+        cur = by_id.get(pid) if pid else None
+    return " / ".join(reversed([p for p in parts if p]))
 
 
 def compute_hours(clock_in_iso, clock_out_iso):
@@ -560,13 +571,48 @@ def sites():
     # Payroll jobsites (the buttons workers tap on the On Site
     # clock-in page) + companies, for the "Payroll Jobsites" section
     # below the site cards — the user adds payroll jobsites here.
+    # The Parent dropdown offers Jobsite IDs (depth 0) and company
+    # splits (depth 1), so a company can be added under LGES and a
+    # Sub Site under a company; a Sub Site (depth 2) can never be a
+    # parent.
     pj_jobs = _load_payroll_jobsites()
+    pj_by_id = {j.get("id"): j for j in pj_jobs}
+
+    def _pj_depth(j):
+        depth, cur, seen = 0, j, set()
+        while (cur.get("parent_id") or "") and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            cur = pj_by_id.get(cur["parent_id"])
+            if cur is None:
+                break
+            depth += 1
+        return depth
     pj_top = sorted((j for j in pj_jobs if not (j.get("parent_id") or "")),
                     key=lambda x: (x.get("code") or "").lower())
+    pj_parents = sorted((j for j in pj_jobs if _pj_depth(j) < 2),
+                        key=lambda x: (_pj_depth(x),
+                                       (x.get("code") or "").lower()))
+    # Depth on each row so the list below can indent company splits
+    # and Sub Sites under their parent. Sorted by the full path
+    # (LGES, then its companies, then their Sub Sites) so children
+    # sit under their parent instead of scattered by code.
+    for j in pj_jobs:
+        j["_depth"] = _pj_depth(j)
+
+    def _pj_path(j):
+        parts, cur, seen = [], j, set()
+        while cur is not None and cur.get("id") not in seen:
+            seen.add(cur.get("id"))
+            parts.append((cur.get("code") or "").lower())
+            pid = (cur.get("parent_id") or "").strip()
+            cur = pj_by_id.get(pid) if pid else None
+        return list(reversed(parts))
+    pj_list = sorted(pj_jobs, key=_pj_path)
     return render_template('cm/sites.html', rows=rows, q=request.args.get('q', ''),
                            status=status, counts=counts, total=len(DB['sites']),
-                           pj_jobs=sorted(pj_jobs, key=lambda x: (x.get("code") or "").lower()),
+                           pj_jobs=pj_list,
                            pj_top=pj_top,
+                           pj_parents=pj_parents,
                            pj_companies=_load_payroll_companies())
 
 
