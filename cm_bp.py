@@ -303,6 +303,40 @@ def _load_payroll_companies():
     return [c for c in data.get("companies", []) if isinstance(c, dict)]
 
 
+# The order the payroll companies show in the On Site clock-in
+# Company picker (LGES > Company). The user set this order
+# (2026-11-25) and hates a jumbled list — keep it exactly.
+# Companies not in the order (KB Link, PrismXE) are not offered:
+# the CM crew's own company (PrismXE) is the default when no
+# company is picked.
+CLOCKIN_COMPANY_ORDER = ["COA - Carpenter", "COA - Drywall",
+                         "M-Solution", "Hanseong", "Myeongjin"]
+
+
+def clockin_companies():
+    """Active payroll companies for the On Site clock-in Company
+    picker, in the user's set order. Returns [{name}]."""
+    by_name = {}
+    for c in _load_payroll_companies():
+        name = (c.get("name") or "").strip()
+        if name and c.get("active", True):
+            by_name[name] = c
+    return [{"name": n} for n in CLOCKIN_COMPANY_ORDER if n in by_name]
+
+
+def _valid_clockin_company(name):
+    """A clock-in Company pick, validated against the active
+    payroll companies. Unknown/blank -> None. Never fails a punch
+    on a bad pick."""
+    n = (name or "").strip()
+    if not n:
+        return None
+    for c in _load_payroll_companies():
+        if (c.get("name") or "").strip() == n and c.get("active", True):
+            return n
+    return None
+
+
 def _payroll_jobsites_for_site(site_name):
     """Payroll jobsites belonging to a CM site, for the Edit Site
     page: a jobsite belongs when its TOP-LEVEL ancestor's code is
@@ -988,14 +1022,18 @@ def _send_clockout_email(worker, t, site_name):
 def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
                    offline=False, reported_hours=None, meal_break=None,
                    signature_data_url=None, email_opt_in=False,
-                   jobsite_id=None):
+                   jobsite_id=None, company=None):
     """Shared clock-in/out engine for the On Site worker app API.
     at_iso overrides the timestamp (used for offline-synced punches);
     offline marks the record as synced offline. jobsite_id is the
     payroll jobsite (or location) the worker picked at clock-in; it
     is validated against the payroll jobsites and stored on the
-    timecard so payroll imports arrive already tagged. An unknown
-    or missing pick stores None and never blocks the punch.
+    timecard so payroll imports arrive already tagged. company is
+    the payroll company the worker picked at clock-in (LGES >
+    Company); it is validated against the active payroll companies
+    and stored on the timecard so the hours go to that company's
+    payroll. An unknown or missing pick stores None and never
+    blocks the punch.
     Returns (ok, info dict)."""
     w = find('workers', worker_id)
     if not w:
@@ -1006,18 +1044,21 @@ def _perform_clock(site_id, action, worker_id, lat, lng, at_iso=None,
             return False, {'error': f"{w['name']} is already clocked in.",
                            'already_in': True}
         valid_jobsite = _valid_payroll_jobsite(jobsite_id)
+        valid_company = _valid_clockin_company(company)
         t = {'id': new_id(), 'worker_id': worker_id, 'site_id': site_id,
              'clock_in': now, 'clock_in_lat': lat, 'clock_in_lng': lng,
              'clock_out': None, 'clock_out_lat': None, 'clock_out_lng': None,
              'hours': 0.0, 'status': 'clocked_in', 'notes': 'Onsite clock-in',
-             'offline': offline, 'jobsite_id': valid_jobsite}
+             'offline': offline, 'jobsite_id': valid_jobsite,
+             'company': valid_company}
         DB['timecards'].append(t)
         save_db()
         return True, {'action': 'clock_in', 'site_id': site_id,
                       'site_name': site_name(site_id), 'worker_name': w['name'],
                       'clock_in': now, 'clock_out': None, 'hours': 0.0,
                       'jobsite_id': valid_jobsite,
-                      'jobsite_label': payroll_jobsite_label(valid_jobsite)}
+                      'jobsite_label': payroll_jobsite_label(valid_jobsite),
+                      'company': valid_company}
     t = open_timecard(worker_id, site_id) or open_timecard(worker_id)
     if not t:
         return False, {'error': f"No open shift found for {w['name']}."}
@@ -1084,6 +1125,7 @@ def api_direct_clock():
     """GPS self clock-in/out from /staffing/onsite (no QR needed).
     Body: {worker_id, site_id (clock-in only), action, lat, lng,
     jobsite_id (clock-in only, optional payroll jobsite/location),
+    company (clock-in only, optional payroll company),
     reported_hours (clock-out only, optional),
     meal_break (clock-out only, optional bool),
     signature (clock-out only, optional data-URL PNG),
@@ -1103,7 +1145,8 @@ def api_direct_clock():
                               meal_break=_meal_break(d),
                               signature_data_url=d.get('signature'),
                               email_opt_in=_email_opt_in(d),
-                              jobsite_id=d.get('jobsite_id'))
+                              jobsite_id=d.get('jobsite_id'),
+                              company=d.get('company'))
     info['ok'] = ok
     return jsonify(info), (200 if ok else 400)
 
@@ -1114,7 +1157,8 @@ def api_direct_clock():
 def onsite():
     sites = [s for s in DB['sites'] if s.get('status') == 'active']
     return render_template('cm/onsite.html', trades=TRADES, sites=sites,
-                           payroll_jobsites=payroll_jobsite_tree())
+                           payroll_jobsites=payroll_jobsite_tree(),
+                           clockin_companies=clockin_companies())
 
 
 @bp.route('/api/sites')
