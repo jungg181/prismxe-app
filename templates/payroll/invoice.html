@@ -78,9 +78,9 @@
     <h3 style="margin:14px 0 6px">PDF options</h3>
     <p class="small muted" style="margin:0 0 8px">Adjust these before downloading. They apply to this download only; the company's saved values stay the same.</p>
     <div class="form-grid">
-      <div><label for="pdf-phone">Vendor phone (TEL NUM)</label><input type="text" id="pdf-phone" name="phone" value="{{ company.phone or '' }}" placeholder="213-905-1359"></div>
-      <div><label for="pdf-top">Top margin (mm)</label><input type="text" id="pdf-top" name="top" value="{{ company.pdf_top_margin or '' }}" placeholder="5"></div>
-      <div><label for="pdf-bottom">Bottom margin (mm)</label><input type="text" id="pdf-bottom" name="bottom" value="{{ company.pdf_bottom_margin or '' }}" placeholder="5"></div>
+      <div><label for="pdf-phone">Vendor phone (TEL NUM)</label><input type="text" id="pdf-phone" name="phone" value="{{ company.phone or '' }}"></div>
+      <div><label for="pdf-top">Top margin (mm)</label><input type="text" id="pdf-top" name="top" value="{{ company.pdf_top_margin or '' }}"></div>
+      <div><label for="pdf-bottom">Bottom margin (mm)</label><input type="text" id="pdf-bottom" name="bottom" value="{{ company.pdf_bottom_margin or '' }}"></div>
       <div><label for="pdf-fit">Fit to one page</label><input type="checkbox" id="pdf-fit" name="fit" value="1" checked style="width:auto;height:18px;margin-top:6px"> <span class="small muted">Shrink the rows just enough so the whole invoice fits on one page. Uncheck for the default row height (a long invoice flows to page 2).</span></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
@@ -126,8 +126,8 @@
   <h2 style="margin-top:0">Add Expense</h2>
   <form method="post" action="{{ url_for('.add_expense', company=company.slug, **{'from': start, 'to': end}) }}">
     <div class="form-grid">
-      <div><label for="description">Description</label><input id="description" name="description" placeholder="e.g. Home Depot" required></div>
-      <div><label for="amount">Amount ($)</label><input id="amount" name="amount" type="number" step="0.01" placeholder="0.00 — use a negative amount for a discount" required></div>
+      <div><label for="description">Description</label><input id="description" name="description" required></div>
+      <div><label for="amount">Amount ($)</label><input id="amount" name="amount" type="number" step="0.01" required></div>
     </div>
     <div class="btn-row" style="margin-top:12px"><button class="btn" type="submit">Add Expense</button></div>
   </form>
