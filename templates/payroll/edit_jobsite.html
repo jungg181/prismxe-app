@@ -6,6 +6,7 @@
 
 <div class="card">
   <form method="post" action="{{ url_for('.edit_jobsite', job_id=job.id) }}">
+    {% if back_url %}<input type="hidden" name="next" value="{{ back_url }}">{% endif %}
     <div class="form-grid">
       <div><label for="code">Jobsite ID</label><input id="code" name="code" value="{{ job.code }}" required></div>
       <div><label for="name">Name</label><input id="name" name="name" value="{{ job.name }}"></div>
@@ -15,7 +16,7 @@
     </div>
     <div class="form-actions">
       <button class="btn" type="submit">Save changes</button>
-      <a class="btn secondary" href="{{ url_for('.jobsite_detail', job_id=job.id) }}">Cancel</a>
+      <a class="btn secondary" href="{{ back_url or url_for('.jobsite_detail', job_id=job.id) }}">Cancel</a>
     </div>
   </form>
 </div>
