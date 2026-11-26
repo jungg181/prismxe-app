@@ -3180,6 +3180,13 @@ def entries(company):
             if len(DB["entries"]) < before:
                 save_db()
                 flash("Entry removed.")
+            # The Days list on the company page posts here too — go
+            # back to where the delete came from, not the entries
+            # page. Only a same-company payroll page is accepted.
+            nxt = (request.form.get("next") or "").strip()
+            if (nxt.startswith("/payroll/" + co["slug"])
+                    and "//" not in nxt):
+                return redirect(nxt)
         elif action == "move_company":
             # Move one worker's entries to another company (department).
             # The user picks the destination themselves — nothing is
