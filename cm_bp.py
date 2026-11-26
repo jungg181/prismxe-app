@@ -546,6 +546,45 @@ def needs_attention_count():
     return open_shifts + gps_warnings + pending_corrections
 
 
+def attention_items():
+    """What needs attention, as a list of {kind, worker, detail,
+    timecard_id?, correction_id?}: still-open shifts, GPS distance
+    warnings, and unapplied payroll corrections — the same three
+    things needs_attention_count() counts."""
+    items = []
+    for t in DB['timecards']:
+        if t.get('status') == 'clocked_in':
+            items.append({
+                'kind': 'Open shift',
+                'worker': worker_name(t.get('worker_id')) or t.get('worker') or '—',
+                'detail': 'Clocked in %s — still on shift' % fmt_dt(t.get('clock_in')),
+                'timecard_id': t.get('id')})
+    for t in DB['timecards']:
+        d = clock_in_distance_km(t) or 0
+        if d >= 0.5:
+            items.append({
+                'kind': 'GPS warning',
+                'worker': worker_name(t.get('worker_id')) or t.get('worker') or '—',
+                'detail': 'Clocked in %.1f km from the jobsite on %s' % (d, fmt_dt(t.get('clock_in'))),
+                'timecard_id': t.get('id')})
+    for c in DB.get('payroll_corrections', []):
+        if c.get('status') == 'correction' and not c.get('applied_at'):
+            days = c.get('days') or []
+            d0 = days[0] if days else {}
+            extra = ' (+%d more days)' % (len(days) - 1) if len(days) > 1 else ''
+            items.append({
+                'kind': 'Correction request',
+                'worker': c.get('worker_name') or '—',
+                'detail': '%s: %s-%s (%s h) → %s-%s (%s h)%s — submitted %s' % (
+                    d0.get('date') or '', d0.get('orig_in') or '',
+                    d0.get('orig_out') or '', d0.get('orig_hours') or '',
+                    d0.get('new_in') or '', d0.get('new_out') or '',
+                    d0.get('new_hours') or '', extra,
+                    (c.get('submitted_at') or '')[:10]),
+                'correction_id': c.get('id')})
+    return items
+
+
 def open_defects_count():
     return sum(1 for d in DB['defects'] if d.get('status') == 'open')
 
@@ -1512,7 +1551,8 @@ def timecards():
                            fstatus=fstatus, sort=sort, sites=DB['sites'],
                            total_hours=round(total_hours, 1), total=len(rows),
                            gps_pct=round(100 * gps_n / len(rows)) if rows else 0,
-                           active_now=active_now, attention=needs_attention_count())
+                           active_now=active_now, attention=needs_attention_count(),
+                           attention_items=attention_items())
 
 
 @bp.route('/timecards/export')
