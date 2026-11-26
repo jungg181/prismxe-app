@@ -40,6 +40,39 @@
     <a class="btn" href="{{ url_for('.sites') }}">Cancel</a>
   </div>
 </form>
+
+{% if site %}
+{# Payroll Jobsites for this site (LGES > Company > Type of Job):
+   the list, an Add form, and an Edit link per row. Editing a
+   jobsite opens its payroll edit page. #}
+<div class="card" style="margin-top:20px"><div class="card-body">
+  <div class="card-title">Payroll Jobsites</div>
+  <p class="muted small" style="margin:4px 0 12px">These are the jobsite buttons workers tap on the On Site clock-in page. Add one here and it shows up there right away.</p>
+  {% if pj_jobs %}
+  <table style="width:100%;margin-bottom:12px">
+    <thead><tr><th style="text-align:left">Jobsite ID</th><th style="text-align:left">Name</th><th style="text-align:left">Company</th><th></th></tr></thead>
+    <tbody>
+      {% for j in pj_jobs %}
+      <tr><td style="padding-left:{{ j._depth * 20 }}px">{% if j._depth %}{% if j._depth == 2 %}↳ {% else %}↳ {% endif %}{% endif %}{{ j.code }}{% if j._depth == 1 %} <span class="loc-tag">Company</span>{% elif j._depth == 2 %} <span class="loc-tag">Sub Site</span>{% endif %}</td><td>{{ j.name or j.code }}</td><td>{{ j.company or '—' }}</td><td><a class="btn small" href="/payroll/jobsites/{{ j.id }}/edit">Edit</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted small">No payroll jobsites yet.</p>
+  {% endif %}
+  <form method="post" action="/payroll/jobsites">
+    <input type="hidden" name="next" value="/staffing/sites/{{ site.id }}/edit">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label style="flex:1;min-width:140px">Jobsite ID <input name="code" required style="width:100%"></label>
+      <label style="flex:1;min-width:140px">Name <input name="name" style="width:100%"></label>
+      <label style="flex:1;min-width:140px">Company <select name="company" required style="width:100%"><option value="">— pick —</option>{% for c in pj_companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label style="flex:1;min-width:140px">Parent (optional) <select name="parent_id" style="width:100%"><option value="">— Top-level Jobsite ID —</option>{% for j in pj_parents %}<option value="{{ j.id }}">{% if j.parent_id %}↳ {% endif %}{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select></label>
+      <button class="btn primary" type="submit">Add Payroll Jobsite</button>
+    </div>
+  </form>
+  <p class="muted small" style="margin:10px 0 0"><a href="/payroll/jobsites">Manage payroll jobsites (edit, locations, P&amp;L) →</a></p>
+</div></div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
