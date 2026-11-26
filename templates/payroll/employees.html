@@ -59,8 +59,8 @@
   {% if by_company[c.name] %}
   <div class="table-scroll">
     <table class="emp-table">
-      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"></colgroup>
-      <thead><tr><th>Employee</th><th>Employee ID</th><th class="num">Staffing</th><th class="num">Billing</th><th class="num">Entries</th><th class="num">Hours</th></tr></thead>
+      <colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"><col style="width:120px"></colgroup>
+      <thead><tr><th>Employee</th><th>Employee ID</th><th class="num">Staffing</th><th class="num">Billing</th><th class="num">Entries</th><th class="num">Hours</th><th>Status</th></tr></thead>
       <tbody>
         {% for row in by_company[c.name] %}
         <tr data-active="{{ 'true' if row.person.get('active', True) else 'false' }}">
@@ -70,6 +70,12 @@
           <td class="num">{{ row.rate.billing if row.rate and row.rate.billing is not none else '—' }}</td>
           <td class="num">{{ row.entries }}</td>
           <td class="num">{{ fmt_hours(row.hours) }}</td>
+          <td>
+            <form method="post" action="{{ url_for('.employee_status', person=row.person.employee_id or row.person.name) }}" class="inline-form">
+              <input type="hidden" name="active" value="{{ '0' if row.person.get('active', True) else '1' }}">
+              <button class="btn small{{ '' if row.person.get('active', True) else ' secondary' }}" type="submit" title="{{ 'Click to set Inactive' if row.person.get('active', True) else 'Click to set Active' }}">{{ 'Active' if row.person.get('active', True) else 'Inactive' }}</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
