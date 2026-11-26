@@ -95,11 +95,11 @@
     <h3 style="margin-top:0">Clock In / Out</h3>
     <p class="muted small" style="margin-top:0">No QR code needed — tap below when you arrive at the jobsite. Your location is captured automatically.</p>
     <div id="dc-in-ui">
-      <label><b>Jobsite</b>
-        <select id="dc-site" style="width:100%">
-          {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
-        </select>
-      </label>
+      <div>
+        <b>Where are you working?</b>
+        <span class="muted small">(tap one first, then Clock In)</span>
+        <div class="pj-btns" id="dc-site-btns"></div>
+      </div>
       {% if not sites %}<p class="msg err">No active jobsites — ask your supervisor to add one.</p>{% endif %}
       <div style="margin-top:12px">
         <b>Payroll jobsite</b>
@@ -114,7 +114,7 @@
         <b>Location — tap one</b>
         <div class="pj-btns" id="pj-loc-btns"></div>
       </div>
-      <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()">Clock In</button>
+      <button class="btn primary scan-btn" id="dc-in-btn" onclick="directClockIn()" disabled>Clock In</button>
     </div>
     <div id="dc-out-ui" class="hidden">
       <p style="margin-top:0"><b>Jobsite:</b> <span id="dc-site-name"></span></p>
@@ -470,7 +470,49 @@ function pjSelectedId(){
 })();
 
 /* ---------- direct clock in/out (no QR) ---------- */
+/* Jobsite picker: direct-click buttons, not a dropdown. The list is
+   fetched live from /staffing/api/sites on every load, so a site
+   added on /staffing/sites shows up immediately — the page HTML
+   itself may come from the phone's offline cache, but the site list
+   never does. Offline, fall back to the sites the server rendered
+   into this page. The worker taps a site first; Clock In stays
+   disabled until then. */
+const SITES_FALLBACK = {{ sites | tojson }};
 const SITE_KEY = 'onsite_last_site';
+let curSite = null; // selected site id (null = nothing picked yet)
+function renderSiteButtons(list){
+  const wrap = $('dc-site-btns');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (curSite && !list.some(s => s.id === curSite)) curSite = null;
+  list.forEach(function (s) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pj-btn' + (curSite === s.id ? ' on' : '');
+    b.dataset.site = s.id;
+    b.textContent = s.name;
+    b.addEventListener('click', function () {
+      curSite = s.id;
+      try { localStorage.setItem(SITE_KEY, curSite); } catch (e) {}
+      renderSiteButtons(list);
+    });
+    wrap.appendChild(b);
+  });
+  const btn = $('dc-in-btn');
+  if (btn) btn.disabled = !curSite;
+}
+async function loadSiteButtons(){
+  let list = SITES_FALLBACK;
+  try {
+    const r = await fetch('/staffing/api/sites');
+    if (r.ok) {
+      const d = await r.json();
+      if (Array.isArray(d.sites)) list = d.sites;
+    }
+  } catch (e) { /* offline: keep the server-rendered fallback */ }
+  renderSiteButtons(list);
+}
+loadSiteButtons();
 function capturePosition(){
   return new Promise(res => {
     if (!navigator.geolocation) return res(null);
@@ -489,17 +531,17 @@ function updateDirectClockUI(d){
   } else {
     inUI.classList.remove('hidden');
     outUI.classList.add('hidden');
-    const saved = localStorage.getItem(SITE_KEY);
-    if (saved && $('dc-site').querySelector(`option[value="${saved}"]`)) {
-      $('dc-site').value = saved;
-    }
+    // Fresh pick every clock-in: no site pre-selected, Clock In
+    // stays disabled until the worker taps where they work.
+    curSite = null;
+    renderSiteButtons(SITES_FALLBACK);
+    loadSiteButtons();
   }
 }
 async function directClockIn(){
   if (!curWorker) { msg('Register this phone first.', 'info'); return; }
-  const siteId = $('dc-site').value;
-  if (!siteId) { msg('Choose a jobsite first.', 'err'); return; }
-  localStorage.setItem(SITE_KEY, siteId);
+  const siteId = curSite;
+  if (!siteId) { msg('Tap your jobsite first.', 'err'); return; }
   const btn = $('dc-in-btn');
   btn.disabled = true;
   $('dc-geo').textContent = 'Getting your location...';
