@@ -2648,6 +2648,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 return jsonify({'ok': True})
         return jsonify({'ok': False, 'error': 'Unknown worker'}), 404
     inst = {'bp': bp, 'DB': DB, 'login_required': login_required,
+            'save_db': save_db,
             'company_id': company_id,
             'company_display_name': company_display_name}
     PATROL_INSTANCES.append(inst)
@@ -2670,6 +2671,7 @@ _hanseong = create_patrol_blueprint(
 bp = _hanseong['bp']
 DB = _hanseong['DB']
 login_required = _hanseong['login_required']
+save_patrol_db = _hanseong['save_db']
 patrol_bp = bp  # alias
 
 # COA (Cleaners of America) — fully isolated instance.
@@ -2685,3 +2687,4 @@ _coa = create_patrol_blueprint(
 patrol_coa_bp = _coa['bp']
 patrol_coa_db = _coa['DB']
 patrol_coa_login_required = _coa['login_required']
+save_patrol_coa_db = _coa['save_db']
