@@ -8,10 +8,10 @@
   <h2>Add a Jobsite</h2>
   <form method="post" action="{{ url_for('.jobsites') }}">
     <div class="form-grid">
-      <div><label for="code">Jobsite ID</label><input id="code" name="code" placeholder="e.g. LGES-1026" required></div>
-      <div><label for="name">Name</label><input id="name" name="name" placeholder="e.g. Hanseong LGES staffing"></div>
+      <div><label for="code">Jobsite ID</label><input id="code" name="code" required></div>
+      <div><label for="name">Name</label><input id="name" name="name"></div>
       <div><label for="company">Company</label><select id="company" name="company" required><option value="">— pick —</option>{% for c in companies %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</select></div>
-      <div><label for="site">Site (optional)</label><input id="site" name="site" placeholder="e.g. LGES"></div>
+      <div><label for="site">Site (optional)</label><input id="site" name="site"></div>
       <div><label for="parent_id">Parent Jobsite (optional)</label><select id="parent_id" name="parent_id"><option value="">— Top-level Jobsite ID —</option>{% for j in parent_jobsites %}<option value="{{ j.id }}">{% if j.parent_id %}↳ {% endif %}{{ j.code }}{% if j.name and j.name != j.code %} — {{ j.name }}{% endif %}</option>{% endfor %}</select><p class="small muted field-help">Pick a parent to add this under a Jobsite ID (e.g. LGES → a company) or under a company (a Sub Site under it). Leave blank for a top-level Jobsite ID.</p></div>
     </div>
     <div class="form-actions"><button class="btn" type="submit">Add Jobsite</button></div>
