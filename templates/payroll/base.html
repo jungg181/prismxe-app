@@ -116,6 +116,10 @@ label{display:block;font-size:.85rem;font-weight:500;color:var(--text-secondary)
 input,select,textarea{width:100%;background:var(--input-bg);color:var(--text);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:10px 12px;font-size:.95rem}
 input[type=date]{min-height:44px}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary)}
+/* Placeholder hints are faint on purpose: typed text is bright,
+   a hint is washed out, so the two are never confused. */
+input::placeholder,select::placeholder,textarea::placeholder{color:rgba(230,235,242,0.32);opacity:1}
+[data-theme="light"] input::placeholder,[data-theme="light"] select::placeholder,[data-theme="light"] textarea::placeholder{color:rgba(30,38,51,0.32);opacity:1}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .form-grid label{margin:0 0 4px}
 .field-help{margin:4px 0 0}
