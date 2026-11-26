@@ -1,80 +1,87 @@
-/* PrismXE Construction Manager — control-room theme
-   Near-black, hairline dividers, monospace numbers, one green accent.
-   No cards, no shadows, no gradients. Mobile-first PWA. Dark by default. */
+/* PrismXE Construction Manager — Gentelella v4 theme (MIT)
+   Dark sidebar #1a2332 · teal #1ABB9C · Inter · radius 6px.
+   Dark by default; light via data-theme="light". Mobile-first PWA. */
 :root{
   --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
-  --ink:#18181b;
-  --ink-2:#3f3f46;
-  --muted:#71717a;
-  --faint:#a1a1aa;
-  --bg:#f4f4f5;
-  --card:#ffffff;
-  --line:#e4e4e7;
-  --line-soft:#f4f4f5;
-  --input-bg:#ffffff;
-  --hover-bg:#f4f4f5;
-  --thead-bg:#fafafa;
-  --tile-bg:#f4f4f5;
-  --code-bg:#f4f4f5;
-  --nav-bg:#ffffff;
-  --brand:#16a34a;
-  --brand-strong:#15803d;
-  --brand-soft:#dcfce7;
-  --brand-ring:rgba(22,163,74,.18);
-  --header:#f4f4f5;
-  --header-ink:#18181b;
-  --header-muted:#71717a;
-  --green:#16a34a; --green-bg:#dcfce7;
-  --red:#dc2626;   --red-bg:#fee2e2;
-  --orange:#ea580c; --orange-bg:#ffedd5;
-  --amber:#d97706; --amber-bg:#fef3c7;
-  --blue:#2563eb;  --blue-bg:#dbeafe;
-  --radius:8px;
-  --radius-sm:8px;
-  --shadow:none;
-  --shadow-lg:0 8px 24px -12px rgba(16,24,40,.18);
-}
-[data-theme="dark"]{
-  --ink:#e8e8ea;
-  --ink-2:#b0b0b5;
-  --muted:#8a8a90;
-  --faint:#5c5c62;
-  --bg:#0a0a0b;
-  --card:#131316;
-  --line:rgba(255,255,255,.09);
-  --line-soft:rgba(255,255,255,.06);
-  --input-bg:#1a1a1d;
-  --hover-bg:#1e1e21;
-  --thead-bg:#131316;
-  --tile-bg:#1e1e21;
-  --code-bg:#1e1e21;
-  --nav-bg:#0a0a0b;
-  --brand:#4ade80;
-  --brand-strong:#86efac;
-  --brand-soft:#0f1f14;
-  --brand-ring:rgba(74,222,128,.28);
-  --header:#0a0a0b;
-  --header-ink:#e8e8ea;
-  --header-muted:#8a8a90;
-  --green:#4ade80; --green-bg:#0f1f14;
-  --red:#f87171;   --red-bg:#2a1214;
-  --orange:#fb923c; --orange-bg:#2a1a0e;
-  --amber:#fbbf24; --amber-bg:#2a2210;
-  --blue:#60a5fa;  --blue-bg:#101c2e;
-  --shadow:none;
+  --font:'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --sidebar-bg:#1a2332; --sidebar-hover:rgba(255,255,255,0.04);
+  --sidebar-active:rgba(26,187,156,0.08);
+  --sidebar-text:#7b8fa3; --sidebar-text-hover:#c5d0dc; --sidebar-text-active:#ffffff;
+  --sidebar-border:rgba(255,255,255,0.06); --sidebar-w:252px;
+  --primary:#1abb9c; --primary-dk:#169f85; --primary-lt:rgba(26,187,156,0.14);
+  --ink:#e6ebf2;
+  --ink-2:#b3bccb;
+  --muted:#8a93a3;
+  --faint:#5a6473;
+  --bg:#0f1623;
+  --card:#1a2332;
+  --line:rgba(255,255,255,0.08);
+  --line-soft:rgba(255,255,255,0.05);
+  --input-bg:#141d2b;
+  --hover-bg:rgba(255,255,255,0.04);
+  --thead-bg:#141d2b;
+  --tile-bg:#141d2b;
+  --code-bg:#141d2b;
+  --nav-bg:#1a2332;
+  --brand:#1abb9c;
+  --brand-strong:#2dd4b8;
+  --brand-soft:rgba(26,187,156,0.14);
+  --brand-ring:rgba(26,187,156,0.28);
+  --header:#141d2b;
+  --header-ink:#e6ebf2;
+  --header-muted:#8a93a3;
+  --green:#2fb344; --green-bg:rgba(47,179,68,0.16);
+  --red:#d63939;   --red-bg:rgba(214,57,57,0.16);
+  --orange:#f76707; --orange-bg:rgba(247,103,7,0.16);
+  --amber:#f59f00; --amber-bg:rgba(245,159,0,0.16);
+  --blue:#4299e1;  --blue-bg:rgba(66,153,225,0.16);
+  --radius:6px;
+  --radius-sm:4px;
+  --radius-lg:8px;
+  --shadow:rgba(0,0,0,0.4) 0 2px 4px 0;
   --shadow-lg:0 8px 24px -12px rgba(0,0,0,.65);
+}
+[data-theme="light"]{
+  --ink:#1e2633;
+  --ink-2:#626d7d;
+  --muted:#7e8896;
+  --faint:#c0c7cf;
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --line:#e6e7eb;
+  --line-soft:#eff0f3;
+  --input-bg:#ffffff;
+  --hover-bg:#f9fafb;
+  --thead-bg:#f9fafb;
+  --tile-bg:#f9fafb;
+  --code-bg:#f9fafb;
+  --nav-bg:#ffffff;
+  --brand:#1abb9c;
+  --brand-strong:#169f85;
+  --brand-soft:rgba(26,187,156,0.06);
+  --brand-ring:rgba(26,187,156,0.18);
+  --header:#ffffff;
+  --header-ink:#1e2633;
+  --header-muted:#7e8896;
+  --green:#2fb344; --green-bg:rgba(47,179,68,0.06);
+  --red:#d63939;   --red-bg:rgba(214,57,57,0.06);
+  --orange:#f76707; --orange-bg:rgba(247,103,7,0.06);
+  --amber:#f59f00; --amber-bg:rgba(245,159,0,0.06);
+  --blue:#066fd1;  --blue-bg:rgba(6,111,209,0.06);
+  --shadow:rgba(30,38,51,0.04) 0 2px 4px 0;
+  --shadow-lg:0 8px 24px -12px rgba(16,24,40,.18);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-family:var(--font);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
   background:var(--bg);
   color:var(--ink);
   padding-bottom:84px;
-  font-size:15px;
+  font-size:0.875rem;
   line-height:1.5;
 }
 h1{font-size:1.45rem;margin:8px 0 4px;letter-spacing:-.02em;font-weight:600}
@@ -83,6 +90,22 @@ h3{font-size:.95rem;margin:0 0 8px;font-weight:600}
 .muted{color:var(--muted)} .small{font-size:.8rem} .grow{flex:1} .nowrap{white-space:nowrap}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 a{color:var(--brand)}
+
+/* ---------- Gentelella sidebar (desktop) ---------- */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:none;flex-direction:column;z-index:60}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:18px 20px 14px;color:#fff;font-weight:600;font-size:1.02rem;border-bottom:1px solid var(--sidebar-border);text-decoration:none}
+.sidebar-brand .mark{width:32px;height:32px;border-radius:4px;background:var(--primary);color:#06231d;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px 10px}
+.sidebar-nav .nav-label{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--sidebar-text);padding:14px 10px 6px}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;color:var(--sidebar-text);font-weight:500;font-size:.9rem;margin-bottom:2px;text-decoration:none}
+.sidebar-nav a:hover{background:var(--sidebar-hover);color:var(--sidebar-text-hover)}
+.sidebar-nav a.active{background:var(--sidebar-active);color:#fff}
+.sidebar-nav a.active .ico{color:var(--primary)}
+.sidebar-nav a .ico{width:18px;height:18px;flex:none;display:inline-flex}
+.sidebar-nav a .ico svg{width:18px;height:18px}
+.sidebar-nav .badge{margin-left:auto}
+.sidebar-foot{padding:12px 16px;border-top:1px solid var(--sidebar-border);font-size:.78rem;color:var(--sidebar-text)}
+.shell{min-height:100vh;display:flex;flex-direction:column}
 
 /* ---------- Header ---------- */
 .topbar{
@@ -102,9 +125,10 @@ a{color:var(--brand)}
 }
 .theme-toggle:hover{background:var(--hover-bg)}
 .theme-toggle svg{width:18px;height:18px}
-.theme-toggle .icon-sun{display:none}
-[data-theme="dark"] .theme-toggle .icon-sun{display:block}
-[data-theme="dark"] .theme-toggle .icon-moon{display:none}
+.theme-toggle .icon-sun{display:block}
+.theme-toggle .icon-moon{display:none}
+[data-theme="light"] .theme-toggle .icon-sun{display:none}
+[data-theme="light"] .theme-toggle .icon-moon{display:block}
 .topnav{display:none;gap:4px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
 .topnav::-webkit-scrollbar{display:none}
 .topnav a{
@@ -169,10 +193,10 @@ a{color:var(--brand)}
 .worker-row{display:flex;gap:12px;padding:12px 16px;align-items:center}
 .avatar{
   width:42px;height:42px;border-radius:50%;flex:none;
-  background:#27272a;color:#fff;
+  background:#2a3a52;color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.9rem;
 }
-[data-theme="dark"] .avatar{background:#3f3f46}
+[data-theme="light"] .avatar{background:#e6e7eb}
 
 /* ---------- Stats strip ---------- */
 .stats{display:flex;margin:16px 0 4px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -232,7 +256,7 @@ a{color:var(--brand)}
 .btn:hover{border-color:var(--muted);background:var(--hover-bg)}
 .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
 .btn.primary:hover{background:var(--brand-strong);border-color:var(--brand-strong)}
-[data-theme="dark"] .btn.primary{color:#0a0a0b}
+.btn.primary{color:#06231d}
 .btn.danger{color:var(--red);border-color:var(--red)}
 .btn.danger:hover{background:var(--red-bg)}
 .btn.small{padding:8px 12px;font-size:.78rem}
@@ -279,12 +303,12 @@ textarea{resize:vertical}
 .pill-resolved,.pill-signed_off{background:var(--green-bg);color:var(--green)}
 .pill-on_leave{background:var(--orange-bg);color:var(--orange)}
 .pill-offline{background:#e6e9fb;color:#3730a3}
-[data-theme="dark"] .pill-offline{background:#262a52;color:#a5b4fc}
+[data-theme="light"] .pill-offline{background:#e6e9fb;color:#3730a3}
 .pill-inactive{background:var(--tile-bg);color:var(--muted)}
 .pill.trade{background:var(--tile-bg);color:var(--ink-2)}
 .pill-live{background:var(--green-bg);color:var(--green)}
 .pill-self{background:#f1e8fb;color:#6b21a8}
-[data-theme="dark"] .pill-self{background:#2c2145;color:#c4b5fd}
+[data-theme="light"] .pill-self{background:#f1e8fb;color:#6b21a8}
 
 .sev{
   display:inline-block;font-size:.66rem;font-weight:600;border-radius:8px;
@@ -330,14 +354,17 @@ code{background:var(--code-bg);padding:4px 8px;border-radius:4px;font-size:.75re
 @media(min-width:900px){
   body{padding-bottom:28px}
   .bottomnav{display:none}
-  .topnav{display:flex}
+  .topnav{display:none}
+  .sidebar{display:flex}
+  .shell{margin-left:var(--sidebar-w)}
   .container{max-width:980px}
   .container.narrow{max-width:440px}
   .cards{grid-template-columns:repeat(3,1fr)}
   .topbar{padding:14px 28px 12px}
 }
 @media print{
-  .topbar,.bottomnav,.toolbar,.filters,.btn{display:none!important}
+  .sidebar,.topbar,.bottomnav,.toolbar,.filters,.btn{display:none!important}
+  .shell{margin-left:0}
   body{padding:0;background:#fff;color:#000}
   .container{max-width:100%}
 }
