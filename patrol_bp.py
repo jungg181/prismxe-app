@@ -94,6 +94,12 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
     BP = blueprint_name  # for url_for() endpoint prefixes
     ADMIN_SESSION_KEY = f'patrol_{company_id}_admin'
     BASE_URL = os.environ.get("BASE_URL", "https://app.prismxe.com")
+    # Payroll source key for the forward-sync (patrol change -> the
+    # matching /payroll/ entry updates immediately): the Hanseong
+    # board feeds the Hanseong payroll company, the COA board feeds
+    # Patrol-COA-sourced entries.
+    PAYROLL_SOURCE = 'patrol' if company_id == 'hanseong' \
+        else 'patrol_coa'
 
     # Password gate for Timecard / Settings pages (SHA-256 of the admin
     # password; override with the ADMIN_PASSWORD_HASH env var to rotate it).
@@ -1040,6 +1046,18 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         return jsonify({'ok': True})
 
 
+    def _forward_sync_payroll(email, day_iso):
+        """Best-effort: a punch change updates the matching /payroll/
+        entry right away (see _apply_patrol_forward_sync in
+        payroll_bp). Never breaks the patrol save."""
+        try:
+            from payroll_bp import _apply_patrol_forward_sync as _fw
+            _fw(PAYROLL_SOURCE, email, day_iso)
+        except Exception as exc:  # noqa: BLE001
+            print(f"patrol: payroll forward-sync skipped for "
+                  f"{email} {day_iso}: {exc}", flush=True)
+
+
     @bp.route('/timecard/punch/edit', methods=['POST'])
     @login_required
     @visit_action_required('timecard')
@@ -1070,8 +1088,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             return jsonify({'ok': False,
                             'error': 'Clock-out must be after clock-in.'}), 400
 
+        old_day = (in_p.get('ts') or '')[:10]
+        email = in_p.get('email') or ''
         in_p['ts'] = new_in
         in_p['source'] = 'manual-edit'
+        out_id = out_p.get('id') if out_p else None
         if out_p:
             if new_out:
                 out_p['ts'] = new_out
@@ -1079,15 +1100,23 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             else:
                 # out time cleared -> make it an open record
                 DB['punches'].remove(out_p)
+                out_id = None
         elif new_out:
             # no out punch yet -> create one
-            DB['punches'].append({"id": new_id(),
+            out_id = new_id()
+            DB['punches'].append({"id": out_id,
                                   "email": in_p.get('email'),
                                   "name": in_p.get('name'),
                                   "action": 'out', "ts": new_out,
                                   "source": 'manual-edit'})
         save_db()  # full DB sync to Sheets (Durability layer)
-        return jsonify({'ok': True})
+        # The matching /payroll/ entry follows immediately — both
+        # days when the clock-in date itself moved.
+        _forward_sync_payroll(email, old_day)
+        if new_in[:10] != old_day:
+            _forward_sync_payroll(email, new_in[:10])
+        return jsonify({'ok': True, 'in_id': in_p.get('id'),
+                        'out_id': out_id})
 
 
     @bp.route('/timecard/punch/delete', methods=['POST'])
@@ -1097,16 +1126,23 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         """Delete a paired timecard record (its in/out punches)."""
         d = request.get_json(force=True)
         removed = 0
+        email = ''
+        day = ''
         for pid in (d.get('in_id'), d.get('out_id')):
             if not pid:
                 continue
             p = find('punches', pid)
             if p:
+                if p.get('action') == 'in':
+                    email = p.get('email') or ''
+                    day = (p.get('ts') or '')[:10]
                 DB['punches'].remove(p)
                 removed += 1
         if not removed:
             return jsonify({'ok': False, 'error': 'Record not found.'}), 404
         save_db()  # full DB sync to Sheets (durability layer)
+        if email and day:
+            _forward_sync_payroll(email, day)
         return jsonify({'ok': True, 'removed': removed})
 
 
@@ -1140,15 +1176,19 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
             return jsonify({'ok': False, 'error': 'Invalid clock-out date or time.'}), 400
         if out_ts and out_ts <= in_ts:
             return jsonify({'ok': False, 'error': 'Clock-out must be after clock-in.'}), 400
-        DB['punches'].append({"id": new_id(), "email": email, "name": name,
+        in_id = new_id()
+        DB['punches'].append({"id": in_id, "email": email, "name": name,
                               "action": 'in', "ts": in_ts,
                               "source": "manual-add"})
+        out_id = None
         if out_ts:
-            DB['punches'].append({"id": new_id(), "email": email, "name": name,
+            out_id = new_id()
+            DB['punches'].append({"id": out_id, "email": email, "name": name,
                                   "action": 'out', "ts": out_ts,
                                   "source": "manual-add"})
         save_db()  # full DB sync to Sheets (durability layer)
-        return jsonify({'ok': True})
+        _forward_sync_payroll(email, d.get('date'))
+        return jsonify({'ok': True, 'in_id': in_id, 'out_id': out_id})
 
 
     @bp.route('/timecard/punch/bulk-add', methods=['POST'])
@@ -1171,6 +1211,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
 
         added = 0
         errors = []
+        touched = set()
         for i, row in enumerate((d.get('rows') or [])[:8], 1):
             w = find('workers', row.get('worker_id'))
             if not w:
@@ -1196,9 +1237,12 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                 DB['punches'].append({"id": new_id(), "email": email, "name": name,
                                       "action": 'out', "ts": out_ts,
                                       "source": "manual-add"})
+            touched.add((email, row.get('date')))
             added += 1
         if added:
             save_db()
+            for email, day in sorted(touched):
+                _forward_sync_payroll(email, day)
         return jsonify({'ok': True, 'added': added, 'errors': errors})
 
 
@@ -1362,6 +1406,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                               if s.get('hours') is not None), 2)
             out.append({'name': w.get('name', ''),
                         'email': w.get('email', ''),
+                        'worker_id': w.get('id'),
                         'shifts': shifts, 'total': total})
         return out
 
@@ -1431,9 +1476,11 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
         any inclusive date range (not just one week).
 
         Returns one row per worker who has shifts in the range:
-        {name, email, days: [ {in, out, hours, split, pairs} | None ],
+        {name, email, worker_id, days: [ {in, out, hours, split,
+         pairs: [{in, out, in_id, out_id, hours}]} | None ],
          total, reg, ot}.
-        Times are minute-truncated 'HH:MM'; hours come from those minutes
+        Pair ids are carried so the payroll page can edit a day's
+        In/Out in place (first pair's in, last pair's out). Times are minute-truncated 'HH:MM'; hours come from those minutes
         (overnight shifts wrap past midnight), matching the paper sheet.
         A day with two or more pairs (split shift) keeps one cell: in is
         the first clock-in, out is the last clock-out, hours is the SUM
@@ -1471,6 +1518,8 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     hrs = (om - im) / 60
                 cell = cells.setdefault(dkey, {'pairs': []})
                 cell['pairs'].append({'in': in_hm, 'out': out_hm,
+                                      'in_id': s.get('in_id'),
+                                      'out_id': s.get('out_id'),
                                       'hours': (round(hrs, 2)
                                                 if hrs is not None else None)})
             if not cells:
@@ -1499,6 +1548,7 @@ def create_patrol_blueprint(company_id, url_prefix, db_filename,
                     wk = d - _td(days=d.weekday())
                     week_hours[wk] = week_hours.get(wk, 0) + c['hours']
             rows.append({'name': entry['name'], 'email': entry['email'],
+                         'worker_id': entry.get('worker_id'),
                          'days': day_list, 'total': total,
                          'reg': round(sum(min(wh, 40)
                                           for wh in week_hours.values()), 2),
